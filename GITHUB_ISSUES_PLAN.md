@@ -334,7 +334,7 @@ CREATE TABLE events (
 - `docs/TESTING_SCENARIOS.md` - live demo сценарии
 
 **Subtasks:**
-- [ ] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art илиссылки на drawio)
+- [ ] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art или ссылки на drawio)
 - [ ] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами
 - [ ] #12.3 - DEPLOYMENT.md - quickstart guide
 - [ ] #12.4 - TESTING_SCENARIOS.md - curl команды и скриншоты
