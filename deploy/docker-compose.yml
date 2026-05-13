@@ -90,12 +90,10 @@ services:
       - "8545"
     ports:
       - "${GANACHE_PORT}:8545"
+    volumes:
+      - ./ganache-healthcheck.js:/opt/healthchecks/ganache-healthcheck.js:ro
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"const http=require('http');const req=http.request({host:'localhost',port:8545,method:'POST',headers:{'Content-Type':'application/json'}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{const j=JSON.parse(d);process.exit((res.statusCode===200&&typeof j.result==='string')?0:1);}catch(e){process.exit(1);}})});req.on('error',()=>process.exit(1));req.write('{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"method\\\":\\\"eth_blockNumber\\\",\\\"params\\\":[],\\\"id\\\":1}');req.end();\"",
-        ]
+      test: ["CMD", "node", "/opt/healthchecks/ganache-healthcheck.js"]
       interval: 10s
       timeout: 10s
       retries: 10
