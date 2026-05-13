@@ -22,9 +22,9 @@
 - Добавить .gitignore для Java, Node.js, Solidity
 
 **Subtasks:**
-- [ ] #1.1 - Создать folder structure
-- [ ] #1.2 - Инициализировать Git репозиторий
-- [ ] #1.3 - Создать изначальный README и LICENSE
+- [x] #1.1 - Создать folder structure
+- [x] #1.2 - Инициализировать Git репозиторий
+- [x] #1.3 - Создать изначальный README и LICENSE
 
 **Expected PR:** PR-1 (Initial repository setup)
 
@@ -48,10 +48,10 @@
 - Ganache готов к деплою контрактов
 
 **Subtasks:**
-- [ ] #2.1 - docker-compose.yml с всеми сервисами
-- [ ] #2.2 - .env файлы с конфигурацией
-- [ ] #2.3 - Скрипты инициализации БД (схема)
-- [ ] #2.4 - README для запуска инфраструктуры
+- [x] #2.1 - docker-compose.yml с всеми сервисами
+- [x] #2.2 - .env файлы с конфигурацией
+- [x] #2.3 - Скрипты инициализации БД (схема)
+- [x] #2.4 - README для запуска инфраструктуры
 
 **Expected PR:** PR-2 (Docker Compose setup)
 
@@ -623,5 +623,3 @@ curl -X POST http://localhost:8081/commands/user/login ...
 3. **PR reviews:** Minimum 1 approval перед merge
 4. **Commit messages:** `[#XX] Brief description` (с номером issue)
 5. **Project board:** Используем GitHub Project для визуализации статуса
-
-
