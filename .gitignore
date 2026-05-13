@@ -1,0 +1,27 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Java / Maven
+**/target/
+**/.mvn/
+
+# Node / Frontend
+**/node_modules/
+**/dist/
+**/.angular/
+
+# Solidity / Hardhat
+**/artifacts/
+**/cache/
+**/coverage/
+
+# Logs and env
+*.log
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
