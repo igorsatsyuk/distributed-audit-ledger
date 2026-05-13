@@ -40,12 +40,14 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "${KAFKA_PORT}:9092"
+      - "${KAFKA_PORT}:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:${KAFKA_PORT}
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:${KAFKA_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
@@ -57,7 +59,7 @@ services:
       - dal-net
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: dal-kafka-ui
     restart: unless-stopped
     depends_on:
@@ -89,7 +91,11 @@ services:
     ports:
       - "${GANACHE_PORT}:8545"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"const h=require('http');h.get({host:'localhost',port:8545,path:'/',method:'POST'},r=>{process.exit(r.statusCode<500?0:1)}).on('error',()=>process.exit(1))\""]
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const req=http.request({host:'localhost',port:8545,method:'POST',headers:{'Content-Type':'application/json'}},res=>{let d='';res.on('data',c=>d+=c);res.on('end',()=>{try{const j=JSON.parse(d);process.exit((res.statusCode===200&&typeof j.result==='string')?0:1);}catch(e){process.exit(1);}})});req.on('error',()=>process.exit(1));req.write('{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"method\\\":\\\"eth_blockNumber\\\",\\\"params\\\":[],\\\"id\\\":1}');req.end();\"",
+        ]
       interval: 10s
       timeout: 10s
       retries: 10

@@ -9,7 +9,7 @@ This folder contains everything needed to run the **Distributed Audit Ledger** l
 | `dal-postgres`   | postgres:16                       | 5432  | Primary event-store database    |
 | `dal-zookeeper`  | confluentinc/cp-zookeeper:7.6.1   | 2181  | Kafka coordination              |
 | `dal-kafka`      | confluentinc/cp-kafka:7.6.1       | 9092  | Event streaming broker          |
-| `dal-kafka-ui`   | provectuslabs/kafka-ui:latest     | 8080  | Kafka Web UI                    |
+| `dal-kafka-ui`   | provectuslabs/kafka-ui:v0.7.2     | 8080  | Kafka Web UI                    |
 | `dal-ganache`    | trufflesuite/ganache:v7.9.1       | 8545  | Local Ethereum blockchain (RPC) |
 | `dal-pgadmin`    | dpage/pgadmin4:8.7                | 5050  | PostgreSQL Web UI               |
 
@@ -129,4 +129,4 @@ This deterministic mnemonic ensures the same wallet addresses across restarts �
 | Port already in use | Change port in `.env` and restart |
 | Kafka not ready | Give it 30–60 s; check: `docker compose logs kafka` |
 | Postgres data corrupted | `docker compose down -v` to wipe volumes, then restart |
-| Ganache healthcheck fails | It may take a few seconds to boot; healthcheck retries 5× |
+| Ganache healthcheck fails | It may take a few seconds to boot; healthcheck retries 10x |
