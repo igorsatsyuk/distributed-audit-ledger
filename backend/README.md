@@ -72,10 +72,14 @@ Reactive PostgreSQL services (`event-store-service`, `query-service`) use R2DBC;
 
 ## Architecture
 
+The diagram below shows the **target integration flow** for upcoming backend issues
+(`#5` and beyond). In this PR (`#4`) only service skeletons and shared modules are
+bootstrapped.
+
 ```
 Client
   │
-  ▼  POST /commands/user/login
+  ▼  command API (planned)
 command-service (8081)
   │  publishes UserLoggedInEvent
   ▼
@@ -91,7 +95,7 @@ audit.events     Ganache
   │              blockchain
   ▼
 query-service (8084)
-  │  GET /api/audit-logs
+  │  query API (planned)
   ▼
 Angular UI
 ```
