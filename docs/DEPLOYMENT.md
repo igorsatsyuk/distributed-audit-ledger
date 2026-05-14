@@ -38,7 +38,8 @@ Includes:
 
 1. Start infra from `deploy/`.
 2. Validate Kafka / Postgres / Ganache health.
-3. Start backend services in separate terminals.
-4. Deploy smart contract to Ganache if not yet deployed.
-5. Run smoke checks on service health endpoints.
+3. Deploy smart contract to Ganache and capture `AUDIT_LEDGER_CONTRACT_ADDRESS`.
+4. Start backend services in separate terminals.
+5. Start/restart `audit-writer-service` only after contract address is configured.
+6. Run smoke checks on service health endpoints.
 

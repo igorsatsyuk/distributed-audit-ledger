@@ -159,17 +159,18 @@ backend/
 - Spring Boot приложение
 - Kafka consumer подписан на `user.login.events`
 - Spring Data R2DBC для сохранения в БД
-- Таблица `events` (id, event_type, user_id, timestamp, event_data_json)
+- Таблица `audit.events` (id, aggregate_id, event_type, user_id, payload, created_at, event_hash)
 
 **Schema:**
 ```sql
-CREATE TABLE events (
+CREATE TABLE audit.events (
   id BIGSERIAL PRIMARY KEY,
-  event_type VARCHAR(100) NOT NULL,
-  event_data JSONB NOT NULL,
+  aggregate_id VARCHAR(128) NOT NULL,
+  event_type VARCHAR(128) NOT NULL,
   user_id VARCHAR(255),
-  created_at TIMESTAMP NOT NULL,
-  event_hash VARCHAR(64)
+  payload JSONB NOT NULL,
+  event_hash VARCHAR(64),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -226,7 +227,7 @@ CREATE TABLE events (
 - [ ] #8.1 - Spring Boot WebFlux setup + reactive filtering/query layer
 - [ ] #8.2 - REST controllers
 - [ ] #8.3 - DTOs и MapStruct mappers
-- [ ] #8.4 - Queries и specifications
+- [ ] #8.4 - Reactive filtering/query logic (R2DBC repository/DatabaseClient)
 - [ ] #8.5 - Тесты
 
 **Expected PR:** PR-8 (Query Service MVP)
