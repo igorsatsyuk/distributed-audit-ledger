@@ -112,9 +112,9 @@ backend/
 ```
 
 **Subtasks:**
-- [ ] #4.1 - Создать parent pom.xml с зависимостями
-- [ ] #4.2 - Создать common модули
-- [ ] #4.3 - Создать скелеты сервисов
+- [x] #4.1 - Создать parent pom.xml с зависимостями
+- [x] #4.2 - Создать common модули
+- [x] #4.3 - Создать скелеты сервисов
 
 **Expected PR:** PR-4 (Maven project structure)
 
@@ -128,7 +128,7 @@ backend/
 Создать основу Command Service: Spring Boot приложение с REST API для приема команд.
 
 **Требования:**
-- Spring Boot 4.x setup
+- Spring Boot 4.x + WebFlux setup
 - REST controller: `POST /commands/user/login`
 - Kafka producer для публикации событий
 - Simple in-memory event storage (позже заменим на БД)
@@ -158,7 +158,7 @@ backend/
 **Требования:**
 - Spring Boot приложение
 - Kafka consumer подписан на `user.login.events`
-- Spring Data JPA для сохранения в БД
+- Spring Data R2DBC для сохранения в БД
 - Таблица `events` (id, event_type, user_id, timestamp, event_data_json)
 
 **Schema:**
@@ -174,7 +174,7 @@ CREATE TABLE events (
 ```
 
 **Subtasks:**
-- [ ] #6.1 - Spring Boot + Spring Data JPA setup
+- [ ] #6.1 - Spring Boot + Spring Data R2DBC setup
 - [ ] #6.2 - Entity класс и repository
 - [ ] #6.3 - Kafka consumer
 - [ ] #6.4 - Liquibase / Flyway миграции
@@ -223,7 +223,7 @@ CREATE TABLE events (
 - Query параметры: `?userId=...&eventType=...&from=...&to=...`
 
 **Subtasks:**
-- [ ] #8.1 - Spring Boot setup + Spring Data Specifications для фильтров
+- [ ] #8.1 - Spring Boot WebFlux setup + reactive filtering/query layer
 - [ ] #8.2 - REST controllers
 - [ ] #8.3 - DTOs и MapStruct mappers
 - [ ] #8.4 - Queries и specifications

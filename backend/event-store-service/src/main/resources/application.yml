@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: event-store-service
+
+  r2dbc:
+    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/auditdb}
+    username: ${DB_USERNAME:audit_user}
+    password: ${DB_PASSWORD:audit_pass}
+
+  flyway:
+    enabled: true
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auditdb}
+    user: ${DB_USERNAME:audit_user}
+    password: ${DB_PASSWORD:audit_pass}
+    locations: classpath:db/migration
+    schemas: audit
+    baseline-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: event-store-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "lt.satsyuk.distributed.audit.event"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.AuditEvent
+
+kafka:
+  topics:
+    user-login-events: user.login.events
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    lt.satsyuk.distributed.audit: DEBUG
