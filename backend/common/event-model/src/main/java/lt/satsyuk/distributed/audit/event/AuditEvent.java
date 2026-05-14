@@ -21,7 +21,12 @@ import java.util.UUID;
 @Data
 @SuperBuilder
 @NoArgsConstructor
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "eventType")
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.EXISTING_PROPERTY,
+        property = "eventType",
+        visible = true
+)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = UserLoggedInEvent.class, name = "USER_LOGGED_IN")
 })
