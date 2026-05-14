@@ -10,7 +10,7 @@
 
 ## Tooling
 
-- [ ] Java 17+ installed
+- [ ] Java 25+ installed
 - [ ] Maven installed
 - [ ] Node.js 20+ installed
 - [ ] Docker Desktop running

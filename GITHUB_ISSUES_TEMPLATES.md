@@ -317,8 +317,8 @@ describe("AuditLedger", function () {
 
 ## 📝 Dependency Versions (в parent pom.xml)
 
-- Java: 17+
-- Spring Boot: 3.2.0+
+- Java: 25+
+- Spring Boot: 4.x
 - Spring Cloud: 2023.0.0+
 - Maven: 3.8.0+
 

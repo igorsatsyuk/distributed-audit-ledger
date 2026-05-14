@@ -169,7 +169,7 @@ GitHub автоматически закроет issue #1 при merge PR
 - [ ] 4 .md файла добавлены в репо
 - [ ] Issues #1-#5 созданы на GitHub
 - [ ] Project Board создан (опционально)
-- [ ] Java 17+, Maven, Node.js установлены
+- [ ] Java 25+, Maven, Node.js установлены
 - [ ] Docker Desktop запущен
 - [ ] IDE (IntelliJ IDEA) открыта
 

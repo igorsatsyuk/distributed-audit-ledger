@@ -6,7 +6,7 @@ Use this file as the single entry point for project setup and work planning.
 
 - Git is installed and configured
 - Docker Desktop is available
-- Java 17+ and Maven are installed
+- Java 25+ and Maven are installed
 - Node.js 20+ is installed
 
 ## 2) Read planning documents

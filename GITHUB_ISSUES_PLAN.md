@@ -128,7 +128,7 @@ backend/
 Создать основу Command Service: Spring Boot приложение с REST API для приема команд.
 
 **Требования:**
-- Spring Boot 3.x setup
+- Spring Boot 4.x setup
 - REST controller: `POST /commands/user/login`
 - Kafka producer для публикации событий
 - Simple in-memory event storage (позже заменим на БД)
