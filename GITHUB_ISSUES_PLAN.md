@@ -82,10 +82,10 @@ contract AuditLedger {
 ```
 
 **Subtasks:**
-- [ ] #3.1 - Написать AuditLedger.sol контракт
-- [ ] #3.2 - Написать тесты (Hardhat)
-- [ ] #3.3 - Создать deployment скрипт
-- [ ] #3.4 - Документация по контракту
+- [x] #3.1 - Написать AuditLedger.sol контракт
+- [x] #3.2 - Написать тесты (Hardhat)
+- [x] #3.3 - Создать deployment скрипт
+- [x] #3.4 - Документация по контракту
 
 **Expected PR:** PR-3 (Smart contract implementation)
 
