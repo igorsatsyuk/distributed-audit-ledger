@@ -11,26 +11,25 @@ Hardhat workspace for issue #3 (`AuditLedger` smart contract).
 
 ## Quick start
 
+Compile and run tests — no `.env` needed for local in-memory tests:
+
 ```bash
 npm install
-cp .env.example .env
 npm run compile
 npm test
 ```
 
 ## Deploy to Ganache
 
-Create `blockchain/.env` from template and set one funded Ganache account private key:
+Create `blockchain/.env` from template, **replace `GANACHE_PRIVATE_KEY`** with a real funded account key (e.g. account #0 from Ganache's deterministic mnemonic), then deploy:
 
 ```bash
 cp .env.example .env
-```
-
-Then deploy:
-
-```bash
+# Edit .env: set GANACHE_PRIVATE_KEY=0x<64 hex chars>
 npm run deploy:ganache
 ```
+
+> ⚠️ The placeholder value in `.env.example` will be rejected — deploy requires a valid `0x`-prefixed 32-byte private key.
 
 Optionally override RPC URL:
 

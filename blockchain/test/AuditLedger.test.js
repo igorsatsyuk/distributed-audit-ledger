@@ -69,5 +69,23 @@ describe("AuditLedger", function () {
       "IndexOutOfBounds"
     );
   });
+
+  it("rejects empty eventType", async function () {
+    const { contract, owner } = await deployFixture();
+    const hash = ethers.keccak256(ethers.toUtf8Bytes("evt-empty-type"));
+
+    await expect(
+      contract.appendAuditRecord(hash, 1715700005, "", owner.address)
+    ).to.be.revertedWithCustomError(contract, "EmptyEventType");
+  });
+
+  it("rejects zero source address", async function () {
+    const { contract } = await deployFixture();
+    const hash = ethers.keccak256(ethers.toUtf8Bytes("evt-zero-addr"));
+
+    await expect(
+      contract.appendAuditRecord(hash, 1715700006, "UserLoggedIn", ethers.ZeroAddress)
+    ).to.be.revertedWithCustomError(contract, "ZeroSourceAddress");
+  });
 });
 
