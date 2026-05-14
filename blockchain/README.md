@@ -29,12 +29,18 @@ cp .env.example .env
 npm run deploy:ganache
 ```
 
-> ⚠️ The placeholder value in `.env.example` will be rejected — deploy requires a valid `0x`-prefixed 32-byte private key.
+> ⚠️ If `GANACHE_PRIVATE_KEY` is missing or does not match `0x` + 64 hex chars, the `accounts` field is omitted and Hardhat will use the node's unlocked RPC accounts. On a fresh Ganache container this works out of the box; on a remote/authenticated node an explicit key is required.
 
-Optionally override RPC URL:
+Optionally override the RPC URL at deploy time:
 
+**bash / zsh**
 ```bash
-$env:GANACHE_RPC_URL="http://127.0.0.1:8545"
+export GANACHE_RPC_URL="http://127.0.0.1:8545"
 npm run deploy:ganache
 ```
 
+**PowerShell**
+```powershell
+$env:GANACHE_RPC_URL = "http://127.0.0.1:8545"
+npm run deploy:ganache
+```
