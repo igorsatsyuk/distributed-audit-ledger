@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS audit.events (
     created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_event_id     ON audit.events (event_id);
 CREATE INDEX IF NOT EXISTS idx_events_aggregate_id ON audit.events (aggregate_id);
 CREATE INDEX IF NOT EXISTS idx_events_event_type   ON audit.events (event_type);
 CREATE INDEX IF NOT EXISTS idx_events_user_id      ON audit.events (user_id);

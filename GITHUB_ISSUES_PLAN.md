@@ -159,12 +159,13 @@ backend/
 - Spring Boot приложение
 - Kafka consumer подписан на `user.login.events`
 - Spring Data R2DBC для сохранения в БД
-- Таблица `audit.events` (id, aggregate_id, event_type, user_id, payload, created_at, event_hash)
+- Таблица `audit.events` (id, event_id, aggregate_id, event_type, user_id, payload, created_at, event_hash)
 
 **Schema:**
 ```sql
 CREATE TABLE audit.events (
   id BIGSERIAL PRIMARY KEY,
+  event_id VARCHAR(36) NOT NULL UNIQUE,
   aggregate_id VARCHAR(128) NOT NULL,
   event_type VARCHAR(128) NOT NULL,
   user_id VARCHAR(255),
