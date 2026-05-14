@@ -25,6 +25,8 @@ struct AuditRecord {
 
 Appends a new record to the ledger.
 
+> **Design note:** The original Issue #3 spec marks this function as `public`, but it is intentionally restricted to `onlyOwner` to prevent unauthorized writes. The deploying address becomes the initial owner; use `transferOwnership` to grant write access to the Audit Writer service without redeploying.
+
 Constraints:
 - callable only by `owner`
 - `eventType` must not be empty
@@ -33,6 +35,17 @@ Constraints:
 
 Event:
 - `RecordAppended(bytes32 indexed eventHash, uint256 timestamp, string eventType, address indexed source)`
+
+### `transferOwnership(address _newOwner)`
+
+Transfers write access to a new owner address. Useful for rotating the Audit Writer service address.
+
+Constraints:
+- callable only by current `owner`
+- `_newOwner` must not be `address(0)`
+
+Event:
+- `OwnershipTransferred(address indexed previousOwner, address indexed newOwner)`
 
 ### `getRecord(uint256 _index) -> AuditRecord`
 
@@ -51,6 +64,7 @@ Checks hash existence using mapping lookup.
 - `Unauthorized()`
 - `EmptyEventType()`
 - `ZeroSourceAddress()`
+- `ZeroOwnerAddress()`
 - `DuplicateHash(bytes32)`
 - `IndexOutOfBounds(uint256)`
 

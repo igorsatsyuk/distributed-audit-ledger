@@ -11,7 +11,7 @@ contract AuditLedger {
 
     AuditRecord[] private records;
     mapping(bytes32 => bool) private hashExists;
-    address public immutable owner;
+    address public owner;
 
     event RecordAppended(
         bytes32 indexed eventHash,
@@ -19,10 +19,13 @@ contract AuditLedger {
         string eventType,
         address indexed source
     );
+    /// @dev Emitted when ownership is transferred to a new address.
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     error Unauthorized();
     error EmptyEventType();
     error ZeroSourceAddress();
+    error ZeroOwnerAddress();
     error DuplicateHash(bytes32 eventHash);
     error IndexOutOfBounds(uint256 index);
 
@@ -79,6 +82,20 @@ contract AuditLedger {
 
     function isHashExists(bytes32 _hash) public view returns (bool) {
         return hashExists[_hash];
+    }
+
+    /// @dev Transfers write access to a new owner address.
+    ///      The Audit Writer service address should be set as owner after deployment.
+    ///      Design note: the original spec marks appendAuditRecord as `public`, but
+    ///      restricting it to a single authorized writer prevents unauthorized entries.
+    ///      Use this function to rotate the writer address without redeploying.
+    function transferOwnership(address _newOwner) public onlyOwner {
+        if (_newOwner == address(0)) {
+            revert ZeroOwnerAddress();
+        }
+        address previous = owner;
+        owner = _newOwner;
+        emit OwnershipTransferred(previous, _newOwner);
     }
 }
 
