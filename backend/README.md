@@ -62,10 +62,10 @@ Reactive PostgreSQL services (`event-store-service`, `query-service`) use R2DBC;
 | Variable | Default | Description |
 |---|---|---|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker address |
-| `R2DBC_URL` | `r2dbc:postgresql://localhost:5432/auditdb` | Reactive PostgreSQL connection URL |
-| `DB_URL` | `jdbc:postgresql://localhost:5432/auditdb` | PostgreSQL JDBC URL |
-| `DB_USERNAME` | `audit_user` | Database username |
-| `DB_PASSWORD` | `audit_pass` | Database password |
+| `R2DBC_URL` | `r2dbc:postgresql://localhost:5432/audit_ledger` | Reactive PostgreSQL connection URL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/audit_ledger` | PostgreSQL JDBC URL |
+| `DB_USERNAME` | `postgres` | Database username |
+| `DB_PASSWORD` | `postgres` | Database password |
 | `GANACHE_RPC_URL` | `http://localhost:8545` | Ganache JSON-RPC endpoint |
 | `AUDIT_LEDGER_CONTRACT_ADDRESS` | — | Deployed AuditLedger contract address |
 | `GANACHE_PRIVATE_KEY` | — | Ethereum private key for signing transactions |

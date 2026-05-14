@@ -6,9 +6,9 @@ spring:
     name: query-service
 
   r2dbc:
-    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/auditdb}
-    username: ${DB_USERNAME:audit_user}
-    password: ${DB_PASSWORD:audit_pass}
+    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/audit_ledger}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
 
   flyway:
     enabled: false   # Query service does NOT run migrations — event-store owns the schema
