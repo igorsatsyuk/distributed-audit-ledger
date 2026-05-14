@@ -13,6 +13,7 @@ CREATE SCHEMA IF NOT EXISTS audit;
 CREATE TABLE IF NOT EXISTS audit.events
 (
     id           BIGSERIAL    PRIMARY KEY,
+    event_id     VARCHAR(36)  NOT NULL UNIQUE,   -- stable UUID from AuditEvent.eventId
     aggregate_id VARCHAR(128) NOT NULL,
     event_type   VARCHAR(128) NOT NULL,
     user_id      VARCHAR(255),
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS audit.events
     created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_events_event_id     ON audit.events (event_id);
 CREATE INDEX IF NOT EXISTS idx_events_aggregate_id ON audit.events (aggregate_id);
 CREATE INDEX IF NOT EXISTS idx_events_event_type   ON audit.events (event_type);
 CREATE INDEX IF NOT EXISTS idx_events_user_id      ON audit.events (user_id);

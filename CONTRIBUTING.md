@@ -62,29 +62,38 @@ npm test
 
 ### Option A: Run services from source
 
+> **Important:** always launch services from the `backend/` reactor root using
+> `-pl <module> -am` so Maven can resolve the sibling `common/*` modules.
+> Running `mvn spring-boot:run` from inside a service directory will fail on a
+> clean checkout because `event-model` / `shared-contracts` are not yet installed.
+
 ```pwsh
 Set-Location <repo-root>\deploy
 docker compose up -d
 
-Set-Location ..\backend\command-service
-mvn spring-boot:run
+# Install shared modules once (from backend/)
+Set-Location ..\backend
+mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
+
+# Command Service (port 8081) — from backend/
+mvn spring-boot:run -pl command-service -am
 ```
 
-Run other services in separate terminals:
+Run other services in separate terminals (all from `backend/`):
 
 ```pwsh
-Set-Location <repo-root>\backend\event-store-service
-mvn spring-boot:run
+Set-Location <repo-root>\backend
+mvn spring-boot:run -pl event-store-service -am
 ```
 
 ```pwsh
-Set-Location <repo-root>\backend\audit-writer-service
-mvn spring-boot:run
+Set-Location <repo-root>\backend
+mvn spring-boot:run -pl audit-writer-service -am
 ```
 
 ```pwsh
-Set-Location <repo-root>\backend\query-service
-mvn spring-boot:run
+Set-Location <repo-root>\backend
+mvn spring-boot:run -pl query-service -am
 ```
 
 ### Option B: Validate modules only

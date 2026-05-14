@@ -36,22 +36,25 @@ mvn clean install -pl common/event-model,common/shared-contracts
 
 ## Run individual services
 
+Always run from the **`backend/`** root so Maven resolves sibling `common/*` modules
+correctly. Without the `-am` flag (also-make) the build will fail on a clean checkout
+because `event-model` and `shared-contracts` are not yet in the local repository.
+
 ```bash
+# From backend/ directory (install common modules once, then run any service)
+mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
+
 # Command Service (port 8081)
-cd command-service
-mvn spring-boot:run
+mvn spring-boot:run -pl command-service -am
 
 # Event Store Service (port 8082)
-cd event-store-service
-mvn spring-boot:run
+mvn spring-boot:run -pl event-store-service -am
 
 # Audit Writer Service (port 8083)
-cd audit-writer-service
-mvn spring-boot:run
+mvn spring-boot:run -pl audit-writer-service -am
 
 # Query Service (port 8084)
-cd query-service
-mvn spring-boot:run
+mvn spring-boot:run -pl query-service -am
 ```
 
 ## Environment variables
