@@ -23,13 +23,6 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: event-store-consumer
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "lt.satsyuk.distributed.audit.event"
-        spring.json.use.type.headers: false
-        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.AuditEvent
 
 kafka:
   topics:

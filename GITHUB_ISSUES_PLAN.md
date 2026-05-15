@@ -176,11 +176,11 @@ CREATE TABLE audit.events (
 ```
 
 **Subtasks:**
-- [ ] #6.1 - Spring Boot + Spring Data R2DBC setup
-- [ ] #6.2 - Entity класс и repository
-- [ ] #6.3 - Kafka consumer
-- [ ] #6.4 - Liquibase / Flyway миграции
-- [ ] #6.5 - Тесты
+- [x] #6.1 - Spring Boot + Spring Data R2DBC setup
+- [x] #6.2 - Entity класс и repository
+- [x] #6.3 - Kafka consumer
+- [x] #6.4 - Liquibase / Flyway миграции
+- [x] #6.5 - Тесты
 
 **Expected PR:** PR-6 (Event Store service)
 
