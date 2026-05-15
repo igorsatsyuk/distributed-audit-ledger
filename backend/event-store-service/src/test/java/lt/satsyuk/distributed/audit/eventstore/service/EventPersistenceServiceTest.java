@@ -1,0 +1,81 @@
+package lt.satsyuk.distributed.audit.eventstore.service;
+
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.r2dbc.postgresql.codec.Json;
+import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
+import lt.satsyuk.distributed.audit.eventstore.model.StoredAuditEvent;
+import lt.satsyuk.distributed.audit.eventstore.repository.StoredAuditEventRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
+import reactor.core.publisher.Mono;
+
+import java.time.Instant;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class EventPersistenceServiceTest {
+
+    @Mock
+    private StoredAuditEventRepository repository;
+
+    private EventPersistenceService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new EventPersistenceService(
+                JsonMapper.builder().findAndAddModules().build(),
+                new EventHashService(),
+                repository
+        );
+    }
+
+    @Test
+    void persistMapsUserLoginEventToEntityAndStoresHash() {
+        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        UserLoggedInEvent event = UserLoggedInEvent.of("user-42", "192.0.2.10", "JUnit");
+        event.setOccurredAt(Instant.parse("2026-05-15T10:15:30Z"));
+
+        StoredAuditEvent saved = service.persist(event).block();
+
+        assertNotNull(saved);
+        assertEquals(event.getEventId(), saved.getEventId());
+        assertEquals("user:user-42", saved.getAggregateId());
+        assertEquals("USER_LOGGED_IN", saved.getEventType());
+        assertEquals("user-42", saved.getUserId());
+        assertNotNull(saved.getPayload());
+        assertNotNull(saved.getEventHash());
+        assertEquals(64, saved.getEventHash().length());
+        assertNotNull(saved.getCreatedAt());
+        assertEquals("2026-05-15T10:15:30", saved.getCreatedAt().toString());
+
+        ArgumentCaptor<StoredAuditEvent> captor = ArgumentCaptor.forClass(StoredAuditEvent.class);
+        verify(repository).save(captor.capture());
+        Json payload = captor.getValue().getPayload();
+        assertTrue(payload.asString().contains("\"userId\":\"user-42\""));
+    }
+
+    @Test
+    void persistReturnsEmptyWhenDuplicateEventIdDetected() {
+        when(repository.save(any(StoredAuditEvent.class))).thenReturn(Mono.error(new DuplicateKeyException("duplicate")));
+
+        UserLoggedInEvent event = UserLoggedInEvent.of("user-1", null, null);
+
+        boolean hasResult = Boolean.TRUE.equals(service.persist(event).hasElement().block());
+
+        assertFalse(hasResult);
+    }
+}
+
