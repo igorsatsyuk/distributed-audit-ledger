@@ -5,6 +5,7 @@ import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.awaitility.Awaitility;
@@ -25,7 +26,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -161,14 +164,24 @@ class AuditEventConsumerKafkaTestcontainersTest {
         try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
             dltConsumer.subscribe(List.of(DLT_TOPIC));
 
+            List<ConsumerRecord<byte[], byte[]>> received = new ArrayList<>();
             Awaitility.await()
                     .atMost(Duration.ofSeconds(30))
                     .untilAsserted(() -> {
-                        ConsumerRecords<byte[], byte[]> records = dltConsumer.poll(Duration.ofMillis(300));
-                        assertThat(records.isEmpty())
+                        ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
+                        polled.forEach(received::add);
+                        assertThat(received)
                                 .as("expected at least one record on DLT topic " + DLT_TOPIC)
-                                .isFalse();
+                                .isNotEmpty();
                     });
+
+            // Verify the DLT record belongs to *this* test's event (key = eventId string)
+            ConsumerRecord<byte[], byte[]> dltRecord = received.get(0);
+            String dltKey = dltRecord.key() != null
+                    ? new String(dltRecord.key(), StandardCharsets.UTF_8) : null;
+            assertThat(dltKey)
+                    .as("DLT record key must be the original event's eventId")
+                    .isEqualTo(event.getEventId());
         }
 
         kafkaTemplate.destroy();

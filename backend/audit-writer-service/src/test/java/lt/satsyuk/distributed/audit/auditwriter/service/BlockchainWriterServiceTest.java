@@ -46,7 +46,7 @@ class BlockchainWriterServiceTest {
     void setUp() {
         props = new Web3jProperties();
         props.setClientAddress("http://localhost:8545");
-        props.setContractAddress("0xdeadbeef");
+        props.setContractAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
         props.setPrivateKey("0x1234");
 
         hashService = new HashCalculationService(new JacksonConfig().objectMapper());

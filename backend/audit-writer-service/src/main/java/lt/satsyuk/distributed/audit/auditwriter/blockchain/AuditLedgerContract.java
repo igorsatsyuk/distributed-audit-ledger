@@ -75,7 +75,15 @@ public class AuditLedgerContract extends Contract {
                                                  BigInteger timestamp,
                                                  String eventType,
                                                  String source) throws Exception {
-        final Function function = new Function(
+        return executeRemoteCallTransaction(
+                buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
+        ).send();
+    }
+
+    /** Package-private: builds the ABI-encoded {@link Function} for {@code appendAuditRecord}. */
+    static Function buildAppendAuditRecordFunction(byte[] hash, BigInteger timestamp,
+                                                    String eventType, String source) {
+        return new Function(
                 FUNC_APPEND_AUDIT_RECORD,
                 Arrays.asList(
                         new Bytes32(hash),
@@ -85,7 +93,6 @@ public class AuditLedgerContract extends Contract {
                 ),
                 Collections.emptyList()
         );
-        return executeRemoteCallTransaction(function).send();
     }
 
     // -------------------------------------------------------------------------
@@ -100,12 +107,18 @@ public class AuditLedgerContract extends Contract {
      * @return {@code true} if the hash has already been recorded on-chain
      */
     public boolean isHashExists(byte[] hash) throws Exception {
-        final Function function = new Function(
+        return executeRemoteCallSingleValueReturn(
+                buildIsHashExistsFunction(hash), Boolean.class
+        ).send();
+    }
+
+    /** Package-private: builds the ABI-encoded {@link Function} for {@code isHashExists}. */
+    static Function buildIsHashExistsFunction(byte[] hash) {
+        return new Function(
                 FUNC_IS_HASH_EXISTS,
                 Collections.singletonList(new Bytes32(hash)),
                 Collections.singletonList(new TypeReference<org.web3j.abi.datatypes.Bool>() {})
         );
-        return executeRemoteCallSingleValueReturn(function, Boolean.class).send();
     }
 }
 

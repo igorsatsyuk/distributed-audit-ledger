@@ -53,7 +53,7 @@ public class AuditEventConsumer {
             groupId = "${spring.kafka.consumer.group-id}"
     )
     public void consume(
-            @Payload AuditEvent event,
+            @Payload(required = false) AuditEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset) {
 

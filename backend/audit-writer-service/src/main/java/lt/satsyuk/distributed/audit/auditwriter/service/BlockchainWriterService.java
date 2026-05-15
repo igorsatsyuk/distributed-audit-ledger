@@ -14,6 +14,7 @@ import org.web3j.tx.gas.DefaultGasProvider;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Anchors event hashes on the AuditLedger smart contract.
@@ -33,10 +34,13 @@ import java.util.Optional;
  * often surfaced only as encoded revert data by JSON-RPC clients rather than
  * as a literal text message.
  *
- * <p>If {@code web3j.private-key} or {@code web3j.contract-address} is not
- * configured the service throws {@link BlockchainNotConfiguredException}, which
- * the Kafka error handler treats as non-retryable and does <em>not</em> route to
- * the DLT, so the offset stays uncommitted until configuration is provided.
+ * <p>If {@code web3j.private-key} or {@code web3j.contract-address} is missing or
+ * malformed, or if the configured key does not own the contract ({@code Unauthorized}
+ * revert from the {@code onlyOwner} modifier), the service throws
+ * {@link BlockchainNotConfiguredException}.  The Kafka error handler lets that exception
+ * go through the configured fixed back-off and then the recoverer re-throws it without
+ * publishing to the DLT, so the offset stays uncommitted until the configuration is
+ * corrected.
  *
  * <p>The future-timestamp tolerance window is configurable via
  * {@code web3j.future-timestamp-tolerance-seconds} (default 300 s) so operators
@@ -46,6 +50,7 @@ import java.util.Optional;
 public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
+    private static final Pattern ETH_ADDRESS = Pattern.compile("^0x[0-9a-fA-F]{40}$");
 
     static final int MAX_RETRIES      = 3;
     static final long RETRY_DELAY_MS  = 1_000L;
@@ -91,12 +96,7 @@ public class BlockchainWriterService {
      * @throws BlockchainWriteException after all retry attempts are exhausted
      */
     public void anchorEvent(AuditEvent event) {
-        if (!isConfigured()) {
-            throw new BlockchainNotConfiguredException(
-                    "Blockchain writer is not configured (missing private key or contract address)"
-            );
-        }
-
+        validateConfiguration();
         validateEvent(event);
 
         byte[] hash = hashService.computeHash(event);
@@ -158,6 +158,12 @@ public class BlockchainWriterService {
             if (isDuplicateHashRevert(appendEx)) {
                 throw new DuplicateHashException(hexHash);
             }
+            // Contract owner mismatch (onlyOwner modifier): treat as a configuration error so
+            // the offset stays uncommitted rather than draining events to the DLT.
+            if (isOwnershipRevert(appendEx)) {
+                throw new BlockchainNotConfiguredException(
+                        "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract");
+            }
             // Deterministic fallback: the DuplicateHash custom error is often returned only as
             // ABI-encoded revert data (not as literal text), so re-check isHashExists to decide
             // reliably whether this is an idempotent duplicate or a real failure.
@@ -175,10 +181,27 @@ public class BlockchainWriterService {
         }
     }
 
+    private void validateConfiguration() {
+        if (credentials.isEmpty()) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.private-key is missing");
+        }
+        String addr = props.getContractAddress();
+        if (addr == null || addr.isBlank()) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.contract-address is missing");
+        }
+        if (!ETH_ADDRESS.matcher(addr).matches()) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer has a malformed contract address (expected 0x + 40 hex chars): " + addr);
+        }
+    }
+
     private boolean isConfigured() {
         return credentials.isPresent()
                 && props.getContractAddress() != null
-                && !props.getContractAddress().isBlank();
+                && !props.getContractAddress().isBlank()
+                && ETH_ADDRESS.matcher(props.getContractAddress()).matches();
     }
 
     private void sleep(long millis) throws InterruptedException {
@@ -199,6 +222,10 @@ public class BlockchainWriterService {
             throw new NonRecoverableEventException("Event eventType is null for eventId=" + event.getEventId());
         }
         long toleranceSeconds = props.getFutureTimestampToleranceSeconds();
+        if (toleranceSeconds < 0) {
+            throw new IllegalStateException(
+                    "web3j.future-timestamp-tolerance-seconds must be >= 0 but was " + toleranceSeconds);
+        }
         if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
             throw new NonRecoverableEventException(
                     "Event occurredAt is more than " + toleranceSeconds
@@ -211,6 +238,18 @@ public class BlockchainWriterService {
         while (current != null) {
             String message = current.getMessage();
             if (message != null && message.contains("DuplicateHash")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean isOwnershipRevert(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && (message.contains("Unauthorized") || message.contains("onlyOwner"))) {
                 return true;
             }
             current = current.getCause();

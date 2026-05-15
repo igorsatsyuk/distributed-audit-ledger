@@ -44,13 +44,20 @@ import java.util.Map;
  * mismatch between the source topic and the DLT (which is auto-created by the broker
  * with the default partition count).
  *
- * <p>Two exception types bypass the DLT recoverer:
+ * <p>Two exception types receive special handling:
  * <ul>
- *   <li>{@link BlockchainWriterService.BlockchainNotConfiguredException} — the offset
- *       stays uncommitted and the record is redelivered once configuration is present.</li>
- *   <li>{@link BlockchainWriterService.NonRecoverableEventException} — skips retries
- *       and is forwarded directly to the DLT.</li>
+ *   <li>{@link BlockchainWriterService.NonRecoverableEventException} — registered as
+ *       non-retryable; skips back-off and is forwarded immediately to the DLT.</li>
+ *   <li>{@link BlockchainWriterService.BlockchainNotConfiguredException} — goes through
+ *       the configured fixed back-off (so the consumer does not spin in a tight loop),
+ *       and then the custom recoverer re-throws it without publishing to the DLT.  The
+ *       offset stays uncommitted and the record is redelivered once configuration is
+ *       present.</li>
  * </ul>
+ *
+ * <p>The DLT producer uses {@link DltValueSerializer} to preserve raw {@code byte[]}
+ * values from deserialization failures unchanged, while still serializing normal
+ * event objects as JSON.
  */
 @Configuration
 public class KafkaListenerConfig {
@@ -66,7 +73,7 @@ public class KafkaListenerConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
         props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
 
         return new DefaultKafkaProducerFactory<>(props);
@@ -153,5 +160,30 @@ public class KafkaListenerConfig {
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
+    }
+
+    // -------------------------------------------------------------------------
+    // Inner types
+    // -------------------------------------------------------------------------
+
+    /**
+     * Value serializer for the DLT producer.
+     *
+     * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+     * catches a deserialization failure it stores the original raw bytes in the Kafka
+     * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
+     * the DLT record value.  Serializing {@code byte[]} with {@link JsonSerializer}
+     * would encode the array as JSON (base64 or integer array) and corrupt the payload.
+     * This serializer passes {@code byte[]} values through unchanged and falls back to
+     * JSON for all other types.
+     */
+    public static class DltValueSerializer extends JsonSerializer<Object> {
+        @Override
+        public byte[] serialize(String topic, Object data) {
+            if (data instanceof byte[] raw) {
+                return raw;
+            }
+            return super.serialize(topic, data);
+        }
     }
 }
