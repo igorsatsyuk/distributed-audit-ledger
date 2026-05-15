@@ -2,6 +2,7 @@ package lt.satsyuk.distributed.audit.auditwriter;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
  * Audit Writer Service — entry point.
@@ -11,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * {@code AuditLedger.appendAuditRecord(...)}. Runs on port 8083.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class AuditWriterServiceApplication {
 
     public static void main(String[] args) {
