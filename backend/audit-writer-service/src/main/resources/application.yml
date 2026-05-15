@@ -20,6 +20,7 @@ spring:
 kafka:
   topics:
     user-login-events: user.login.events
+    user-login-events-dlt: user.login.events.dlt
 
 # Web3j / Ganache configuration
 web3j:

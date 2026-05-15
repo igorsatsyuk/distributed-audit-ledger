@@ -3,16 +3,24 @@ package lt.satsyuk.distributed.audit.auditwriter.config;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -22,19 +30,37 @@ import java.util.Map;
  * Explicit Kafka listener container setup for the audit-writer consumer.
  *
  * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JsonDeserializer} so that
- * poison records (malformed JSON, unknown payload type) are routed to the error handler
- * rather than stalling the partition at the same offset indefinitely.
+ * poison records (malformed JSON, unknown payload type) are routed to the container
+ * error handler rather than stalling the partition at the same offset indefinitely.
  *
- * <p>The {@link DefaultErrorHandler} is configured with a fixed back-off of
+ * <p>The {@link DefaultErrorHandler} retries with a fixed back-off of
  * {@value #RETRY_INTERVAL_MS} ms and {@value #RETRY_ATTEMPTS} retry attempts before
- * the record is logged and skipped.  A Dead-Letter Topic (DLT) can be wired in here
- * once a Kafka producer bean is available.
+ * publishing the record to a Dead-Letter Topic (DLT). That keeps the consumer moving
+ * without silently dropping an audit event.
  */
 @Configuration
 public class KafkaListenerConfig {
 
     static final long RETRY_INTERVAL_MS = 2_000L;
-    static final long RETRY_ATTEMPTS    = 2L;
+    static final long RETRY_ATTEMPTS = 2L;
+
+    @Bean
+    public ProducerFactory<String, Object> producerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers
+    ) {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+
+        return new DefaultKafkaProducerFactory<>(props);
+    }
+
+    @Bean
+    public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
 
     @Bean
     public ConsumerFactory<String, AuditEvent> consumerFactory(
@@ -58,19 +84,28 @@ public class KafkaListenerConfig {
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic
+    ) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(deadLetterTopic, record.partition())
+        );
+
+        return new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, RETRY_ATTEMPTS));
+    }
+
     @Bean(name = "kafkaListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, AuditEvent> kafkaListenerContainerFactory(
-            ConsumerFactory<String, AuditEvent> consumerFactory
+            ConsumerFactory<String, AuditEvent> consumerFactory,
+            DefaultErrorHandler kafkaErrorHandler
     ) {
         ConcurrentKafkaListenerContainerFactory<String, AuditEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
-        // Explicit error handler: retry up to RETRY_ATTEMPTS times with a fixed back-off,
-        // then log and skip the record.  This prevents an infinite retry loop while
-        // still giving transient failures a chance to recover.
-        factory.setCommonErrorHandler(new DefaultErrorHandler(
-                new FixedBackOff(RETRY_INTERVAL_MS, RETRY_ATTEMPTS)));
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 }
-

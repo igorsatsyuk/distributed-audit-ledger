@@ -18,6 +18,10 @@ import org.springframework.stereotype.Component;
  * <p>Consumer group {@code audit-writer-consumer} runs independently of
  * {@code event-store-service} so both services process the same events without
  * competing (both have their own offsets).
+ *
+ * <p>Failures are intentionally allowed to propagate to the Kafka container so
+ * the configured error handler can retry and, after exhaustion, publish the
+ * record to the DLT instead of silently committing a lost audit event.
  */
 @Component
 public class AuditEventConsumer {
@@ -33,8 +37,9 @@ public class AuditEventConsumer {
     /**
      * Handles a single {@link AuditEvent} message from Kafka.
      *
-     * <p>Failures are propagated back to the container so Kafka retries the
-     * record instead of committing an event that was not anchored on-chain.
+     * <p>Exceptions are not swallowed here; they are handled by the listener
+     * container's {@link org.springframework.kafka.listener.CommonErrorHandler},
+     * which applies retry/DLT policy centrally.
      *
      * @param event     the deserialised domain event
      * @param partition Kafka partition (for structured logging)
@@ -55,4 +60,3 @@ public class AuditEventConsumer {
         blockchainWriterService.anchorEvent(event);
     }
 }
-
