@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -46,7 +47,7 @@ public class EventPersistenceService {
                         log.debug("Saved event [{}] to audit.events", saved.getEventId());
                     }
                 })
-                .retryWhen(Retry.backoff(3, java.time.Duration.ofMillis(200))
+                .retryWhen(Retry.backoff(3, Duration.ofMillis(200))
                         .filter(DataAccessResourceFailureException.class::isInstance))
                 .onErrorResume(DuplicateKeyException.class, ignored -> {
                     log.info("Event [{}] already persisted, skipping duplicate", event.getEventId());

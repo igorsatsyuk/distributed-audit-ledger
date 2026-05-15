@@ -15,6 +15,7 @@ import org.springframework.dao.DuplicateKeyException;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,7 +60,7 @@ class EventPersistenceServiceTest {
         assertNotNull(saved.getEventHash());
         assertEquals(64, saved.getEventHash().length());
         assertNotNull(saved.getCreatedAt());
-        assertEquals("2026-05-15T10:15:30", saved.getCreatedAt().toString());
+        assertEquals(LocalDateTime.of(2026, 5, 15, 10, 15, 30), saved.getCreatedAt());
 
         ArgumentCaptor<StoredAuditEvent> captor = ArgumentCaptor.forClass(StoredAuditEvent.class);
         verify(repository).save(captor.capture());

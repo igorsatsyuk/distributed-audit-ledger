@@ -7,7 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "kafka.topics")
 @Getter
 @Setter
-@SuppressWarnings("unused")
 public class KafkaTopicsProperties {
 
     private String userLoginEvents = "user.login.events";

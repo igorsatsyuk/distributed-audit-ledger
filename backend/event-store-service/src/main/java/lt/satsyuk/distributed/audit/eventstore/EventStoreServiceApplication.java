@@ -1,7 +1,9 @@
 package lt.satsyuk.distributed.audit.eventstore;
 
+import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.kafka.annotation.EnableKafka;
 
 /**
@@ -13,6 +15,7 @@ import org.springframework.kafka.annotation.EnableKafka;
  */
 @SpringBootApplication
 @EnableKafka
+@EnableConfigurationProperties(KafkaTopicsProperties.class)
 public class EventStoreServiceApplication {
 
     public static void main(String[] args) {
