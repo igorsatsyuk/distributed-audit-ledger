@@ -21,6 +21,10 @@ kafka:
   topics:
     user-login-events: user.login.events
     user-login-events-dlt: user.login.events.dlt
+  listener:
+    # Retry back-off interval in ms between Kafka redelivery attempts (default 2 000).
+    # Override in tests via @SpringBootTest(properties={"kafka.listener.retry-interval-ms=100"}).
+    retry-interval-ms: 2000
 
 # Web3j / Ganache configuration
 web3j:
@@ -29,6 +33,9 @@ web3j:
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
   # Ethereum account private key for signing transactions (Ganache deterministic account 0)
   private-key: ${GANACHE_PRIVATE_KEY:}
+  # Maximum seconds an event's occurredAt may be in the future before it is rejected.
+  # Increase to tolerate producer clock-skew or delayed fixture replays.
+  future-timestamp-tolerance-seconds: 300
 
 management:
   endpoints:

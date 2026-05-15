@@ -1,5 +1,6 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
+import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -7,6 +8,8 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +19,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
@@ -34,14 +38,25 @@ import java.util.Map;
  * error handler rather than stalling the partition at the same offset indefinitely.
  *
  * <p>The {@link DefaultErrorHandler} retries with a fixed back-off of
- * {@value #RETRY_INTERVAL_MS} ms and {@value #RETRY_ATTEMPTS} retry attempts before
- * publishing the record to a Dead-Letter Topic (DLT). That keeps the consumer moving
- * without silently dropping an audit event.
+ * {@code kafka.listener.retry-interval-ms} ms (default 2 000 ms) and
+ * {@value #RETRY_ATTEMPTS} retry attempts, then routes the record to a Dead-Letter
+ * Topic (DLT).  The DLT is always written to partition 0 to avoid a partition-count
+ * mismatch between the source topic and the DLT (which is auto-created by the broker
+ * with the default partition count).
+ *
+ * <p>Two exception types bypass the DLT recoverer:
+ * <ul>
+ *   <li>{@link BlockchainWriterService.BlockchainNotConfiguredException} — the offset
+ *       stays uncommitted and the record is redelivered once configuration is present.</li>
+ *   <li>{@link BlockchainWriterService.NonRecoverableEventException} — skips retries
+ *       and is forwarded directly to the DLT.</li>
+ * </ul>
  */
 @Configuration
 public class KafkaListenerConfig {
 
-    static final long RETRY_INTERVAL_MS = 2_000L;
+    private static final Logger log = LoggerFactory.getLogger(KafkaListenerConfig.class);
+
     static final long RETRY_ATTEMPTS = 2L;
 
     @Bean
@@ -85,22 +100,52 @@ public class KafkaListenerConfig {
     }
 
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(
+    public CommonErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, Object> kafkaTemplate,
-            @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic
+            @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic,
+            @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs
     ) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+        // Always route DLT records to partition 0.
+        // Using record.partition() would require the DLT topic to have at least as many
+        // partitions as the source topic; with auto-creation that is not guaranteed.
+        DeadLetterPublishingRecoverer dltRecoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, exception) -> new TopicPartition(deadLetterTopic, record.partition())
+                (record, ex) -> new TopicPartition(deadLetterTopic, 0)
         );
 
-        return new DefaultErrorHandler(recoverer, new FixedBackOff(RETRY_INTERVAL_MS, RETRY_ATTEMPTS));
+        // Custom recoverer: skip DLT for infrastructure-misconfiguration failures so
+        // the offset remains uncommitted and the record is redelivered once config is present.
+        // For all other exceptions, fall through to the standard DLT recoverer.
+        var safeRecoverer = (org.springframework.kafka.listener.ConsumerRecordRecoverer)
+                (record, exception) -> {
+                    Throwable cause = exception.getCause() != null ? exception.getCause() : exception;
+                    if (cause instanceof BlockchainWriterService.BlockchainNotConfiguredException notCfg) {
+                        log.error("[audit-writer] Blockchain not configured — offset will NOT be advanced "
+                                + "to DLT; record will be redelivered once web3j.private-key and "
+                                + "web3j.contract-address are set. topic={} partition={} offset={}",
+                                record.topic(), record.partition(), record.offset());
+                        throw notCfg; // rethrow to keep the partition offset uncommitted
+                    }
+                    dltRecoverer.accept(record, exception);
+                };
+
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
+                new FixedBackOff(retryIntervalMs, RETRY_ATTEMPTS));
+
+        // Skip retries for known non-recoverable exceptions — send straight to DLT (or, in
+        // the case of BlockchainNotConfiguredException, stay uncommitted via the recoverer above).
+        errorHandler.addNotRetryableExceptions(
+                BlockchainWriterService.NonRecoverableEventException.class,
+                BlockchainWriterService.BlockchainNotConfiguredException.class
+        );
+
+        return errorHandler;
     }
 
     @Bean(name = "kafkaListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, AuditEvent> kafkaListenerContainerFactory(
             ConsumerFactory<String, AuditEvent> consumerFactory,
-            DefaultErrorHandler kafkaErrorHandler
+            CommonErrorHandler kafkaErrorHandler
     ) {
         ConcurrentKafkaListenerContainerFactory<String, AuditEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();

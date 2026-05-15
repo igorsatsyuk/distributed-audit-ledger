@@ -61,7 +61,8 @@ class BlockchainWriterServiceTest {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> service.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                // BlockchainNotConfiguredException extends BlockchainWriteException
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                 .hasMessageContaining("not configured");
     }
 
@@ -72,7 +73,8 @@ class BlockchainWriterServiceTest {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> noCredService.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                // BlockchainNotConfiguredException extends BlockchainWriteException
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                 .hasMessageContaining("not configured");
     }
 
@@ -120,6 +122,30 @@ class BlockchainWriterServiceTest {
         when(contract.isHashExists(any())).thenReturn(false);
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
                 .thenThrow(new RuntimeException("execution reverted: DuplicateHash"));
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void anchorEvent_detectsDuplicateViaPostFailureIsHashExistsCheck() throws Exception {
+        // Simulates the race-condition path where the DuplicateHash error is NOT surfaced
+        // as literal text (custom Solidity error → ABI-encoded revert data only).
+        // The post-failure isHashExists re-check must detect the duplicate deterministically.
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        // Pre-flight check: false (hash not there yet)
+        // appendAuditRecord: throws a generic exception (no "DuplicateHash" text)
+        // Post-failure isHashExists: true (concurrent writer committed the same hash)
+        when(contract.isHashExists(any()))
+                .thenReturn(false)   // pre-flight
+                .thenReturn(true);   // post-failure re-check
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenThrow(new RuntimeException("execution reverted"));
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))

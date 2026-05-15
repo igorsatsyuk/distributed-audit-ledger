@@ -28,13 +28,19 @@ import java.time.Instant;
  * <p>A simple retry loop (up to {@value #MAX_RETRIES} attempts) handles
  * transient network / RPC failures.  Duplicate hashes are treated as successful
  * no-ops when detected either by the pre-flight {@code isHashExists} check or
- * when the contract revert message contains {@code "DuplicateHash"}.
- * Note: JSON-RPC revert message format is implementation-specific; detection via
- * message string matching is a best-effort fallback for the race-condition path.
+ * by a post-failure {@code isHashExists} re-check.  The post-failure re-check is
+ * the reliable path because the Solidity custom error {@code DuplicateHash} is
+ * often surfaced only as encoded revert data by JSON-RPC clients rather than
+ * as a literal text message.
  *
  * <p>If {@code web3j.private-key} or {@code web3j.contract-address} is not
- * configured, the service fails anchoring so Kafka can redeliver later rather
- * than silently dropping on-chain writes.
+ * configured the service throws {@link BlockchainNotConfiguredException}, which
+ * the Kafka error handler treats as non-retryable and does <em>not</em> route to
+ * the DLT, so the offset stays uncommitted until configuration is provided.
+ *
+ * <p>The future-timestamp tolerance window is configurable via
+ * {@code web3j.future-timestamp-tolerance-seconds} (default 300 s) so operators
+ * can compensate for clock-skew or delayed fixture replays.
  */
 @Service
 public class BlockchainWriterService {
@@ -54,6 +60,7 @@ public class BlockchainWriterService {
      * {@code credentials} is optional — injected as {@code null} when the private-key
      * property is blank (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
      */
+    @Autowired
     public BlockchainWriterService(Web3j web3j,
                                     @Autowired(required = false) Credentials credentials,
                                     Web3jProperties props,
@@ -77,12 +84,15 @@ public class BlockchainWriterService {
      * Anchors the SHA-256 hash of {@code event} on-chain.
      *
      * @param event the domain event to anchor
+     * @throws BlockchainNotConfiguredException if {@code web3j.private-key} or
+     *         {@code web3j.contract-address} is missing — non-retryable, offset uncommitted
+     * @throws NonRecoverableEventException if the event is malformed — non-retryable, forwarded to DLT
+     * @throws BlockchainWriteException after all retry attempts are exhausted
      */
     public void anchorEvent(AuditEvent event) {
         if (!isConfigured()) {
-            throw new BlockchainWriteException(
-                    "Blockchain writer is not configured (missing private key or contract address)",
-                    null
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured (missing private key or contract address)"
             );
         }
 
@@ -101,12 +111,8 @@ public class BlockchainWriterService {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
                 return; // idempotent — treat as success
             } catch (NonRecoverableEventException e) {
-                throw new BlockchainWriteException("Non-recoverable event for anchoring: " + event.getEventId(), e);
+                throw e; // propagate immediately without retry
             } catch (Exception e) {
-                if (isDuplicateHashRevert(e)) {
-                    log.info("[#7] Hash {} already on-chain (contract revert) — skipping (event {})", hexHash, event.getEventId());
-                    return;
-                }
                 lastException = e;
                 log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, MAX_RETRIES, event.getEventId(), e.getMessage());
                 if (attempt < MAX_RETRIES) {
@@ -132,8 +138,6 @@ public class BlockchainWriterService {
                 props.getContractAddress(), web3j, credentials, new DefaultGasProvider());
 
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
-        // Note: a race condition between this check and appendAuditRecord can still result
-        // in a DuplicateHash revert from the contract, which is caught below.
         if (contract.isHashExists(hash)) {
             throw new DuplicateHashException(hexHash);
         }
@@ -143,9 +147,31 @@ public class BlockchainWriterService {
         String source    = credentials.getAddress();
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
-        TransactionReceipt receipt = contract.appendAuditRecord(hash, timestamp, eventType, source);
-        log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
-                hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
+        try {
+            TransactionReceipt receipt = contract.appendAuditRecord(hash, timestamp, eventType, source);
+            log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
+                    hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
+        } catch (Exception appendEx) {
+            // Legacy heuristic: some JSON-RPC implementations surface the Solidity custom-error
+            // name in the message; use it as a fast-path check.
+            if (isDuplicateHashRevert(appendEx)) {
+                throw new DuplicateHashException(hexHash);
+            }
+            // Deterministic fallback: the DuplicateHash custom error is often returned only as
+            // ABI-encoded revert data (not as literal text), so re-check isHashExists to decide
+            // reliably whether this is an idempotent duplicate or a real failure.
+            try {
+                if (contract.isHashExists(hash)) {
+                    log.debug("[#7] Post-failure isHashExists confirmed duplicate for hash {}", hexHash);
+                    throw new DuplicateHashException(hexHash);
+                }
+            } catch (DuplicateHashException dupe) {
+                throw dupe; // re-throw duplicate signal to caller
+            } catch (Exception checkEx) {
+                log.warn("[#7] Post-failure isHashExists check failed for hash {}: {}", hexHash, checkEx.getMessage());
+            }
+            throw appendEx; // original transient error; retry loop will handle it
+        }
     }
 
     private boolean isConfigured() {
@@ -171,8 +197,11 @@ public class BlockchainWriterService {
         if (event.getEventType() == null) {
             throw new NonRecoverableEventException("Event eventType is null for eventId=" + event.getEventId());
         }
-        if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(300))) {
-            throw new NonRecoverableEventException("Event occurredAt is unexpectedly in the future for eventId=" + event.getEventId());
+        long toleranceSeconds = props.getFutureTimestampToleranceSeconds();
+        if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
+            throw new NonRecoverableEventException(
+                    "Event occurredAt is more than " + toleranceSeconds
+                            + "s in the future for eventId=" + event.getEventId());
         }
     }
 
@@ -192,17 +221,37 @@ public class BlockchainWriterService {
     // Domain exceptions
     // -------------------------------------------------------------------------
 
-    /** Thrown when the hash already exists on-chain (pre-flight {@code isHashExists} check). */
+    /** Thrown when the hash already exists on-chain (pre-flight or post-failure {@code isHashExists} check). */
     static class DuplicateHashException extends RuntimeException {
         DuplicateHashException(String hash) {
             super("Hash already exists on-chain: " + hash);
         }
     }
 
-    /** Thrown when an event is malformed and should not be retried. */
-    static class NonRecoverableEventException extends RuntimeException {
-        NonRecoverableEventException(String message) {
+    /**
+     * Thrown when an event is malformed and must not be retried.
+     *
+     * <p>This exception is registered as non-retryable in the Kafka
+     * {@link org.springframework.kafka.listener.DefaultErrorHandler} so that
+     * malformed records skip the backoff cycle and are forwarded immediately to the DLT.
+     */
+    public static class NonRecoverableEventException extends RuntimeException {
+        public NonRecoverableEventException(String message) {
             super(message);
+        }
+    }
+
+    /**
+     * Thrown when the blockchain writer is not configured (missing private key or contract address).
+     *
+     * <p>Unlike {@link BlockchainWriteException}, this exception is treated as a
+     * <em>non-DLT</em> failure by the Kafka error handler: the consumer offset stays
+     * uncommitted so the record is redelivered automatically once configuration is added,
+     * rather than being silently drained to the dead-letter topic.
+     */
+    public static class BlockchainNotConfiguredException extends BlockchainWriteException {
+        public BlockchainNotConfiguredException(String message) {
+            super(message, null);
         }
     }
 
