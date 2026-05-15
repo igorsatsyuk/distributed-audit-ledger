@@ -125,6 +125,29 @@ class UserLoginCommandServiceTest {
         verify(kafkaTemplate, never()).send(anyString(), anyString(), any(AuditEvent.class));
     }
 
+    @Test
+    void handleUserLoginUsesCommandMetadataWhenRequestMetadataMissing() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
+
+        UserLoginCommand command = UserLoginCommand.builder()
+                .userId("user1")
+                .ipAddress("203.0.113.77")
+                .userAgent("PostmanRuntime")
+                .build();
+
+        userLoginCommandService.handleUserLogin(command, null, null).block();
+
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), anyString(), eventCaptor.capture());
+
+        assertInstanceOf(UserLoggedInEvent.class, eventCaptor.getValue());
+        UserLoggedInEvent event = (UserLoggedInEvent) eventCaptor.getValue();
+        assertEquals("203.0.113.77", event.getIpAddress());
+        assertEquals("PostmanRuntime", event.getUserAgent());
+    }
+
     @SuppressWarnings("unchecked")
     private SendResult<String, AuditEvent> mockSendResult() {
         return (SendResult<String, AuditEvent>) Mockito.mock(SendResult.class);
