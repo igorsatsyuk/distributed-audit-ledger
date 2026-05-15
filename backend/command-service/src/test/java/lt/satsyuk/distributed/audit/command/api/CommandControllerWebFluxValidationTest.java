@@ -76,5 +76,24 @@ class CommandControllerWebFluxValidationTest {
                 .jsonPath("$.success").isEqualTo(false)
                 .jsonPath("$.message").isEqualTo("Failed to publish event to Kafka");
     }
+
+    @Test
+    void missingRequestBodyReturnsCommandResponseEnvelope() {
+        webTestClient.post()
+                .uri("/commands/user/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.success").isEqualTo(false)
+                .jsonPath("$.message").value(message -> {
+                    Assertions.assertNotNull(message);
+                    String msg = (String) message;
+                    Assertions.assertTrue(msg.toLowerCase().contains("request body"),
+                            "Expected missing request body error, got: " + msg);
+                });
+
+        verifyNoInteractions(userLoginCommandService);
+    }
 }
 
