@@ -26,8 +26,11 @@ import java.time.Instant;
  * </ol>
  *
  * <p>A simple retry loop (up to {@value #MAX_RETRIES} attempts) handles
- * transient network / RPC failures. Duplicate hashes are treated as successful
- * no-ops (both pre-check and contract-revert forms).
+ * transient network / RPC failures.  Duplicate hashes are treated as successful
+ * no-ops when detected either by the pre-flight {@code isHashExists} check or
+ * when the contract revert message contains {@code "DuplicateHash"}.
+ * Note: JSON-RPC revert message format is implementation-specific; detection via
+ * message string matching is a best-effort fallback for the race-condition path.
  *
  * <p>If {@code web3j.private-key} or {@code web3j.contract-address} is not
  * configured, the service fails anchoring so Kafka can redeliver later rather
@@ -128,7 +131,9 @@ public class BlockchainWriterService {
         AuditLedgerContract contract = AuditLedgerContract.load(
                 props.getContractAddress(), web3j, credentials, new DefaultGasProvider());
 
-        // Idempotency check — avoids paying gas for a guaranteed-to-revert tx
+        // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
+        // Note: a race condition between this check and appendAuditRecord can still result
+        // in a DuplicateHash revert from the contract, which is caught below.
         if (contract.isHashExists(hash)) {
             throw new DuplicateHashException(hexHash);
         }
@@ -157,11 +162,14 @@ public class BlockchainWriterService {
         if (event == null) {
             throw new NonRecoverableEventException("Event is null");
         }
+        if (event.getEventId() == null || event.getEventId().isBlank()) {
+            throw new NonRecoverableEventException("Event eventId is null or blank");
+        }
         if (event.getOccurredAt() == null) {
             throw new NonRecoverableEventException("Event occurredAt is null for eventId=" + event.getEventId());
         }
         if (event.getEventType() == null) {
-            throw new NonRecoverableEventException("Event type is null for eventId=" + event.getEventId());
+            throw new NonRecoverableEventException("Event eventType is null for eventId=" + event.getEventId());
         }
         if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(300))) {
             throw new NonRecoverableEventException("Event occurredAt is unexpectedly in the future for eventId=" + event.getEventId());
@@ -184,7 +192,7 @@ public class BlockchainWriterService {
     // Domain exceptions
     // -------------------------------------------------------------------------
 
-    /** Thrown when a hash already exists on-chain (pre-check path). */
+    /** Thrown when the hash already exists on-chain (pre-flight {@code isHashExists} check). */
     static class DuplicateHashException extends RuntimeException {
         DuplicateHashException(String hash) {
             super("Hash already exists on-chain: " + hash);

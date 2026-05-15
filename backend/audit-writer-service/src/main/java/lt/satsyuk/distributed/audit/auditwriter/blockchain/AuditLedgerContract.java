@@ -93,7 +93,8 @@ public class AuditLedgerContract extends Contract {
     // -------------------------------------------------------------------------
 
     /**
-     * Calls {@code isHashExists(bytes32)} — a view function (no state change, no gas for eth_call).
+     * Calls {@code isHashExists(bytes32)} — a Solidity {@code view} function that reads
+     * the {@code hashExists} mapping (no state change, no gas cost for {@code eth_call}).
      *
      * @param hash 32-byte hash to check
      * @return {@code true} if the hash has already been recorded on-chain

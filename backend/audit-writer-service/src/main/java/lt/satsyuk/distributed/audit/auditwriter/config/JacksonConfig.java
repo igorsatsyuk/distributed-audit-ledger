@@ -1,26 +1,24 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Minimal Jackson setup used by hash calculation and Kafka JSON payloads.
+ * Jackson setup used by hash calculation and Kafka JSON payloads.
+ *
+ * <p>Uses {@code JsonMapper.builder().findAndAddModules()} — the same configuration
+ * as {@code event-store-service} — so the SHA-256 hash computed here from a Kafka
+ * event is byte-for-byte identical to the {@code event_hash} stored in the DB,
+ * enabling cross-ledger integrity verification.
  */
 @Configuration
 public class JacksonConfig {
 
     @Bean
     public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY);
-        mapper.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        return mapper;
+        return JsonMapper.builder().findAndAddModules().build();
     }
 }
 

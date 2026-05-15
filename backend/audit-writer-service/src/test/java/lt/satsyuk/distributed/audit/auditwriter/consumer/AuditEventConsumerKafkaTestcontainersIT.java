@@ -34,6 +34,9 @@ import static org.mockito.Mockito.verify;
  *
  * <p>Goal: prove that a domain event published to Kafka reaches the audit-writer
  * consumer and is delegated to {@link BlockchainWriterService}.
+ *
+ * <p>Named {@code *IT} to run in the Maven Failsafe (integration-test) phase,
+ * separate from Surefire unit tests.
  */
 @Testcontainers
 @SpringBootTest(
@@ -48,7 +51,7 @@ import static org.mockito.Mockito.verify;
                 "web3j.private-key="
         }
 )
-class AuditEventConsumerKafkaTestcontainersTest {
+class AuditEventConsumerKafkaTestcontainersIT {
 
     private static final String TOPIC = "user.login.events";
 

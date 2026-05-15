@@ -3,6 +3,7 @@ package lt.satsyuk.distributed.audit.auditwriter.service;
 import lt.satsyuk.distributed.audit.auditwriter.blockchain.AuditLedgerContract;
 import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
 import lt.satsyuk.distributed.audit.auditwriter.config.Web3jProperties;
+import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,13 +16,13 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import java.math.BigInteger;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 /**
  * Unit tests for {@link BlockchainWriterService}.
@@ -148,13 +149,28 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_failsFastOnMissingEventType() {
+    void anchorEvent_failsFastOnMissingEventId() {
+        // eventId is null; occurredAt and eventType are valid → should fail on eventId check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
-        event.setEventId("evt-1");
+        event.setEventType(EventType.USER_LOGGED_IN);
+        event.setOccurredAt(Instant.now());
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("occurredAt is null");
+                .hasMessageContaining("eventId");
+    }
+
+    @Test
+    void anchorEvent_failsFastOnMissingEventType() {
+        // eventId and occurredAt are valid; eventType is null → should fail on eventType check
+        UserLoggedInEvent event = UserLoggedInEvent.builder().build();
+        event.setEventId("evt-1");
+        event.setOccurredAt(Instant.now());
+        // eventType intentionally left null
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("eventType");
     }
 }
 

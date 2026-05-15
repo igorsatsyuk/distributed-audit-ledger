@@ -9,12 +9,17 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Computes a deterministic SHA-256 hash for a given {@link AuditEvent}.
+ * Computes a SHA-256 hash for a given {@link AuditEvent}.
  *
- * <p>The hash is derived from the canonical JSON serialisation of the event
- * produced by Jackson.  Using JSON (rather than, say, {@code toString()}) ensures
- * that the hash is stable across JVM restarts and independent of field ordering
- * in the Java object graph.
+ * <p>The hash is derived from the JSON serialisation of the event produced by
+ * the injected Jackson {@link com.fasterxml.jackson.databind.ObjectMapper}.
+ * The mapper must be configured identically in every service that computes or
+ * verifies this hash (e.g. {@code event-store-service}); any serialisation
+ * difference produces a different hash and breaks cross-ledger integrity.
+ *
+ * <p>The output is deterministic for the same Java object serialised by the
+ * same mapper configuration, but it is <em>not</em> guaranteed to be
+ * field-order–independent unless the mapper explicitly enables canonical ordering.
  */
 @Service
 public class HashCalculationService {
