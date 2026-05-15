@@ -3,6 +3,7 @@ package lt.satsyuk.distributed.audit.auditwriter;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.kafka.annotation.EnableKafka;
 
 /**
  * Audit Writer Service — entry point.
@@ -13,6 +14,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication
 @ConfigurationPropertiesScan
+@EnableKafka
 public class AuditWriterServiceApplication {
 
     public static void main(String[] args) {
