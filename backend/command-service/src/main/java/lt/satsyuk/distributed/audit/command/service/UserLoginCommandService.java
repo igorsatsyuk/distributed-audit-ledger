@@ -10,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 public class UserLoginCommandService {
@@ -29,10 +30,11 @@ public class UserLoginCommandService {
     }
 
     public Mono<CommandResponse> handleUserLogin(UserLoginCommand command, String requestIp, String requestUserAgent) {
-        String effectiveIp = StringUtils.hasText(command.getIpAddress()) ? command.getIpAddress() : requestIp;
-        String effectiveUserAgent = StringUtils.hasText(command.getUserAgent())
-                ? command.getUserAgent()
-                : requestUserAgent;
+        // Prefer server-derived metadata over client-supplied body values to prevent spoofing.
+        String effectiveIp = StringUtils.hasText(requestIp) ? requestIp : command.getIpAddress();
+        String effectiveUserAgent = StringUtils.hasText(requestUserAgent)
+                ? requestUserAgent
+                : command.getUserAgent();
 
         UserLoggedInEvent event = UserLoggedInEvent.of(command.getUserId(), effectiveIp, effectiveUserAgent);
 
@@ -41,6 +43,7 @@ public class UserLoginCommandService {
                                 event.getEventId(),
                                 event
                         )))
+                .publishOn(Schedulers.boundedElastic())
                 .doOnNext(ignored -> inMemoryEventStorage.save(event))
                 .map(ignored -> CommandResponse.accepted(event.getEventId()))
                 .onErrorMap(error -> new CommandPublishException("Failed to publish event to Kafka", error));

@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.command.api;
 
 import lt.satsyuk.distributed.audit.command.service.UserLoginCommandService;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -46,7 +47,12 @@ class CommandControllerWebFluxValidationTest {
                 .expectStatus().isBadRequest()
                 .expectBody()
                 .jsonPath("$.success").isEqualTo(false)
-                .jsonPath("$.message").value(message -> ((String) message).contains("Invalid request payload"));
+                .jsonPath("$.message").value(message -> {
+                    Assertions.assertNotNull(message);
+                    String msg = (String) message;
+                    Assertions.assertTrue(msg.contains("Failed to read HTTP message") || msg.contains("JSON"),
+                            "Expected message to contain HTTP read error, got: " + msg);
+                });
 
         verifyNoInteractions(userLoginCommandService);
     }

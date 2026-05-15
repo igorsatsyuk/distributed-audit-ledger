@@ -28,9 +28,10 @@ public class CommandController {
             @RequestHeader(value = HttpHeaders.USER_AGENT, required = false) String requestUserAgent,
             ServerHttpRequest request
     ) {
-        String requestIp = request.getRemoteAddress() != null
-                ? request.getRemoteAddress().getAddress().getHostAddress()
-                : null;
+        String requestIp = null;
+        if (request.getRemoteAddress() != null && request.getRemoteAddress().getAddress() != null) {
+            requestIp = request.getRemoteAddress().getAddress().getHostAddress();
+        }
 
         return userLoginCommandService.handleUserLogin(command, requestIp, requestUserAgent)
                 .map(response -> ResponseEntity.accepted().body(response));

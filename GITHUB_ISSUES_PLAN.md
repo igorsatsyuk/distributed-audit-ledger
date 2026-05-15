@@ -142,7 +142,7 @@ backend/
 - [x] #5.1 - Spring Boot приложение с Kafka producer
 - [x] #5.2 - REST endpoint для `UserLoggedIn` события
 - [x] #5.3 - Event DTO класс
-- [x] #5.4 - application.properties и конфигурация
+- [x] #5.4 - application.yml и конфигурация
 
 **Expected PR:** PR-5 (Command Service skeleton)
 
