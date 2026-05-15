@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 /**
@@ -32,24 +33,26 @@ class AuditEventConsumerTest {
     }
 
     @Test
-    void consume_doesNotRethrowBlockchainWriteException() {
+    void consume_rethrowsBlockchainWriteException() {
         UserLoggedInEvent event = UserLoggedInEvent.of("userFail", null, null);
         doThrow(new BlockchainWriterService.BlockchainWriteException("err", new RuntimeException()))
                 .when(blockchainWriterService).anchorEvent(event);
 
-        // Must NOT propagate the exception (to avoid stalling Kafka partition)
-        consumer.consume(event, 0, 1L);
+        assertThatThrownBy(() -> consumer.consume(event, 0, 1L))
+                .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class);
 
         verify(blockchainWriterService).anchorEvent(event);
     }
 
     @Test
-    void consume_doesNotRethrowUnexpectedException() {
+    void consume_rethrowsUnexpectedException() {
         UserLoggedInEvent event = UserLoggedInEvent.of("userErr", null, null);
         doThrow(new RuntimeException("unexpected"))
                 .when(blockchainWriterService).anchorEvent(event);
 
-        consumer.consume(event, 0, 2L);
+        assertThatThrownBy(() -> consumer.consume(event, 0, 2L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("unexpected");
 
         verify(blockchainWriterService).anchorEvent(event);
     }

@@ -1,7 +1,6 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,9 +16,7 @@ class HashCalculationServiceTest {
 
     @BeforeEach
     void setUp() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        hashService = new HashCalculationService(mapper);
+        hashService = new HashCalculationService(new JacksonConfig().objectMapper());
     }
 
     @Test

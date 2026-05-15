@@ -202,7 +202,7 @@ CREATE TABLE audit.events (
 
 **Subtasks:**
 - [x] #7.1 - Web3j setup и конфигурация для Ganache
-- [x] #7.2 - Contract wrapper (code generation из ABI)
+- [x] #7.2 - Contract wrapper (ABI-aligned bindings)
 - [x] #7.3 - Kafka consumer с обработкой событий
 - [x] #7.4 - Hash calculation и blockchain write logic
 - [x] #7.5 - Retry механизм при сбое

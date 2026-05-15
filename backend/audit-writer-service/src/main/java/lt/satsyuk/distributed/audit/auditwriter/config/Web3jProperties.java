@@ -2,14 +2,12 @@ package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * Typed configuration properties for Web3j / Ganache connectivity.
  * Bound from the {@code web3j.*} namespace in {@code application.yml}.
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = "web3j")
 public class Web3jProperties {
 

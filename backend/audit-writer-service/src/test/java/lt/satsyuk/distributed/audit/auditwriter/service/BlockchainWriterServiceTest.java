@@ -1,8 +1,7 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lt.satsyuk.distributed.audit.auditwriter.blockchain.AuditLedgerContract;
+import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
 import lt.satsyuk.distributed.audit.auditwriter.config.Web3jProperties;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,31 +47,32 @@ class BlockchainWriterServiceTest {
         props.setContractAddress("0xdeadbeef");
         props.setPrivateKey("0x1234");
 
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        hashService = new HashCalculationService(mapper);
+        hashService = new HashCalculationService(new JacksonConfig().objectMapper());
 
         lenient().when(credentials.getAddress()).thenReturn("0xsender");
 
-        service = new BlockchainWriterService(web3j, credentials, props, hashService);
+        service = new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
     }
 
     @Test
-    void anchorEvent_skipsWhenContractAddressBlank() {
+    void anchorEvent_failsWhenContractAddressBlank() {
         props.setContractAddress("");
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
-        // Should not throw — just logs a warning
-        assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                .hasMessageContaining("not configured");
     }
 
     @Test
-    void anchorEvent_skipsWhenCredentialsNull() {
+    void anchorEvent_failsWhenCredentialsNull() {
         BlockchainWriterService noCredService =
-                new BlockchainWriterService(web3j, null, props, hashService);
+                new BlockchainWriterService(web3j, null, props, hashService, 0L);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
-        assertThatCode(() -> noCredService.anchorEvent(event)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> noCredService.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                .hasMessageContaining("not configured");
     }
 
     @Test
@@ -113,6 +113,22 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_treatsDuplicateHashContractRevertAsSuccess() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenThrow(new RuntimeException("execution reverted: DuplicateHash"));
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
     void anchorEvent_throwsBlockchainWriteExceptionAfterAllRetriesExhausted() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
@@ -122,19 +138,23 @@ class BlockchainWriterServiceTest {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
                     .thenReturn(contract);
 
-            // Override retry delay to 0 ms for faster tests
-            BlockchainWriterService fastRetryService = new BlockchainWriterService(web3j, credentials, props, hashService) {
-                @Override
-                public void anchorEvent(lt.satsyuk.distributed.audit.event.AuditEvent e) {
-                    // We still want to invoke the real logic, just skip sleep
-                    super.anchorEvent(e);
-                }
-            };
+            BlockchainWriterService fastRetryService =
+                    new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
 
             assertThatThrownBy(() -> fastRetryService.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
                     .hasMessageContaining("Failed to anchor event");
         }
+    }
+
+    @Test
+    void anchorEvent_failsFastOnMissingEventType() {
+        UserLoggedInEvent event = UserLoggedInEvent.builder().build();
+        event.setEventId("evt-1");
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("occurredAt is null");
     }
 }
 

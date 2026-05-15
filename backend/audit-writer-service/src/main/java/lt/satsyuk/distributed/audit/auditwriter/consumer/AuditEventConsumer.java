@@ -33,8 +33,8 @@ public class AuditEventConsumer {
     /**
      * Handles a single {@link AuditEvent} message from Kafka.
      *
-     * <p>Errors thrown by {@link BlockchainWriterService} are caught and logged
-     * so that a single bad event does not stall partition processing.
+     * <p>Failures are propagated back to the container so Kafka retries the
+     * record instead of committing an event that was not anchored on-chain.
      *
      * @param event     the deserialised domain event
      * @param partition Kafka partition (for structured logging)
@@ -52,16 +52,7 @@ public class AuditEventConsumer {
         log.debug("[#7] Received event id={} type={} partition={} offset={}",
                 event.getEventId(), event.getEventType(), partition, offset);
 
-        try {
-            blockchainWriterService.anchorEvent(event);
-        } catch (BlockchainWriterService.BlockchainWriteException e) {
-            // Log and continue — do NOT rethrow, to avoid endless Kafka redelivery
-            // of events that the contract genuinely cannot accept.
-            log.error("[#7] Blockchain anchor failed for event {} — skipping after retries exhausted",
-                    event.getEventId(), e);
-        } catch (Exception e) {
-            log.error("[#7] Unexpected error processing event {} — skipping", event.getEventId(), e);
-        }
+        blockchainWriterService.anchorEvent(event);
     }
 }
 

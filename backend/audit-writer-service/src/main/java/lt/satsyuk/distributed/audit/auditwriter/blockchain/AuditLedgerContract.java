@@ -1,6 +1,5 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
-import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.TypeReference;
 import org.web3j.abi.datatypes.Address;
 import org.web3j.abi.datatypes.Function;
@@ -94,7 +93,7 @@ public class AuditLedgerContract extends Contract {
     // -------------------------------------------------------------------------
 
     /**
-     * Calls {@code isHashExists(bytes32)} — a pure view function, no gas required.
+     * Calls {@code isHashExists(bytes32)} — a view function (no state change, no gas for eth_call).
      *
      * @param hash 32-byte hash to check
      * @return {@code true} if the hash has already been recorded on-chain
