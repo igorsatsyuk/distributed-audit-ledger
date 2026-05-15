@@ -8,6 +8,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.server.ServerWebInputException;
+
+import java.util.Objects;
 
 import java.util.stream.Collectors;
 
@@ -25,6 +28,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(CommandResponse.rejected(message));
     }
 
+    @ExceptionHandler(ServerWebInputException.class)
+    public ResponseEntity<CommandResponse> handleWebInputError(ServerWebInputException exception) {
+        String message = Objects.requireNonNullElse(exception.getReason(), "Invalid request payload");
+        return ResponseEntity.badRequest().body(CommandResponse.rejected(message));
+    }
+
     @ExceptionHandler(CommandPublishException.class)
     public ResponseEntity<CommandResponse> handlePublishError(CommandPublishException exception) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -32,7 +41,11 @@ public class GlobalExceptionHandler {
     }
 
     private String formatFieldError(FieldError error) {
-        return error.getField() + " " + error.getDefaultMessage();
+        String defaultMessage = Objects.requireNonNullElse(error.getDefaultMessage(), "Validation failed");
+        if (defaultMessage.contains(error.getField())) {
+            return defaultMessage;
+        }
+        return error.getField() + " " + defaultMessage;
     }
 }
 

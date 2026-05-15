@@ -28,6 +28,6 @@ curl -X POST http://localhost:8081/commands/user/login -H "Content-Type: applica
 From `backend/`:
 
 ```pwsh
-mvn -pl command-service test
+mvn -pl command-service -am test
 ```
 

@@ -9,6 +9,7 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,13 +46,13 @@ class UserLoginCommandServiceTest {
     void setUp() {
         inMemoryEventStorage = new InMemoryEventStorage();
         userLoginCommandService = new UserLoginCommandService(kafkaTemplate, kafkaTopicsProperties, inMemoryEventStorage);
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
     }
 
     @Test
     void handleUserLoginPublishesEventAndStoresItInMemory() {
-        when(kafkaTemplate.send(anyString(), anyString(), any(AuditEvent.class)))
-                .thenReturn(CompletableFuture.completedFuture(Mockito.mock(SendResult.class)));
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
         UserLoginCommand command = UserLoginCommand.builder().userId("user1").build();
 
@@ -61,6 +65,13 @@ class UserLoginCommandServiceTest {
         assertNotNull(response.getEventId());
         assertEquals(1, inMemoryEventStorage.count());
 
+        ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), keyCaptor.capture(), eventCaptor.capture());
+
+        assertEquals(response.getEventId(), keyCaptor.getValue());
+        assertInstanceOf(UserLoggedInEvent.class, eventCaptor.getValue());
+
         AuditEvent storedEvent = inMemoryEventStorage.findAll().getFirst();
         assertInstanceOf(UserLoggedInEvent.class, storedEvent);
 
@@ -72,6 +83,7 @@ class UserLoginCommandServiceTest {
 
     @Test
     void handleUserLoginPropagatesPublishFailure() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(anyString(), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("kafka unavailable")));
 
@@ -84,6 +96,38 @@ class UserLoginCommandServiceTest {
 
         assertTrue(exception.getMessage().contains("Failed to publish event"));
         assertEquals(0, inMemoryEventStorage.count());
+    }
+
+    @Test
+    void handleUserLoginMapsSynchronousSendException() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(anyString(), anyString(), any(AuditEvent.class)))
+                .thenThrow(new IllegalStateException("invalid producer state"));
+
+        UserLoginCommand command = UserLoginCommand.builder().userId("user1").build();
+
+        CommandPublishException exception = assertThrows(
+                CommandPublishException.class,
+                () -> userLoginCommandService.handleUserLogin(command, null, null).block()
+        );
+
+        assertTrue(exception.getMessage().contains("Failed to publish event"));
+        assertEquals(0, inMemoryEventStorage.count());
+    }
+
+    @Test
+    void handleUserLoginDoesNotPublishBeforeSubscription() {
+
+        UserLoginCommand command = UserLoginCommand.builder().userId("user1").build();
+
+        userLoginCommandService.handleUserLogin(command, null, null);
+
+        verify(kafkaTemplate, never()).send(anyString(), anyString(), any(AuditEvent.class));
+    }
+
+    @SuppressWarnings("unchecked")
+    private SendResult<String, AuditEvent> mockSendResult() {
+        return (SendResult<String, AuditEvent>) Mockito.mock(SendResult.class);
     }
 }
 

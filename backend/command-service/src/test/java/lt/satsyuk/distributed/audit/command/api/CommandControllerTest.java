@@ -5,6 +5,7 @@ import lt.satsyuk.distributed.audit.contracts.command.UserLoginCommand;
 import lt.satsyuk.distributed.audit.contracts.dto.CommandResponse;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import reactor.core.publisher.Mono;
@@ -13,6 +14,7 @@ import java.net.InetSocketAddress;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,7 +44,9 @@ class CommandControllerTest {
         Assertions.assertTrue(body.isSuccess());
         Assertions.assertEquals("event-123", body.getEventId());
 
-        verify(userLoginCommandService).handleUserLogin(any(UserLoginCommand.class), anyString(), anyString());
+        ArgumentCaptor<UserLoginCommand> commandCaptor = ArgumentCaptor.forClass(UserLoginCommand.class);
+        verify(userLoginCommandService).handleUserLogin(commandCaptor.capture(), eq("127.0.0.1"), eq("JUnit"));
+        Assertions.assertEquals("user1", commandCaptor.getValue().getUserId());
     }
 }
 

@@ -36,11 +36,11 @@ public class UserLoginCommandService {
 
         UserLoggedInEvent event = UserLoggedInEvent.of(command.getUserId(), effectiveIp, effectiveUserAgent);
 
-        return Mono.fromFuture(kafkaTemplate.send(
-                        kafkaTopicsProperties.getUserLoginEvents(),
-                        event.getEventId(),
-                        event
-                ))
+        return Mono.defer(() -> Mono.fromFuture(kafkaTemplate.send(
+                                kafkaTopicsProperties.getUserLoginEvents(),
+                                event.getEventId(),
+                                event
+                        )))
                 .doOnNext(ignored -> inMemoryEventStorage.save(event))
                 .map(ignored -> CommandResponse.accepted(event.getEventId()))
                 .onErrorMap(error -> new CommandPublishException("Failed to publish event to Kafka", error));
