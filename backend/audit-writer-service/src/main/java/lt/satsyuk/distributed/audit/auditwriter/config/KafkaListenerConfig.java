@@ -125,8 +125,9 @@ public class KafkaListenerConfig {
         // For all other exceptions, fall through to the standard DLT recoverer.
         var safeRecoverer = (org.springframework.kafka.listener.ConsumerRecordRecoverer)
                 (record, exception) -> {
-                    Throwable cause = exception.getCause() != null ? exception.getCause() : exception;
-                    if (cause instanceof BlockchainWriterService.BlockchainNotConfiguredException notCfg) {
+                    BlockchainWriterService.BlockchainNotConfiguredException notCfg =
+                            findCause(exception, BlockchainWriterService.BlockchainNotConfiguredException.class);
+                    if (notCfg != null) {
                         log.error("[audit-writer] Blockchain not configured — offset will NOT be advanced "
                                 + "to DLT; record will be redelivered once web3j.private-key and "
                                 + "web3j.contract-address are set. topic={} partition={} offset={}",
@@ -185,5 +186,16 @@ public class KafkaListenerConfig {
             }
             return super.serialize(topic, data);
         }
+    }
+
+    private static <T extends Throwable> T findCause(Throwable error, Class<T> targetType) {
+        Throwable current = error;
+        while (current != null) {
+            if (targetType.isInstance(current)) {
+                return targetType.cast(current);
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }

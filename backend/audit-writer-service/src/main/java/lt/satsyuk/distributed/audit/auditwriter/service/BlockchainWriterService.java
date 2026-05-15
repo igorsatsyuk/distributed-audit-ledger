@@ -6,6 +6,7 @@ import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.web3j.crypto.Hash;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
@@ -51,6 +52,7 @@ public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final Pattern ETH_ADDRESS = Pattern.compile("^0x[0-9a-fA-F]{40}$");
+    private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
 
     static final int MAX_RETRIES      = 3;
     static final long RETRY_DELAY_MS  = 1_000L;
@@ -113,6 +115,8 @@ public class BlockchainWriterService {
                 return; // idempotent — treat as success
             } catch (NonRecoverableEventException e) {
                 throw e; // propagate immediately without retry
+            } catch (BlockchainNotConfiguredException e) {
+                throw e; // propagate immediately without retry/DLT
             } catch (Exception e) {
                 lastException = e;
                 log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, MAX_RETRIES, event.getEventId(), e.getMessage());
@@ -197,13 +201,6 @@ public class BlockchainWriterService {
         }
     }
 
-    private boolean isConfigured() {
-        return credentials.isPresent()
-                && props.getContractAddress() != null
-                && !props.getContractAddress().isBlank()
-                && ETH_ADDRESS.matcher(props.getContractAddress()).matches();
-    }
-
     private void sleep(long millis) throws InterruptedException {
         Thread.sleep(millis);
     }
@@ -223,7 +220,7 @@ public class BlockchainWriterService {
         }
         long toleranceSeconds = props.getFutureTimestampToleranceSeconds();
         if (toleranceSeconds < 0) {
-            throw new IllegalStateException(
+            throw new BlockchainNotConfiguredException(
                     "web3j.future-timestamp-tolerance-seconds must be >= 0 but was " + toleranceSeconds);
         }
         if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
@@ -249,12 +246,21 @@ public class BlockchainWriterService {
         Throwable current = error;
         while (current != null) {
             String message = current.getMessage();
-            if (message != null && (message.contains("Unauthorized") || message.contains("onlyOwner"))) {
-                return true;
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("unauthorized")
+                        || normalized.contains("onlyowner")
+                        || normalized.contains(UNAUTHORIZED_SELECTOR)) {
+                    return true;
+                }
             }
             current = current.getCause();
         }
         return false;
+    }
+
+    private static String selector(String signature) {
+        return Hash.sha3String(signature).substring(0, 10).toLowerCase();
     }
 
     // -------------------------------------------------------------------------

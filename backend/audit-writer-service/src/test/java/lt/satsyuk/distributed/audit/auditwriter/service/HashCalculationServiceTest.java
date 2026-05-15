@@ -6,8 +6,6 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;

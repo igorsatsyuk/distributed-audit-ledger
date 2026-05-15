@@ -25,11 +25,14 @@ public class Web3jConfig {
     }
 
     /**
-     * Creates the signing credentials only when {@code web3j.private-key} is non-blank.
-     * Avoids a startup failure when the key has not yet been configured.
+     * Creates the signing credentials only when {@code web3j.private-key} is a valid
+     * 64-hex Ethereum private key (with optional {@code 0x} prefix).
+     *
+     * <p>Malformed values intentionally skip bean creation so the app can still start
+     * in degraded mode and report misconfiguration at runtime.
      */
     @Bean
-    @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${web3j.private-key:}')")
+    @ConditionalOnExpression("'${web3j.private-key:}'.matches('^(?i)(0x)?[0-9a-f]{64}$')")
     public Credentials credentials(Web3jProperties props) {
         return Credentials.create(props.getPrivateKey().trim());
     }

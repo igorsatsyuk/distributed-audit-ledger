@@ -244,5 +244,15 @@ class BlockchainWriterServiceTest {
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
                 .hasMessageContaining("60s in the future");
     }
+
+    @Test
+    void anchorEvent_failsWhenFutureTimestampToleranceNegative() {
+        props.setFutureTimestampToleranceSeconds(-1);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("future-timestamp-tolerance-seconds");
+    }
 }
 
