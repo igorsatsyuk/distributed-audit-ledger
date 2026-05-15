@@ -19,7 +19,7 @@ Use this file as the single entry point for project setup and work planning.
 ## 3) Work mode
 
 - One feature per issue
-- Branch naming: `feature/#XX-description`
+- Branch naming: `<type>/#XX-description` (`feature|fix|docs|test`)
 - Commit naming: `[#XX] short message`
 - PR includes `Closes #XX`
 

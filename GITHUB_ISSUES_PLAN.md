@@ -139,10 +139,10 @@ backend/
 - Событие публикуется в Kafka topic `user.login.events`
 
 **Subtasks:**
-- [ ] #5.1 - Spring Boot приложение с Kafka producer
-- [ ] #5.2 - REST endpoint для `UserLoggedIn` события
-- [ ] #5.3 - Event DTO класс
-- [ ] #5.4 - application.properties и конфигурация
+- [x] #5.1 - Spring Boot приложение с Kafka producer
+- [x] #5.2 - REST endpoint для `UserLoggedIn` события
+- [x] #5.3 - Event DTO класс
+- [x] #5.4 - application.properties и конфигурация
 
 **Expected PR:** PR-5 (Command Service skeleton)
 
@@ -621,7 +621,7 @@ curl -X POST http://localhost:8081/commands/user/login ...
 ## Notes
 
 1. **Последовательность фаз:** MVP phase должна быть завершена перед Phase 2
-2. **Branching strategy:** Каждый issue → feature branch (`feature/#XX-description`)
+2. **Branching strategy:** Каждый issue → branch по шаблону `<type>/#XX-description`, где `type` = `feature|fix|docs|test`
 3. **PR reviews:** Minimum 1 approval перед merge
 4. **Commit messages:** `[#XX] Brief description` (с номером issue)
 5. **Project board:** Используем GitHub Project для визуализации статуса
