@@ -47,7 +47,7 @@ class BlockchainWriterServiceTest {
         props = new Web3jProperties();
         props.setClientAddress("http://localhost:8545");
         props.setContractAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
-        props.setPrivateKey("0x1234");
+        props.setPrivateKey("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
 
         hashService = new HashCalculationService(new JacksonConfig().objectMapper());
 
@@ -69,6 +69,7 @@ class BlockchainWriterServiceTest {
 
     @Test
     void anchorEvent_failsWhenCredentialsAbsent() {
+        props.setPrivateKey("");
         BlockchainWriterService noCredService =
                 new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
@@ -77,6 +78,18 @@ class BlockchainWriterServiceTest {
                 // BlockchainNotConfiguredException extends BlockchainWriteException
                 .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                 .hasMessageContaining("not configured");
+    }
+
+    @Test
+    void anchorEvent_failsWhenPrivateKeyMalformed() {
+        props.setPrivateKey("0x1234");
+        BlockchainWriterService noCredService =
+                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> noCredService.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("private-key is malformed");
     }
 
     @Test

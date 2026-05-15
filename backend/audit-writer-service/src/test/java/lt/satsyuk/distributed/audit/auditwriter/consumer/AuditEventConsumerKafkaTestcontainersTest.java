@@ -10,6 +10,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
@@ -21,7 +24,7 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -29,14 +32,18 @@ import org.testcontainers.utility.DockerImageName;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -53,7 +60,8 @@ import static org.mockito.Mockito.verify;
  * <p>Named {@code *Test} so it runs in the Maven Surefire phase with the rest
  * of the module test suite.
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
+@TestMethodOrder(OrderAnnotation.class)
 @SpringBootTest(
         classes = AuditWriterServiceApplication.class,
         properties = {
@@ -75,7 +83,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
     @Container
     static final KafkaContainer KAFKA = new KafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
+            DockerImageName.parse("confluentinc/cp-kafka:7.6.1").asCompatibleSubstituteFor("apache/kafka")
     );
 
     @DynamicPropertySource
@@ -101,6 +109,13 @@ class AuditEventConsumerKafkaTestcontainersTest {
         return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(producerProps));
     }
 
+    private KafkaTemplate<String, byte[]> buildRawByteProducer() {
+        Map<String, Object> producerProps = KafkaTestUtils.producerProps(KAFKA.getBootstrapServers());
+        producerProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        producerProps.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(producerProps));
+    }
+
     private void waitForListenerAssignment() {
         kafkaListenerEndpointRegistry.getListenerContainers().forEach(container ->
                 ContainerTestUtils.waitForAssignment((ConcurrentMessageListenerContainer<?, ?>) container, 1));
@@ -111,6 +126,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
     // -------------------------------------------------------------------------
 
     @Test
+    @Order(1)
     void shouldConsumeEventFromKafkaAndDelegateToBlockchainWriter() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("tc-user-1", "127.0.0.1", "tc-agent");
 
@@ -138,6 +154,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
      * ({@value #DLT_TOPIC}) rather than silently dropping it.
      */
     @Test
+    @Order(2)
     void shouldPublishToDltWhenBlockchainWriterThrowsAfterRetries() throws Exception {
         doThrow(new BlockchainWriterService.BlockchainWriteException("simulated transient failure", null))
                 .when(blockchainWriterService).anchorEvent(any());
@@ -151,7 +168,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
         kafkaTemplate.flush();
 
         // Build a raw byte-array consumer so we don't need to deserialise DLT payload
-        Map<String, Object> consumerProps = new java.util.HashMap<>();
+        Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-verify-group-" + System.nanoTime());
         consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
@@ -185,5 +202,106 @@ class AuditEventConsumerKafkaTestcontainersTest {
         }
 
         kafkaTemplate.destroy();
+    }
+
+    @Test
+    @Order(3)
+    void shouldNotPublishToDltWhenBlockchainNotConfigured() throws Exception {
+        doThrow(new BlockchainWriterService.BlockchainNotConfiguredException("simulated not-configured"))
+                .when(blockchainWriterService).anchorEvent(any());
+
+        UserLoggedInEvent event = UserLoggedInEvent.of("not-configured-user", "10.0.0.2", null);
+
+        KafkaTemplate<String, AuditEvent> kafkaTemplate = buildProducer();
+        waitForListenerAssignment();
+
+        kafkaTemplate.send(TOPIC, event.getEventId(), event).get(10, TimeUnit.SECONDS);
+        kafkaTemplate.flush();
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> verify(blockchainWriterService, atLeastOnce()).anchorEvent(any()));
+
+        Map<String, Object> consumerProps = new HashMap<>();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-not-configured-" + System.nanoTime());
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+            dltConsumer.subscribe(List.of(DLT_TOPIC));
+
+            List<ConsumerRecord<byte[], byte[]>> received = new ArrayList<>();
+            long deadlineNanos = System.nanoTime() + Duration.ofSeconds(6).toNanos();
+            while (System.nanoTime() < deadlineNanos) {
+                ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
+                polled.forEach(received::add);
+            }
+
+            boolean foundEventInDlt = received.stream()
+                    .map(ConsumerRecord::key)
+                    .filter(key -> key != null)
+                    .map(key -> new String(key, StandardCharsets.UTF_8))
+                    .anyMatch(event.getEventId()::equals);
+
+            assertThat(foundEventInDlt)
+                    .as("record for not-configured failure must not be published to DLT")
+                    .isFalse();
+        }
+
+        reset(blockchainWriterService);
+        kafkaTemplate.destroy();
+    }
+
+    @Test
+    @Order(4)
+    void shouldPreserveRawPoisonRecordBytesOnDlt() throws Exception {
+        String poisonKey = "poison-" + UUID.randomUUID();
+        byte[] poisonPayload = "{broken-json".getBytes(StandardCharsets.UTF_8);
+
+        KafkaTemplate<String, byte[]> rawProducer = buildRawByteProducer();
+        waitForListenerAssignment();
+
+        rawProducer.send(TOPIC, poisonKey, poisonPayload).get(10, TimeUnit.SECONDS);
+        rawProducer.flush();
+
+        Map<String, Object> consumerProps = new HashMap<>();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-poison-" + System.nanoTime());
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+            dltConsumer.subscribe(List.of(DLT_TOPIC));
+
+            final ConsumerRecord<byte[], byte[]>[] matched = new ConsumerRecord[1];
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(30))
+                    .untilAsserted(() -> {
+                        ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
+                        for (ConsumerRecord<byte[], byte[]> record : polled) {
+                            String key = record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+                            if (poisonKey.equals(key)) {
+                                matched[0] = record;
+                                break;
+                            }
+                        }
+                        assertThat(matched[0]).as("expected poison record on DLT").isNotNull();
+                    });
+
+            assertThat(matched[0].value())
+                    .as("DLT payload must preserve original malformed JSON bytes")
+                    .isEqualTo(poisonPayload);
+        }
+
+        rawProducer.destroy();
     }
 }

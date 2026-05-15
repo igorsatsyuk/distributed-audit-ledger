@@ -52,6 +52,7 @@ public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final Pattern ETH_ADDRESS = Pattern.compile("^0x[0-9a-fA-F]{40}$");
+    private static final Pattern ETH_PRIVATE_KEY = Pattern.compile("^(?i)(0x)?[0-9a-f]{64}$");
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
 
     static final int MAX_RETRIES      = 3;
@@ -187,8 +188,18 @@ public class BlockchainWriterService {
 
     private void validateConfiguration() {
         if (credentials.isEmpty()) {
+            String privateKey = props.getPrivateKey();
+            if (privateKey != null && !privateKey.isBlank()) {
+                throw new BlockchainNotConfiguredException(
+                        "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
+            }
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is missing");
+        }
+        String privateKey = props.getPrivateKey();
+        if (privateKey != null && !privateKey.isBlank() && !ETH_PRIVATE_KEY.matcher(privateKey.trim()).matches()) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
         }
         String addr = props.getContractAddress();
         if (addr == null || addr.isBlank()) {
