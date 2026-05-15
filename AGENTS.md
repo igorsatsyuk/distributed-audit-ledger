@@ -36,7 +36,7 @@
 - Hardhat config intentionally omits `accounts` for Ganache when `GANACHE_PRIVATE_KEY` is invalid/missing; do not replace with `accounts: []` (`blockchain/hardhat.config.js`).
 - Ganache chain assumptions are fixed by deploy stack: chainId `1337` and deterministic mnemonic (`deploy/docker-compose.yml`, `deploy/README.md`).
 - Git workflow conventions are documented and reused across docs:
-  - branch: `feature/#XX-description`
+  - branch (mandatory for every issue): `<type>/#XX-description`, where `type` = `feature|fix|docs|test`
   - commit: `[#XX] short message`
   - PR text includes `Closes #XX` (`START_HERE.md`, `CONTRIBUTING.md`).
 

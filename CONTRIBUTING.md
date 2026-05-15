@@ -184,16 +184,26 @@ docs/
 
 ## Branch Naming
 
-Project convention:
+Mandatory convention for all issue branches:
 
-| Prefix | Purpose | Example |
-|--------|---------|---------|
-| `feature/` | Feature delivery | `feature/#6-event-store-consumer` |
-| `fix/` | Bug fix | `fix/#7-retry-logic` |
-| `docs/` | Documentation | `docs/#12-architecture-update` |
-| `test/` | Tests | `test/#8-query-filters` |
+```text
+<type>/#XX-description
+```
 
-Preferred pattern: `feature/#XX-description`.
+Allowed `type` values:
+
+```text
+feature | fix | docs | test
+```
+
+Examples:
+
+```text
+feature/#5-command-service-skeleton
+fix/#7-retry-logic
+docs/#12-architecture-update
+test/#8-query-filters
+```
 
 ---
 
