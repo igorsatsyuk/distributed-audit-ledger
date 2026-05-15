@@ -201,12 +201,12 @@ CREATE TABLE audit.events (
 - Обработка транзакций и ошибок
 
 **Subtasks:**
-- [ ] #7.1 - Web3j setup и конфигурация для Ganache
-- [ ] #7.2 - Contract wrapper (code generation из ABI)
-- [ ] #7.3 - Kafka consumer с обработкой событий
-- [ ] #7.4 - Hash calculation и blockchain write logic
-- [ ] #7.5 - Retry механизм при сбое
-- [ ] #7.6 - Тесты с test containers
+- [x] #7.1 - Web3j setup и конфигурация для Ganache
+- [x] #7.2 - Contract wrapper (code generation из ABI)
+- [x] #7.3 - Kafka consumer с обработкой событий
+- [x] #7.4 - Hash calculation и blockchain write logic
+- [x] #7.5 - Retry механизм при сбое
+- [x] #7.6 - Тесты с test containers
 
 **Expected PR:** PR-7 (Audit Writer Service)
 
