@@ -14,7 +14,7 @@ MVP command-side service that accepts user login commands and publishes `UserLog
 Ensure Kafka is running:
 
 ```pwsh
-Set-Location deploy
+Set-Location <repo-root>\deploy
 docker compose up -d
 ```
 

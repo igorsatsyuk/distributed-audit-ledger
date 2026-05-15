@@ -4,9 +4,8 @@ import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Temporary in-memory storage for accepted events (MVP stage for issue #5).
@@ -17,23 +16,22 @@ public class InMemoryEventStorage {
 
     private static final int MAX_EVENTS = 10_000;
 
-    private final ConcurrentLinkedQueue<AuditEvent> events = new ConcurrentLinkedQueue<>();
-    private final AtomicInteger eventsCount = new AtomicInteger(0);
+    private final ArrayDeque<AuditEvent> events = new ArrayDeque<>();
 
-    public void save(AuditEvent event) {
-        if (eventsCount.get() < MAX_EVENTS) {
-            events.add(event);
-            eventsCount.incrementAndGet();
+    public synchronized void save(AuditEvent event) {
+        if (events.size() >= MAX_EVENTS) {
+            // Keep latest accepted events and evict oldest records once capacity is reached.
+            events.pollFirst();
         }
-        // Silently drop events beyond capacity for MVP (upgrade path: use eviction policy)
+        events.addLast(event);
     }
 
-    public List<AuditEvent> findAll() {
+    public synchronized List<AuditEvent> findAll() {
         return List.copyOf(new ArrayList<>(events));
     }
 
-    public int count() {
-        return eventsCount.get();
+    public synchronized int count() {
+        return events.size();
     }
 }
 
