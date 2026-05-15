@@ -43,6 +43,7 @@ public class UserLoginCommandService {
                                 event.getEventId(),
                                 event
                         )))
+                .subscribeOn(Schedulers.boundedElastic())
                 .publishOn(Schedulers.boundedElastic())
                 .doOnNext(ignored -> inMemoryEventStorage.save(event))
                 .map(ignored -> CommandResponse.accepted(event.getEventId()))
