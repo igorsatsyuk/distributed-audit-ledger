@@ -10,6 +10,7 @@ CREATE SCHEMA IF NOT EXISTS audit;
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS audit.events (
     id           BIGSERIAL    PRIMARY KEY,
+    event_id     VARCHAR(36)  NOT NULL UNIQUE,   -- stable UUID from AuditEvent.eventId
     aggregate_id VARCHAR(128) NOT NULL,
     event_type   VARCHAR(128) NOT NULL,
     user_id      VARCHAR(255),

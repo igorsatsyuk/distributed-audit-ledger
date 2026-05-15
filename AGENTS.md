@@ -2,7 +2,7 @@
 
 ## Project snapshot
 - Repository is in **bootstrap/planning stage**: infra + blockchain module are implemented; backend and frontend are mostly scaffolds.
-- Start context in `README.md`, `START_HERE.md`, `PROJECT_SUMMARY.md`.
+- Start context in `README.md`, `START_HERE.md`, `GITHUB_ISSUES_PLAN.md`, and `docs/ARCHITECTURE.md`.
 - Main folders: `backend/` (multi-module Maven), `blockchain/` (Hardhat), `deploy/` (local stack), `docs/` (CQRS/event-sourcing intent).
 
 ## Architecture and service boundaries
@@ -38,7 +38,7 @@
 - Git workflow conventions are documented and reused across docs:
   - branch: `feature/#XX-description`
   - commit: `[#XX] short message`
-  - PR text includes `Closes #XX` (`START_HERE.md`, `INDEX.md`).
+  - PR text includes `Closes #XX` (`START_HERE.md`, `CONTRIBUTING.md`).
 
 ## Integration points and dependencies
 - Event hash bridge: backend `event-store-service`/`audit-writer-service` should map DB `event_hash` to on-chain `AuditLedger.appendAuditRecord(...)`.
@@ -48,6 +48,6 @@
 
 ## Practical guidance for coding agents
 - Do not assume existing Spring/Angular app code; create minimal skeletons first when implementing new backend/frontend issues.
-- Align new code with the issue-driven plan documents (`GITHUB_ISSUES_PLAN.md`, `GITHUB_ISSUES_TEMPLATES.md`) because this repo is organized around those milestones.
+- Align new code with the issue-driven plan in `GITHUB_ISSUES_PLAN.md` because this repo is organized around those milestones.
 - When changing blockchain write paths, update tests in `blockchain/test/AuditLedger.test.js` in the same change.
 

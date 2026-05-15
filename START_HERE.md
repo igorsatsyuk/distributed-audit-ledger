@@ -11,10 +11,10 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 2) Read planning documents
 
-1. `README_GITHUB_PLAN.md`
-2. `GITHUB_ISSUES_PLAN.md`
-3. `GITHUB_MANAGEMENT_GUIDE.md`
-4. `GITHUB_ISSUES_TEMPLATES.md`
+1. `GITHUB_ISSUES_PLAN.md`
+2. `CONTRIBUTING.md`
+3. `docs/ARCHITECTURE.md`
+4. `docs/CQRS_FLOW.md`
 
 ## 3) Work mode
 
@@ -30,5 +30,5 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 5) Next action
 
-Open `PRE_DEVELOPMENT_CHECKLIST.md` and mark all items before implementation.
+Confirm local prerequisites from section 1, then start with the next open issue in `GITHUB_ISSUES_PLAN.md`.
 

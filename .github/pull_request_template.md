@@ -1,16 +1,37 @@
 ## Description
 
-Describe what this PR changes.
+- What changed?
+- Why was this change needed?
 
 ## Closes
 
-- Closes #XX
+Closes #XX
 
 ## Related
 
-- Relates to #YY
+Relates to #YY
+
+## Checklist
+
+- [ ] Code follows project conventions in `CONTRIBUTING.md`
+- [ ] Self-review completed
+- [ ] Tests added/updated where needed
+- [ ] Documentation updated where needed
 
 ## Testing
 
-List validation steps and test results.
+Steps to verify the change:
+
+```pwsh
+# Example
+cd backend
+mvn test
+```
+
+Additional checks (if applicable):
+
+```pwsh
+cd blockchain
+npm test
+```
 

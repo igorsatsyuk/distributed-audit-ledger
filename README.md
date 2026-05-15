@@ -17,6 +17,11 @@ Project bootstrap is complete and ready for implementation by GitHub Issues (#1+
 ## Quick Start (planning stage)
 
 1. Review `START_HERE.md`
-2. Check `PRE_DEVELOPMENT_CHECKLIST.md`
-3. Follow `GITHUB_ISSUES_TEMPLATES.md` for initial issue creation
+2. Review `GITHUB_ISSUES_PLAN.md`
+3. Use `CONTRIBUTING.md` for branch / commit / PR workflow
+
+## Contributing
+
+For contribution workflow, coding standards, testing commands, and PR process,
+see `CONTRIBUTING.md`.
 

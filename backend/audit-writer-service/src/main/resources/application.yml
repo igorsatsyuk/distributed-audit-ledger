@@ -1,0 +1,41 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: audit-writer-service
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: audit-writer-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "lt.satsyuk.distributed.audit.event"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.AuditEvent
+
+kafka:
+  topics:
+    user-login-events: user.login.events
+
+# Web3j / Ganache configuration
+web3j:
+  client-address: ${GANACHE_RPC_URL:http://localhost:8545}
+  # AuditLedger contract address — set after deployment (npm run deploy:ganache)
+  contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
+  # Ethereum account private key for signing transactions (Ganache deterministic account 0)
+  private-key: ${GANACHE_PRIVATE_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    lt.satsyuk.distributed.audit: DEBUG
+    org.web3j: INFO
