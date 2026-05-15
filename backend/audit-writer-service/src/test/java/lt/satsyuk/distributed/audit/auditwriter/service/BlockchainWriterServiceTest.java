@@ -17,6 +17,7 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,7 +53,7 @@ class BlockchainWriterServiceTest {
 
         lenient().when(credentials.getAddress()).thenReturn("0xsender");
 
-        service = new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
+        service = new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L);
     }
 
     @Test
@@ -67,9 +68,9 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_failsWhenCredentialsNull() {
+    void anchorEvent_failsWhenCredentialsAbsent() {
         BlockchainWriterService noCredService =
-                new BlockchainWriterService(web3j, null, props, hashService, 0L);
+                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> noCredService.anchorEvent(event))
@@ -166,7 +167,7 @@ class BlockchainWriterServiceTest {
                     .thenReturn(contract);
 
             BlockchainWriterService fastRetryService =
-                    new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
+                    new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L);
 
             assertThatThrownBy(() -> fastRetryService.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
@@ -197,6 +198,51 @@ class BlockchainWriterServiceTest {
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
                 .hasMessageContaining("eventType");
+    }
+
+    @Test
+    void anchorEvent_rejectsFutureTimestampBeyondDefaultTolerance() {
+        // Default tolerance is 300 seconds; use 301 seconds in future
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setOccurredAt(Instant.now().plusSeconds(301));
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("in the future");
+    }
+
+    @Test
+    void anchorEvent_acceptsFutureTimestampWithinDefaultTolerance() throws Exception {
+        // Default tolerance is 300 seconds; use 299 seconds in future
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setOccurredAt(Instant.now().plusSeconds(299));
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+            when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                    .thenReturn(receipt);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void anchorEvent_rejectsFutureTimestampBeyondCustomTolerance() {
+        // Set custom tolerance to 60 seconds, then use 61 seconds in future
+        props.setFutureTimestampToleranceSeconds(60);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setOccurredAt(Instant.now().plusSeconds(61));
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("60s in the future");
     }
 }
 

@@ -132,11 +132,12 @@ public class KafkaListenerConfig {
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
                 new FixedBackOff(retryIntervalMs, RETRY_ATTEMPTS));
 
-        // Skip retries for known non-recoverable exceptions — send straight to DLT (or, in
-        // the case of BlockchainNotConfiguredException, stay uncommitted via the recoverer above).
+        // Skip retries only for known non-recoverable malformed events — send them
+        // straight to DLT without the backoff cycle. Exclude BlockchainNotConfiguredException
+        // from this list so that unconfigured startup still includes a backoff pause,
+        // preventing a tight re-poll loop while the service awaits configuration.
         errorHandler.addNotRetryableExceptions(
-                BlockchainWriterService.NonRecoverableEventException.class,
-                BlockchainWriterService.BlockchainNotConfiguredException.class
+                BlockchainWriterService.NonRecoverableEventException.class
         );
 
         return errorHandler;

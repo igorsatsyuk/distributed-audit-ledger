@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import lombok.Data;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -8,6 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Bound from the {@code web3j.*} namespace in {@code application.yml}.
  */
 @Data
+@ToString(exclude = "privateKey")  // Prevent accidental exposure in logs
 @ConfigurationProperties(prefix = "web3j")
 public class Web3jProperties {
 

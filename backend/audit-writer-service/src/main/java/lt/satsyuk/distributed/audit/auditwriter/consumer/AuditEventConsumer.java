@@ -41,9 +41,12 @@ public class AuditEventConsumer {
      * container's {@link org.springframework.kafka.listener.CommonErrorHandler},
      * which applies retry/DLT policy centrally.
      *
-     * @param event     the deserialised domain event
+     * <p>A Kafka tombstone (null value) is treated as a non-recoverable event.
+     *
+     * @param event     the deserialised domain event (nullable for tombstones)
      * @param partition Kafka partition (for structured logging)
      * @param offset    Kafka offset (for structured logging)
+     * @throws BlockchainWriterService.NonRecoverableEventException if event is null (tombstone)
      */
     @KafkaListener(
             topics = "${kafka.topics.user-login-events}",
@@ -53,6 +56,11 @@ public class AuditEventConsumer {
             @Payload AuditEvent event,
             @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset) {
+
+        if (event == null) {
+            throw new BlockchainWriterService.NonRecoverableEventException(
+                    "Received Kafka tombstone (null value) on partition=" + partition + " offset=" + offset);
+        }
 
         log.debug("[#7] Received event id={} type={} partition={} offset={}",
                 event.getEventId(), event.getEventType(), partition, offset);

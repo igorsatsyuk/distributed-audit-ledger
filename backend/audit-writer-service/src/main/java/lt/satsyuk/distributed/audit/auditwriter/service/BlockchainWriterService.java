@@ -5,7 +5,6 @@ import lt.satsyuk.distributed.audit.auditwriter.config.Web3jProperties;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
@@ -14,6 +13,7 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * Anchors event hashes on the AuditLedger smart contract.
@@ -51,25 +51,26 @@ public class BlockchainWriterService {
     static final long RETRY_DELAY_MS  = 1_000L;
 
     private final Web3j web3j;
-    private final Credentials credentials;
+    private final Optional<Credentials> credentials;
     private final Web3jProperties props;
     private final HashCalculationService hashService;
     private final long retryDelayMs;
 
     /**
-     * {@code credentials} is optional — injected as {@code null} when the private-key
+     * {@code credentials} is optional — injected as empty Optional when the private-key
      * property is blank (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
+     * Using Optional ensures the service will not wait for a non-existent Credentials bean
+     * at startup; instead, the configuration check happens when anchorEvent() is called.
      */
-    @Autowired
     public BlockchainWriterService(Web3j web3j,
-                                    @Autowired(required = false) Credentials credentials,
+                                    Optional<Credentials> credentials,
                                     Web3jProperties props,
                                     HashCalculationService hashService) {
         this(web3j, credentials, props, hashService, RETRY_DELAY_MS);
     }
 
     BlockchainWriterService(Web3j web3j,
-                            Credentials credentials,
+                            Optional<Credentials> credentials,
                             Web3jProperties props,
                             HashCalculationService hashService,
                             long retryDelayMs) {
@@ -135,7 +136,7 @@ public class BlockchainWriterService {
 
     private void writeToBlockchain(AuditEvent event, byte[] hash, String hexHash, int attempt) throws Exception {
         AuditLedgerContract contract = AuditLedgerContract.load(
-                props.getContractAddress(), web3j, credentials, new DefaultGasProvider());
+                props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
         if (contract.isHashExists(hash)) {
@@ -144,7 +145,7 @@ public class BlockchainWriterService {
 
         BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
         String eventType = event.getEventType().name();
-        String source    = credentials.getAddress();
+        String source    = credentials.get().getAddress();
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
@@ -175,7 +176,7 @@ public class BlockchainWriterService {
     }
 
     private boolean isConfigured() {
-        return credentials != null
+        return credentials.isPresent()
                 && props.getContractAddress() != null
                 && !props.getContractAddress().isBlank();
     }

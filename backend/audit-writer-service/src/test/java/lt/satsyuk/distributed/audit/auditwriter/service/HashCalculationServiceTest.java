@@ -64,17 +64,20 @@ class HashCalculationServiceTest {
     }
 
     /**
-     * Verifies that the audit-writer hash output is byte-for-byte identical to what
-     * the event-store {@code EventHashService.sha256Hex(objectMapper.writeValueAsString(event))}
-     * would produce for the same event.
+     * Verifies that the audit-writer hash serialization produces deterministic output
+     * using a fixed test event.
      *
-     * <p>Both services use {@code JsonMapper.builder().findAndAddModules().build()}.  If their
-     * ObjectMapper configurations ever diverge (e.g. null-ordering, date format), this test
-     * will catch the mismatch before it breaks cross-ledger integrity in production.
+     * <p>This test ensures that the same event always produces the same hash. It uses
+     * the audit-writer's own {@code JacksonConfig} for both sides, so it cannot detect
+     * misalignment with event-store's ObjectMapper configuration (e.g., null field ordering,
+     * date serialization format).  Such misalignments should be caught by cross-service
+     * integration tests that verify hash agreement on the same Kafka event before/after
+     * storage and anchoring.  This test protects against accidental local changes that
+     * would break determinism.
      */
     @Test
-    void computeHash_matchesEventStoreHashForSameSerializedEvent() throws Exception {
-        // Fixed event so the test is independent of UUID randomness
+    void computeHash_producesConsistentOutputForFixedEvent() throws Exception {
+        // Fixed event so the test is deterministic and independent of UUID randomness
         UserLoggedInEvent event = UserLoggedInEvent.builder()
                 .eventId("00000000-0000-0000-0000-000000000001")
                 .eventType(EventType.USER_LOGGED_IN)
@@ -85,7 +88,7 @@ class HashCalculationServiceTest {
                 .userAgent(null)
                 .build();
 
-        // Replicate event-store EventHashService.sha256Hex(objectMapper.writeValueAsString(event))
+        // Replicate serialization path: mapper.writeValueAsString(event)
         String json = jacksonConfig.objectMapper().writeValueAsString(event);
         byte[] expectedBytes = MessageDigest.getInstance("SHA-256")
                 .digest(json.getBytes(StandardCharsets.UTF_8));
@@ -95,9 +98,11 @@ class HashCalculationServiceTest {
         byte[] auditBytes = hashService.computeHash(event);
         String auditHex = HashCalculationService.toHexString(auditBytes);
 
+        // Both should agree because they use the same ObjectMapper instance
         assertThat(auditHex)
-                .as("audit-writer SHA-256 must match event-store sha256Hex for the same serialized event; "
-                        + "serialized JSON was: %s", json)
+                .as("audit-writer SHA-256 hash must be deterministic for the same event. "
+                        + "If this fails, check that JacksonConfig has not changed. "
+                        + "JSON was: %s", json)
                 .isEqualTo(expectedHex);
     }
 }
