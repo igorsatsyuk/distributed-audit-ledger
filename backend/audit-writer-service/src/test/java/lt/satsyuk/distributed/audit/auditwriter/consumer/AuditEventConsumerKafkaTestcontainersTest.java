@@ -83,9 +83,13 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
     /**
      * Unique suffix per test-class instantiation so each run (and parallel CI job)
-     * gets its own Kafka topic namespace.  This eliminates the ordering dependency
-     * that previously required {@code @TestMethodOrder}: every test starts with a
-     * clean, dedicated topic and DLT with no committed offsets.
+     * gets its own Kafka topic namespace, preventing cross-run interference.
+     *
+     * <p>Note: {@code T_SUFFIX}, {@code TOPIC}, and {@code DLT_TOPIC} are static
+     * class-level constants, so <em>all test methods within this class share the same
+     * topic and committed offsets</em>.  The unique suffix only isolates separate
+     * test-class runs or parallel CI jobs from each other; it does not give each
+     * {@code @Test} method its own clean topic.
      */
     private static final String T_SUFFIX = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     private static final String TOPIC     = "user.login.events-" + T_SUFFIX;

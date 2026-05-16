@@ -10,10 +10,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -74,8 +75,7 @@ public class KafkaListenerConfig {
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        mergeKafkaOverrides(props, environment, "spring.kafka.properties.");
-        mergeKafkaOverrides(props, environment, "spring.kafka.producer.");
+        mergeKafkaOverrides(props, environment, "spring.kafka.producer");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
         props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
@@ -101,8 +101,7 @@ public class KafkaListenerConfig {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
-        mergeKafkaOverrides(props, environment, "spring.kafka.properties.");
-        mergeKafkaOverrides(props, environment, "spring.kafka.consumer.");
+        mergeKafkaOverrides(props, environment, "spring.kafka.consumer");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         // Wrap JsonDeserializer with ErrorHandlingDeserializer so poison records
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on
@@ -209,30 +208,50 @@ public class KafkaListenerConfig {
         return null;
     }
 
+    /**
+     * Merges Kafka client properties from the Spring environment into {@code props}.
+     *
+     * <p>Uses {@link Binder} to resolve settings with relaxed binding, so
+     * environment-variable overrides such as
+     * {@code SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL} are honoured in addition
+     * to dotted YAML/properties file entries.
+     *
+     * <p>Two namespaces are always merged:
+     * <ol>
+     *   <li>{@code spring.kafka.properties.*} — arbitrary shared Kafka client
+     *       settings (security, SSL, SASL, etc.) that apply to all factories.</li>
+     *   <li>{@code subPrefix.*} — consumer- or producer-specific settings.
+     *       Keys under a nested {@code properties.*} sub-key are passed through as
+     *       Kafka property keys; other keys have hyphens replaced with dots
+     *       (e.g. {@code group-id} → {@code group.id}).</li>
+     * </ol>
+     *
+     * <p>Serializer/deserializer entries set by the caller after this method are
+     * applied last and override anything that Binder resolved.
+     *
+     * @param props      the Kafka client property map to populate
+     * @param environment the Spring environment
+     * @param subPrefix  dotted sub-prefix, e.g. {@code spring.kafka.consumer}
+     */
     private static void mergeKafkaOverrides(Map<String, Object> props,
                                             ConfigurableEnvironment environment,
-                                            String prefix) {
-        for (var propertySource : environment.getPropertySources()) {
-            if (!(propertySource instanceof EnumerablePropertySource<?> enumerable)) {
-                continue;
-            }
-            for (String propertyName : enumerable.getPropertyNames()) {
-                if (!propertyName.startsWith(prefix)) {
-                    continue;
-                }
-                String suffix = propertyName.substring(prefix.length());
-                if (suffix.isBlank()) {
-                    continue;
-                }
-                if (suffix.startsWith("properties.")) {
-                    suffix = suffix.substring("properties.".length());
-                }
-                String kafkaKey = suffix.replace('-', '.');
-                Object value = environment.getProperty(propertyName);
-                if (value != null) {
-                    props.put(kafkaKey, value);
-                }
-            }
-        }
+                                            String subPrefix) {
+        Binder binder = Binder.get(environment);
+
+        // Shared client settings — security, SSL, SASL, etc.
+        binder.bind("spring.kafka.properties", Bindable.mapOf(String.class, String.class))
+              .ifBound(props::putAll);
+
+        // Consumer- or producer-specific settings.
+        binder.bind(subPrefix, Bindable.mapOf(String.class, String.class))
+              .ifBound(m -> m.forEach((key, value) -> {
+                  if (key.startsWith("properties.")) {
+                      // spring.kafka.consumer.properties.foo.bar → foo.bar
+                      props.put(key.substring("properties.".length()), value);
+                  } else {
+                      // spring.kafka.consumer.group-id → group.id
+                      props.put(key.replace('-', '.'), value);
+                  }
+              }));
     }
 }

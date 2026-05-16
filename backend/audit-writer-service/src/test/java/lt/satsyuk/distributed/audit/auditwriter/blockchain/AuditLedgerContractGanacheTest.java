@@ -1,7 +1,5 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -23,9 +21,9 @@ import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 import org.web3j.utils.Numeric;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
 
@@ -45,11 +43,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       confirming the {@code owner()} ABI wrapper is correctly encoded.</li>
  * </ul>
  *
- * <p>Bytecode source: {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json}
- * when available (e.g. after {@code npm run compile} in the {@code blockchain} module), or the
- * committed fallback {@code /AuditLedger.bytecode} classpath resource otherwise.  Using the
- * current Hardhat artifact is preferred because it reflects any recent Solidity changes; the
- * committed snapshot should be updated whenever {@code AuditLedger.sol} changes.
+ * <p>Bytecode source: the committed classpath resource {@code /AuditLedger.bytecode},
+ * which must be kept in sync with {@code AuditLedger.sol}.  Using a single deterministic
+ * source ensures the test produces identical results on every machine and CI run.
+ * Regenerate by running {@code npm run compile} in the {@code blockchain} module and
+ * copying the {@code bytecode} field from
+ * {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json}
+ * into {@code src/test/resources/AuditLedger.bytecode}.
  *
  * <p>Automatically skipped when Docker is unavailable.
  */
@@ -199,59 +199,32 @@ class AuditLedgerContractGanacheTest {
         return contractAddress;
     }
 
+    /**
+     * Reads the {@code AuditLedger} deployment bytecode from the committed classpath
+     * resource {@code /AuditLedger.bytecode}.
+     *
+     * <p>Using the committed snapshot guarantees identical bytecode on every machine
+     * and CI run.  Regenerate it when {@code AuditLedger.sol} changes by running
+     * {@code npm run compile} in the blockchain module and copying the {@code bytecode}
+     * field from {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json}.
+     */
     private static String resolveAuditLedgerBytecode() throws IOException {
-        Path artifactPath = locateAuditLedgerArtifact();
-        if (artifactPath != null) {
-            return readBytecodeFromArtifact(artifactPath);
-        }
-        // Hardhat artifact not found on the filesystem — fall back to the committed
-        // classpath snapshot so the test can run on a clean checkout without
-        // requiring a prior `npm run compile` step.
-        //
-        // The snapshot (AuditLedger.bytecode in src/test/resources) must be kept in
-        // sync with AuditLedger.sol; regenerate it with `npm run compile` and copy
-        // `blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json`#bytecode
-        // whenever the contract changes.
-        try (var stream = AuditLedgerContractGanacheTest.class.getResourceAsStream("/AuditLedger.bytecode")) {
+        try (InputStream stream =
+                     AuditLedgerContractGanacheTest.class.getResourceAsStream("/AuditLedger.bytecode")) {
             if (stream == null) {
                 throw new IllegalStateException(
-                        "Cannot find AuditLedger bytecode: neither "
-                                + "blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json "
-                                + "nor the classpath resource /AuditLedger.bytecode is available. "
-                                + "Run `npm run compile` in the blockchain module to regenerate the artifact.");
+                        "Classpath resource /AuditLedger.bytecode not found. "
+                                + "Regenerate it with `npm run compile` in the blockchain module and copy "
+                                + "the bytecode field from "
+                                + "blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json.");
             }
-            String bytecode = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip();
+            String bytecode = new String(stream.readAllBytes(), StandardCharsets.UTF_8).strip();
             if (bytecode.isBlank() || "0x".equals(bytecode)) {
-                throw new IllegalStateException("Classpath AuditLedger.bytecode resource is empty");
+                throw new IllegalStateException(
+                        "Classpath AuditLedger.bytecode resource is empty or contains only '0x'");
             }
             return bytecode;
         }
-    }
-
-    private static Path locateAuditLedgerArtifact() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        for (int i = 0; i < 8 && current != null; i++) {
-            Path candidate = current
-                    .resolve("blockchain")
-                    .resolve("artifacts")
-                    .resolve("contracts")
-                    .resolve("AuditLedger.sol")
-                    .resolve("AuditLedger.json");
-            if (Files.exists(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
-
-    private static String readBytecodeFromArtifact(Path artifactPath) throws IOException {
-        JsonNode json = new ObjectMapper().readTree(Files.readString(artifactPath));
-        String bytecode = json.path("bytecode").asText(null);
-        if (bytecode == null || bytecode.isBlank() || "0x".equals(bytecode)) {
-            throw new IllegalStateException("AuditLedger artifact bytecode is missing or empty at " + artifactPath);
-        }
-        return bytecode;
     }
 }
 

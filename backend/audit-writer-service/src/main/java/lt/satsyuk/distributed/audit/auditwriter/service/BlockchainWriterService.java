@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Optional;
 
 /**
@@ -65,6 +66,8 @@ public class BlockchainWriterService {
 
     static final long RETRY_DELAY_MS  = 1_000L;
 
+    private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
+
     private final Web3j web3j;
     private final Optional<Credentials> credentials;
     private final Web3jProperties props;
@@ -95,8 +98,13 @@ public class BlockchainWriterService {
         this.props       = props;
         this.hashService = hashService;
         this.retryDelayMs = retryDelayMs;
-        this.receiptExecutor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "audit-writer-receipt-waiter");
+        // Use a cached thread pool so a stuck Web3j receipt call (that `future.cancel(true)`
+        // cannot reliably interrupt) does not block subsequent retries or new Kafka records.
+        // Each call gets its own thread; stuck threads are eventually abandoned after the
+        // Web3j HTTP read timeout rather than holding the single executor thread hostage.
+        this.receiptExecutor = Executors.newCachedThreadPool(runnable -> {
+            Thread thread = new Thread(runnable,
+                    "audit-writer-receipt-waiter-" + WAITER_COUNTER.incrementAndGet());
             thread.setDaemon(true);
             return thread;
         });
