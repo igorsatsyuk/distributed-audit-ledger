@@ -427,7 +427,9 @@ public class BlockchainWriterService {
             return receipt;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new BlockchainWriteException("Interrupted while waiting for appendAuditRecord receipt", ex);
+            throw new ReceiptTimeoutException(
+                    "Interrupted while waiting for appendAuditRecord receipt; transaction outcome is unknown",
+                    ex);
         } catch (TimeoutException ex) {
             throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
@@ -449,7 +451,16 @@ public class BlockchainWriterService {
 
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
         if (!inFlight.future().isDone() && isInFlightWriteStale(inFlight, timeoutSeconds)) {
-            if (contract.isHashExists(hash)) {
+            final boolean hashExists;
+            try {
+                hashExists = contract.isHashExists(hash);
+            } catch (Exception probeEx) {
+                throw new ReceiptTimeoutException(
+                        "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt; "
+                                + "existing in-flight write is still pending and chain re-check failed",
+                        probeEx);
+            }
+            if (hashExists) {
                 inFlightWritesByHash.remove(hexHash, inFlight);
                 log.info("[#7] Stale in-flight appendAuditRecord already reflected on-chain for hash {}; "
                                 + "treating redelivery as duplicate",

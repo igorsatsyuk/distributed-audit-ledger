@@ -40,8 +40,8 @@ web3j:
   # Receipt timeouts are retried or re-checked later via Kafka redelivery, not by the
   # service-side blockchain-write-retries loop.
   receipt-wait-timeout-seconds: 30
-  # Maximum seconds an event's occurredAt may be in the future before it is rejected.
-  # Increase to tolerate producer clock-skew or intentionally future-dated fixtures.
+  # Maximum allowed future skew for occurredAt before audit-writer logs a warning.
+  # Events are still anchored to remain aligned with event-store acceptance.
   future-timestamp-tolerance-seconds: 300
 
 management:

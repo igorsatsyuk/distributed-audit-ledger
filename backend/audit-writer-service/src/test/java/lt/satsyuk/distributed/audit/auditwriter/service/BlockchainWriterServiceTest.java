@@ -854,5 +854,134 @@ class BlockchainWriterServiceTest {
 
         verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
+
+    @Test
+    void anchorEvent_staleInFlightRecheckFailurePreservesReceiptTimeoutSemantics() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+
+        Future<TransactionReceipt> staleFuture = new Future<>() {
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                return false;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+
+            @Override
+            public boolean isDone() {
+                return false;
+            }
+
+            @Override
+            public TransactionReceipt get() {
+                return null;
+            }
+
+            @Override
+            public TransactionReceipt get(long timeout, java.util.concurrent.TimeUnit unit) {
+                return null;
+            }
+        };
+
+        byte[] hash = hashService.computeHash(event);
+        String hexHash = HashCalculationService.toHexString(hash);
+
+        java.lang.reflect.Field field = BlockchainWriterService.class.getDeclaredField("inFlightWritesByHash");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
+                (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
+
+        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
+                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
+                .findFirst()
+                .orElseThrow();
+        java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
+        ctor.setAccessible(true);
+        Object staleEntry = ctor.newInstance(staleFuture, System.nanoTime() - TimeUnit.SECONDS.toNanos(3));
+        inFlightWritesByHash.put(hexHash, staleEntry);
+
+        when(contract.isHashExists(any())).thenThrow(new RuntimeException("rpc timeout"));
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class)
+                    .hasMessageContaining("chain re-check failed");
+        }
+
+        verify(contract, times(1)).isHashExists(any());
+        verify(contract, never()).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_interruptedWhileWaitingForInFlightReceiptKeepsUnknownOutcomePath() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+
+        Future<TransactionReceipt> interruptedFuture = new Future<>() {
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                return false;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return false;
+            }
+
+            @Override
+            public boolean isDone() {
+                return false;
+            }
+
+            @Override
+            public TransactionReceipt get() {
+                return null;
+            }
+
+            @Override
+            public TransactionReceipt get(long timeout, java.util.concurrent.TimeUnit unit) throws InterruptedException {
+                throw new InterruptedException("interrupted");
+            }
+        };
+
+        byte[] hash = hashService.computeHash(event);
+        String hexHash = HashCalculationService.toHexString(hash);
+
+        java.lang.reflect.Field field = BlockchainWriterService.class.getDeclaredField("inFlightWritesByHash");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
+                (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
+
+        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
+                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
+                .findFirst()
+                .orElseThrow();
+        java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
+        ctor.setAccessible(true);
+        Object inFlightEntry = ctor.newInstance(interruptedFuture, System.nanoTime());
+        inFlightWritesByHash.put(hexHash, inFlightEntry);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class)
+                    .hasMessageContaining("Interrupted while waiting");
+        }
+
+        // Reset interrupt flag for subsequent tests in the same JVM.
+        Thread.interrupted();
+        verify(contract, never()).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
 }
 

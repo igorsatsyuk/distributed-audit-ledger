@@ -22,8 +22,10 @@ import org.springframework.stereotype.Component;
  * <p>Failures are intentionally allowed to propagate to the Kafka container so
  * the configured error handler can apply central retry policy. Recoverable write
  * failures and non-recoverable event payload failures are eventually routed to the
- * DLT, while {@code BlockchainNotConfiguredException} is re-thrown to keep the
- * source offset uncommitted until configuration is fixed.
+ * DLT, while {@code BlockchainNotConfiguredException} and
+ * {@code ReceiptTimeoutException} are re-thrown to keep the source offset
+ * uncommitted until configuration is fixed or in-flight transaction outcome
+ * becomes known.
  */
 @Component
 public class AuditEventConsumer {

@@ -39,9 +39,9 @@ public class Web3jProperties {
 
     /**
      * Maximum number of seconds that an event's {@code occurredAt} timestamp may be
-     * in the future before the event is treated as non-recoverable.  Configurable so
-     * operators can compensate for producer clock-skew or intentionally future-dated fixtures without
-     * rebuilding the service.  Defaults to 300 (5 minutes).
+     * in the future before audit-writer logs a skew warning. Configurable so operators can
+     * monitor producer clock-skew or intentionally future-dated fixtures without rebuilding
+     * the service. Defaults to 300 (5 minutes).
      */
     private int futureTimestampToleranceSeconds = 300;
 }
