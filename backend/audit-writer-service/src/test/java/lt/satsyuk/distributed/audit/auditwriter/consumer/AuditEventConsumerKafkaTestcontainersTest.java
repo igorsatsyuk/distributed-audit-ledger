@@ -14,9 +14,6 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
@@ -67,7 +64,6 @@ import static org.mockito.Mockito.verify;
  * of the module test suite.
  */
 @Testcontainers(disabledWithoutDocker = true)
-@TestMethodOrder(OrderAnnotation.class)
 @SpringBootTest(
         classes = AuditWriterServiceApplication.class,
         properties = {
@@ -84,8 +80,15 @@ import static org.mockito.Mockito.verify;
 )
 class AuditEventConsumerKafkaTestcontainersTest {
 
-    private static final String TOPIC = "user.login.events";
-    private static final String DLT_TOPIC = "user.login.events.dlt";
+    /**
+     * Unique suffix per test-class instantiation so each run (and parallel CI job)
+     * gets its own Kafka topic namespace.  This eliminates the ordering dependency
+     * that previously required {@code @TestMethodOrder}: every test starts with a
+     * clean, dedicated topic and DLT with no committed offsets.
+     */
+    private static final String T_SUFFIX = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    private static final String TOPIC     = "user.login.events-" + T_SUFFIX;
+    private static final String DLT_TOPIC = TOPIC + ".dlt";
 
     @Container
     static final KafkaContainer KAFKA = new KafkaContainer(
@@ -95,6 +98,10 @@ class AuditEventConsumerKafkaTestcontainersTest {
     @DynamicPropertySource
     static void overrideProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+        // Use test-run-unique topic names so every class instantiation (and parallel CI job)
+        // starts with an empty topic and no committed offsets — no ordering dependency needed.
+        registry.add("kafka.topics.user-login-events", () -> TOPIC);
+        registry.add("kafka.topics.user-login-events-dlt", () -> DLT_TOPIC);
     }
 
     @MockitoBean
@@ -152,7 +159,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @Order(1)
     void shouldConsumeEventFromKafkaAndDelegateToBlockchainWriter() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("tc-user-1", "127.0.0.1", "tc-agent");
 
@@ -177,10 +183,9 @@ class AuditEventConsumerKafkaTestcontainersTest {
      * Verifies the DLT routing: when {@link BlockchainWriterService#anchorEvent} throws a
      * transient {@link BlockchainWriterService.BlockchainWriteException} on every call, the
      * Kafka error handler exhausts retries and publishes the original record to the DLT topic
-     * ({@value #DLT_TOPIC}) rather than silently dropping it.
+     * (the test-run-unique DLT topic) rather than silently dropping it.
      */
     @Test
-    @Order(2)
     void shouldPublishToDltWhenBlockchainWriterThrowsAfterRetries() throws Exception {
         doThrow(new BlockchainWriterService.BlockchainWriteException("simulated transient failure", null))
                 .when(blockchainWriterService).anchorEvent(any());
@@ -231,7 +236,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
     }
 
     @Test
-    @Order(6)
     @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void shouldNotPublishToDltWhenBlockchainNotConfigured() throws Exception {
         doThrow(new BlockchainWriterService.BlockchainNotConfiguredException("simulated not-configured"))
@@ -291,7 +295,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
     }
 
     @Test
-    @Order(4)
     void shouldPreserveRawPoisonRecordBytesOnDlt() throws Exception {
         String poisonKey = "poison-" + UUID.randomUUID();
         byte[] poisonPayload = "{broken-json".getBytes(StandardCharsets.UTF_8);
@@ -339,7 +342,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
     }
 
     @Test
-    @Order(5)
     void shouldPublishTombstoneToDltAsNonRecoverable() throws Exception {
         String tombstoneKey = "tombstone-" + UUID.randomUUID();
 

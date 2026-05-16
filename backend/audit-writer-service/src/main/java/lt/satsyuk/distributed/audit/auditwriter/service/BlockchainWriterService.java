@@ -207,7 +207,8 @@ public class BlockchainWriterService {
             // the offset stays uncommitted rather than draining events to the DLT.
             if (isOwnershipRevert(appendEx)) {
                 throw new BlockchainNotConfiguredException(
-                        "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract");
+                        "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract",
+                        appendEx);
             }
             // Deterministic fallback: the DuplicateHash custom error is often returned only as
             // ABI-encoded revert data (not as literal text), so re-check isHashExists to decide
