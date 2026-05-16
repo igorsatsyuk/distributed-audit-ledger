@@ -2,6 +2,7 @@ package lt.satsyuk.distributed.audit.query.api;
 
 import lt.satsyuk.distributed.audit.contracts.dto.AuditEventDto;
 import lt.satsyuk.distributed.audit.event.EventType;
+import lt.satsyuk.distributed.audit.query.service.AuditIntegrityCheckService;
 import lt.satsyuk.distributed.audit.query.service.AuditLogNotFoundException;
 import lt.satsyuk.distributed.audit.query.service.AuditLogQueryService;
 import lt.satsyuk.distributed.audit.query.service.QueryValidationException;
@@ -24,11 +25,14 @@ class AuditLogControllerWebFluxTest {
     @Mock
     private AuditLogQueryService auditLogQueryService;
 
+    @Mock
+    private AuditIntegrityCheckService auditIntegrityCheckService;
+
     private WebTestClient webTestClient;
 
     @BeforeEach
     void setUp() {
-        AuditLogController controller = new AuditLogController(auditLogQueryService);
+        AuditLogController controller = new AuditLogController(auditLogQueryService, auditIntegrityCheckService);
         webTestClient = WebTestClient.bindToController(controller)
                 .controllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -93,5 +97,30 @@ class AuditLogControllerWebFluxTest {
                 .expectStatus().isBadRequest()
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("Query parameter 'from' must be before or equal to 'to'");
+    }
+
+    @Test
+    void integrityCheckReturnsBlockchainStatus() {
+        AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord =
+                new AuditIntegrityCheckResponse.BlockchainRecord(true, "0xabc", 12345L, 1715774400L);
+        AuditIntegrityCheckResponse response = new AuditIntegrityCheckResponse(
+                1L,
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                blockchainRecord,
+                "OK"
+        );
+
+        when(auditIntegrityCheckService.checkIntegrity(1L)).thenReturn(Mono.just(response));
+
+        webTestClient.get()
+                .uri("/api/audit-logs/1/integrity-check")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.eventId").isEqualTo(1)
+                .jsonPath("$.eventHash").isEqualTo("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .jsonPath("$.blockchainRecord.exists").isEqualTo(true)
+                .jsonPath("$.blockchainRecord.transactionHash").isEqualTo("0xabc")
+                .jsonPath("$.status").isEqualTo("OK");
     }
 }

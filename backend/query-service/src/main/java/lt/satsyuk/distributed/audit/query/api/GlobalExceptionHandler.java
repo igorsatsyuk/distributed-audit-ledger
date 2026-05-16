@@ -25,6 +25,12 @@ public class GlobalExceptionHandler {
                 .body(new ApiErrorResponse(ex.getMessage()));
     }
 
+    @ExceptionHandler(BlockchainIntegrityException.class)
+    public ResponseEntity<ApiErrorResponse> handleBlockchainIntegrity(BlockchainIntegrityException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiErrorResponse(ex.getMessage()));
+    }
+
     @ExceptionHandler(ServerWebInputException.class)
     public ResponseEntity<ApiErrorResponse> handleWebInput(ServerWebInputException ex) {
         String message = Objects.requireNonNullElse(ex.getReason(), "Invalid request parameters");

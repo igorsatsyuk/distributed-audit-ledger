@@ -44,6 +44,12 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Web3j — read-only blockchain client for integrity checks -->
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
+        </dependency>
+
         <!-- Reactive PostgreSQL driver -->
         <dependency>
             <groupId>org.postgresql</groupId>

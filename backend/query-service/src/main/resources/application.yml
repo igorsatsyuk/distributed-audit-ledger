@@ -13,6 +13,10 @@ spring:
   flyway:
     enabled: false   # Query service does NOT run migrations — event-store owns the schema
 
+web3j:
+  client-address: ${GANACHE_RPC_URL:http://localhost:8545}
+  contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
+
 management:
   endpoints:
     web:
