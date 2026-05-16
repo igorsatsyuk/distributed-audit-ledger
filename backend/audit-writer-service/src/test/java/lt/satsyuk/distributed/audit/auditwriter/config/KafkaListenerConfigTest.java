@@ -1,10 +1,13 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.mock.env.MockEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -50,6 +53,26 @@ class KafkaListenerConfigTest {
         assertThat(errorHandler.removeClassification(DeserializationException.class))
                 .as("DeserializationException must bypass retries and go to DLT immediately")
                 .isEqualTo(Boolean.FALSE);
+    }
+
+    @Test
+    void consumerFactory_forcesAutoCommitDisabledEvenWhenOverrideRequestsTrue() {
+        KafkaListenerConfig config = new KafkaListenerConfig();
+        MockEnvironment env = new MockEnvironment()
+                .withProperty("spring.kafka.consumer.enable-auto-commit", "true");
+
+        DefaultKafkaConsumerFactory<String, lt.satsyuk.distributed.audit.event.AuditEvent> factory =
+                (DefaultKafkaConsumerFactory<String, lt.satsyuk.distributed.audit.event.AuditEvent>)
+                        config.consumerFactory(
+                                "localhost:9092",
+                                "audit-writer-consumer",
+                                "earliest",
+                                env,
+                                "lt.satsyuk.distributed.audit.event.UserLoggedInEvent"
+                        );
+
+        assertThat(factory.getConfigurationProperties().get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))
+                .isEqualTo(false);
     }
 }
 

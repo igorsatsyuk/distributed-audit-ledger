@@ -109,6 +109,9 @@ public class KafkaListenerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
         mergeKafkaOverrides(props, environment, "spring.kafka.consumer");
+        // Offset commits must stay container-controlled so failed blockchain writes
+        // are not acknowledged before retry/DLT handling completes.
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         // Wrap JsonDeserializer with ErrorHandlingDeserializer so poison records
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on

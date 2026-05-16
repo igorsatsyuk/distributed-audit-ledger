@@ -254,6 +254,16 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_failsFastWhenRetryCountExceedsUpperBound() {
+        props.setBlockchainWriteRetries(11);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("blockchain-write-retries must be <= 10");
+    }
+
+    @Test
     void anchorEvent_failsFastWhenReceiptWaitTimeoutIsNotPositive() {
         props.setReceiptWaitTimeoutSeconds(0);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
@@ -299,7 +309,7 @@ class BlockchainWriterServiceTest {
     void anchorEvent_failsFastOnMissingEventType() {
         // eventId and occurredAt are valid; eventType is null → should fail on eventType check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
-        event.setEventId("evt-1");
+        event.setEventId("00000000-0000-0000-0000-000000000001");
         event.setOccurredAt(Instant.now());
         // eventType intentionally left null
 
@@ -309,14 +319,46 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_rejectsFutureTimestampBeyondDefaultTolerance() {
-        // Use a comfortable margin beyond the default 300s tolerance to avoid timing flakiness.
+    void anchorEvent_allowsFutureTimestampBeyondDefaultToleranceToStayAlignedWithEventStore() throws Exception {
+        // Even when beyond tolerance, audit-writer should not DLT the record only due to clock skew.
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.now().plusSeconds(360));
 
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void anchorEvent_rejectsMalformedEventIdNotUuid() {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setEventId("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("in the future");
+                .hasMessageContaining("not a valid UUID");
+    }
+
+    @Test
+    void anchorEvent_rejectsEventIdWithWrongLength() {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setEventId("123");
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("must be 36 chars UUID");
     }
 
     @Test
@@ -343,15 +385,36 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_rejectsFutureTimestampBeyondCustomTolerance() {
-        // Use a comfortable margin beyond the custom tolerance to avoid timing flakiness.
+    void anchorEvent_allowsFutureTimestampBeyondCustomToleranceToStayAlignedWithEventStore() throws Exception {
         props.setFutureTimestampToleranceSeconds(60);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.now().plusSeconds(120));
 
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    void anchorEvent_rejectsUserIdTooLongForAggregateId() {
+        String tooLongUserId = "u".repeat(124);
+        UserLoggedInEvent event = UserLoggedInEvent.of(tooLongUserId, null, null);
+
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("60s in the future");
+                .hasMessageContaining("aggregate_id length exceeds");
     }
 
     @Test
@@ -752,7 +815,7 @@ class BlockchainWriterServiceTest {
             assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
         }
 
-        assertThat(staleFuture.isCancelled()).isTrue();
+        assertThat(staleFuture.isCancelled()).isFalse();
         assertThat(inFlightWritesByHash).doesNotContainKey(hexHash);
         verify(contract, times(1)).isHashExists(any());
         verify(contract, never()).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());

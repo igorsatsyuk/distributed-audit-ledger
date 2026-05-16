@@ -4,6 +4,7 @@ import lt.satsyuk.distributed.audit.auditwriter.blockchain.AuditLedgerContract;
 import lt.satsyuk.distributed.audit.auditwriter.config.Web3jValidationUtils;
 import lt.satsyuk.distributed.audit.auditwriter.config.Web3jProperties;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
+import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,6 +70,11 @@ public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
+    private static final int MAX_BLOCKCHAIN_WRITE_RETRIES = 10;
+    private static final int EVENT_ID_LENGTH = 36;
+    private static final int AGGREGATE_ID_MAX_LENGTH = 128;
+    private static final int USER_ID_MAX_LENGTH = 255;
+    private static final String USER_AGGREGATE_PREFIX = "user:";
 
     static final long RETRY_DELAY_MS  = 1_000L;
 
@@ -330,6 +337,11 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "web3j.blockchain-write-retries must be >= 0 but was " + props.getBlockchainWriteRetries());
         }
+        if (props.getBlockchainWriteRetries() > MAX_BLOCKCHAIN_WRITE_RETRIES) {
+            throw new BlockchainNotConfiguredException(
+                    "web3j.blockchain-write-retries must be <= " + MAX_BLOCKCHAIN_WRITE_RETRIES
+                            + " but was " + props.getBlockchainWriteRetries());
+        }
         if (props.getReceiptWaitTimeoutSeconds() <= 0) {
             throw new BlockchainNotConfiguredException(
                     "web3j.receipt-wait-timeout-seconds must be > 0 but was " + props.getReceiptWaitTimeoutSeconds());
@@ -437,13 +449,17 @@ public class BlockchainWriterService {
 
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
         if (!inFlight.future().isDone() && isInFlightWriteStale(inFlight, timeoutSeconds)) {
-            if (inFlightWritesByHash.remove(hexHash, inFlight)) {
-                inFlight.future().cancel(true);
-                log.warn("[#7] In-flight appendAuditRecord for hash {} exceeded {}s without completing; "
-                                + "dropping stale tracking entry and re-checking chain state on redelivery",
-                        hexHash, timeoutSeconds);
+            if (contract.isHashExists(hash)) {
+                inFlightWritesByHash.remove(hexHash, inFlight);
+                log.info("[#7] Stale in-flight appendAuditRecord already reflected on-chain for hash {}; "
+                                + "treating redelivery as duplicate",
+                        hexHash);
+                throw new DuplicateHashException(hexHash);
             }
-            return;
+            throw new ReceiptTimeoutException(
+                    "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt; "
+                            + "existing in-flight write is still pending and remains tracked",
+                    null);
         }
 
         final TransactionReceipt receipt;
@@ -522,6 +538,14 @@ public class BlockchainWriterService {
         if (event.getEventId() == null || event.getEventId().isBlank()) {
             throw new NonRecoverableEventException("Event eventId is null or blank");
         }
+        if (event.getEventId().length() != EVENT_ID_LENGTH) {
+            throw new NonRecoverableEventException("Event eventId must be 36 chars UUID for eventId=" + event.getEventId());
+        }
+        try {
+            UUID.fromString(event.getEventId());
+        } catch (IllegalArgumentException malformedUuid) {
+            throw new NonRecoverableEventException("Event eventId is not a valid UUID: " + event.getEventId());
+        }
         if (event.getOccurredAt() == null) {
             throw new NonRecoverableEventException("Event occurredAt is null for eventId=" + event.getEventId());
         }
@@ -534,13 +558,32 @@ public class BlockchainWriterService {
                     "web3j.future-timestamp-tolerance-seconds must be >= 0 but was " + toleranceSeconds);
         }
         if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
-            throw new NonRecoverableEventException(
-                    "Event occurredAt is more than " + toleranceSeconds
-                            + "s in the future for eventId=" + event.getEventId());
+            log.warn("[#7] Event {} occurredAt={} exceeds configured future tolerance {}s; "
+                            + "continuing to stay aligned with event-store acceptance",
+                    event.getEventId(), event.getOccurredAt(), toleranceSeconds);
         }
         if (event.getOccurredAt().getEpochSecond() < 0) {
             throw new NonRecoverableEventException(
                     "Event occurredAt is before Unix epoch for eventId=" + event.getEventId());
+        }
+        if (event instanceof UserLoggedInEvent loginEvent) {
+            validateUserLoggedInEvent(loginEvent, event.getEventId());
+        }
+    }
+
+    private void validateUserLoggedInEvent(UserLoggedInEvent event, String eventId) {
+        String userId = event.getUserId();
+        if (userId == null || userId.isBlank()) {
+            throw new NonRecoverableEventException("UserLoggedInEvent userId is null or blank for eventId=" + eventId);
+        }
+        if (userId.length() > USER_ID_MAX_LENGTH) {
+            throw new NonRecoverableEventException("UserLoggedInEvent userId exceeds "
+                    + USER_ID_MAX_LENGTH + " chars for eventId=" + eventId);
+        }
+        int aggregateIdLength = USER_AGGREGATE_PREFIX.length() + userId.length();
+        if (aggregateIdLength > AGGREGATE_ID_MAX_LENGTH) {
+            throw new NonRecoverableEventException("UserLoggedInEvent aggregate_id length exceeds "
+                    + AGGREGATE_ID_MAX_LENGTH + " chars for eventId=" + eventId);
         }
     }
 
