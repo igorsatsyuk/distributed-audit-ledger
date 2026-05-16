@@ -1,6 +1,9 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
@@ -24,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Instant;
 
@@ -148,6 +153,24 @@ class AuditLedgerContractGanacheTest {
                 .isEqualToIgnoringCase(owner.getAddress());
     }
 
+    /**
+     * Guards the committed bytecode snapshot against contract drift.
+     *
+     * <p>If the Hardhat artifact exists locally, the test compares it against the
+     * committed {@code /AuditLedger.bytecode} resource and fails if they diverge.
+     * On a clean checkout without the artifact, the check is skipped.
+     */
+    @Test
+    void auditLedgerBytecodeSnapshot_matchesHardhatArtifactWhenPresent() throws Exception {
+        Path artifactPath = locateAuditLedgerArtifact();
+        Assumptions.assumeTrue(artifactPath != null,
+                "Hardhat artifact not found; skipping bytecode snapshot sync check");
+
+        assertThat(resolveAuditLedgerBytecode())
+                .as("committed snapshot must match the generated Hardhat artifact")
+                .isEqualTo(readBytecodeFromArtifact(artifactPath));
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -159,9 +182,8 @@ class AuditLedgerContractGanacheTest {
     }
 
     /**
-     * Deploys {@code AuditLedger} by reading its deployment bytecode from
-     * the Hardhat artifact when available, or from the committed
-     * {@code /AuditLedger.bytecode} classpath resource otherwise, then submitting a raw signed
+     * Deploys {@code AuditLedger} by reading its deployment bytecode from the committed
+     * {@code /AuditLedger.bytecode} classpath resource, then submitting a raw signed
      * contract-creation transaction.  Returns the deployed contract address once mined.
      */
     private static String deployAuditLedger(Web3j web3j, Credentials credentials) throws Exception {
@@ -225,6 +247,32 @@ class AuditLedgerContractGanacheTest {
             }
             return bytecode;
         }
+    }
+
+    private static Path locateAuditLedgerArtifact() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        for (int i = 0; i < 8 && current != null; i++) {
+            Path candidate = current
+                    .resolve("blockchain")
+                    .resolve("artifacts")
+                    .resolve("contracts")
+                    .resolve("AuditLedger.sol")
+                    .resolve("AuditLedger.json");
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    private static String readBytecodeFromArtifact(Path artifactPath) throws IOException {
+        JsonNode json = new ObjectMapper().readTree(Files.readString(artifactPath));
+        String bytecode = json.path("bytecode").asText(null);
+        if (bytecode == null || bytecode.isBlank() || "0x".equals(bytecode)) {
+            throw new IllegalStateException("AuditLedger artifact bytecode is missing or empty at " + artifactPath);
+        }
+        return bytecode;
     }
 }
 

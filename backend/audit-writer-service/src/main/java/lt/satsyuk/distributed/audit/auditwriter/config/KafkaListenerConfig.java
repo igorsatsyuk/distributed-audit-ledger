@@ -138,8 +138,8 @@ public class KafkaListenerConfig {
                             findCause(exception, BlockchainWriterService.BlockchainNotConfiguredException.class);
                     if (notCfg != null) {
                         log.error("[audit-writer] Blockchain not configured ({}) — offset will NOT be advanced "
-                                + "to DLT; record will be redelivered once web3j.private-key and "
-                                + "web3j.contract-address are set. topic={} partition={} offset={}",
+                                + "to DLT; the service must be restarted/redeployed with corrected web3j.private-key "
+                                + "and web3j.contract-address values before redelivery can succeed. topic={} partition={} offset={}",
                                 notCfg.getMessage(), record.topic(), record.partition(), record.offset());
                         throw notCfg; // rethrow to keep the partition offset uncommitted
                     }

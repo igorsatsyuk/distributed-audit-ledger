@@ -16,12 +16,13 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.Optional;
 
 /**
@@ -67,6 +68,8 @@ public class BlockchainWriterService {
     static final long RETRY_DELAY_MS  = 1_000L;
 
     private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
+    private static final int RECEIPT_EXECUTOR_THREADS = 2;
+    private static final int RECEIPT_EXECUTOR_QUEUE_CAPACITY = 16;
 
     private final Web3j web3j;
     private final Optional<Credentials> credentials;
@@ -98,16 +101,22 @@ public class BlockchainWriterService {
         this.props       = props;
         this.hashService = hashService;
         this.retryDelayMs = retryDelayMs;
-        // Use a cached thread pool so a stuck Web3j receipt call (that `future.cancel(true)`
-        // cannot reliably interrupt) does not block subsequent retries or new Kafka records.
-        // Each call gets its own thread; stuck threads are eventually abandoned after the
-        // Web3j HTTP read timeout rather than holding the single executor thread hostage.
-        this.receiptExecutor = Executors.newCachedThreadPool(runnable -> {
-            Thread thread = new Thread(runnable,
-                    "audit-writer-receipt-waiter-" + WAITER_COUNTER.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
-        });
+        // Use a bounded pool so slow or stuck receipt waits cannot grow without limit.
+        // Web3j call cancellation is best-effort, so we cap both the worker count and the
+        // queue length to keep repeated redeliveries from exhausting resources.
+        this.receiptExecutor = new ThreadPoolExecutor(
+                RECEIPT_EXECUTOR_THREADS,
+                RECEIPT_EXECUTOR_THREADS,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(RECEIPT_EXECUTOR_QUEUE_CAPACITY),
+                runnable -> {
+                    Thread thread = new Thread(runnable,
+                            "audit-writer-receipt-waiter-" + WAITER_COUNTER.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     @PreDestroy
@@ -143,6 +152,8 @@ public class BlockchainWriterService {
             } catch (DuplicateHashException e) {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
                 return; // idempotent — treat as success
+            } catch (ReceiptTimeoutException e) {
+                throw e; // unknown outcome; let Kafka redelivery re-check later instead of retrying immediately
             } catch (NonRecoverableEventException e) {
                 throw e; // propagate immediately without retry
             } catch (BlockchainNotConfiguredException e) {
@@ -317,7 +328,7 @@ public class BlockchainWriterService {
             throw new BlockchainWriteException("Interrupted while waiting for appendAuditRecord receipt", ex);
         } catch (TimeoutException ex) {
             future.cancel(true);
-            throw new RuntimeException(
+            throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
         } catch (java.util.concurrent.ExecutionException ex) {
             Throwable cause = ex.getCause();
@@ -446,6 +457,19 @@ public class BlockchainWriterService {
         }
 
         public BlockchainNotConfiguredException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * Thrown when receipt polling times out but the transaction outcome is still unknown.
+     *
+     * <p>This is deliberately not retried inside {@link #anchorEvent(AuditEvent)} because the
+     * transaction may already be in flight; the Kafka redelivery path will re-check the
+     * on-chain hash after the configured back-off instead of submitting another write immediately.
+     */
+    public static class ReceiptTimeoutException extends BlockchainWriteException {
+        public ReceiptTimeoutException(String message, Throwable cause) {
             super(message, cause);
         }
     }
