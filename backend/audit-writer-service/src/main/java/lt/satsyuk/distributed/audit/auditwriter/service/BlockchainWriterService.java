@@ -173,7 +173,7 @@ public class BlockchainWriterService {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
                 return; // success
-            } catch (DuplicateHashException e) {
+            } catch (DuplicateHashException _) {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
                 return; // idempotent — treat as success
             } catch (ReceiptTimeoutException e) {

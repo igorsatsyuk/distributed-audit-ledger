@@ -49,7 +49,7 @@ public final class Web3jValidationUtils {
                 return false;
             }
             return uri.getHost() != null;
-        } catch (URISyntaxException ex) {
+        } catch (URISyntaxException _) {
             return false;
         }
     }

@@ -78,7 +78,7 @@ class HashCalculationServiceTest {
      * services; this test guards against accidental local ObjectMapper changes only.
      */
     @Test
-    void computeHash_producesConsistentOutputForFixedEvent() throws Exception {
+    void computeHash_producesConsistentOutputForFixedEvent() {
         // Pinned regression fixture for canonical serialization + hashing.
         UserLoggedInEvent event = UserLoggedInEvent.builder()
                 .eventId("00000000-0000-0000-0000-000000000001")

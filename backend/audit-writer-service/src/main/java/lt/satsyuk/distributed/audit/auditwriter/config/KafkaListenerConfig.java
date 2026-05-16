@@ -32,6 +32,7 @@ import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.
@@ -76,6 +77,7 @@ public class KafkaListenerConfig {
 
     static final long RETRY_ATTEMPTS = 2L;
     static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
+    static final long DEFAULT_RECEIPT_WAIT_TIMEOUT_SECONDS = 30L;
 
     @Bean
     public ProducerFactory<String, Object> producerFactory(
@@ -128,13 +130,27 @@ public class KafkaListenerConfig {
     public CommonErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, Object> kafkaTemplate,
             @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic,
-            @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs
+            @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs,
+            @Value("${web3j.receipt-wait-timeout-seconds:30}") long receiptWaitTimeoutSeconds
     ) {
         long effectiveRetryIntervalMs = retryIntervalMs > 0L ? retryIntervalMs : DEFAULT_RETRY_INTERVAL_MS;
         if (retryIntervalMs <= 0L) {
             log.warn("[audit-writer] kafka.listener.retry-interval-ms={} is invalid; using default {} ms to avoid tight re-delivery loops",
                     retryIntervalMs, effectiveRetryIntervalMs);
         }
+
+        long effectiveReceiptWaitTimeoutSeconds = receiptWaitTimeoutSeconds > 0L
+                ? receiptWaitTimeoutSeconds
+                : DEFAULT_RECEIPT_WAIT_TIMEOUT_SECONDS;
+        if (receiptWaitTimeoutSeconds <= 0L) {
+            log.warn("[audit-writer] web3j.receipt-wait-timeout-seconds={} is invalid; using default {} s",
+                    receiptWaitTimeoutSeconds, effectiveReceiptWaitTimeoutSeconds);
+        }
+
+        long receiptUncertaintyDelayMs = Math.max(
+                effectiveRetryIntervalMs,
+                TimeUnit.SECONDS.toMillis(effectiveReceiptWaitTimeoutSeconds)
+        );
 
         // Always route DLT records to partition 0.
         // Using record.partition() would require the DLT topic to have at least as many
@@ -162,11 +178,13 @@ public class KafkaListenerConfig {
                     BlockchainWriterService.ReceiptTimeoutException timeout =
                             findCause(exception, BlockchainWriterService.ReceiptTimeoutException.class);
                     if (timeout != null) {
-                        sleepQuietly(effectiveRetryIntervalMs);
+                        // Keep enough delay for pending tx receipts before Kafka redelivery can trigger another send.
+                        sleepQuietly(receiptUncertaintyDelayMs);
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
-                                        + "transaction outcome is unknown and will be re-checked on redelivery. "
+                                        + "transaction outcome is unknown and will be re-checked on redelivery after {} ms. "
                                         + "topic={} partition={} offset={}",
-                                timeout.getMessage(), record.topic(), record.partition(), record.offset());
+                                timeout.getMessage(), receiptUncertaintyDelayMs,
+                                record.topic(), record.partition(), record.offset());
                         throw timeout;
                     }
                     dltRecoverer.accept(record, exception);
@@ -242,7 +260,7 @@ public class KafkaListenerConfig {
         }
         try {
             Thread.sleep(retryIntervalMs);
-        } catch (InterruptedException interrupted) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }

@@ -15,7 +15,7 @@
 - Для новых записей сериализация payload выполняется canonical `ObjectMapper`, общий с `audit-writer-service`.
 - Исторические записи, созданные до canonical-схемы, могут иметь другой `event_hash` при том же payload.
 - Перед включением строгой сверки `audit.events.event_hash` с on-chain хэшами выполните runbook:
-  `docs/EVENT_HASH_CANONICAL_MIGRATION.md`.
+  `../../docs/EVENT_HASH_CANONICAL_MIGRATION.md`.
 
 ## Быстрый запуск
 
