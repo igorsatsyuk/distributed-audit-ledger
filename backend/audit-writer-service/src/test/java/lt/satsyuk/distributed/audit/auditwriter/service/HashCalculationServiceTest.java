@@ -79,9 +79,7 @@ class HashCalculationServiceTest {
      */
     @Test
     void computeHash_producesConsistentOutputForFixedEvent() throws Exception {
-        // canonical JSON: {"eventId":"00000000-0000-0000-0000-000000000001","eventType":
-        // "USER_LOGGED_IN","occurredAt":1704067200.000000000,"sourceService":"command-service",
-        // "userId":"test-user","ipAddress":null,"userAgent":null}
+        // Pinned regression fixture for canonical serialization + hashing.
         UserLoggedInEvent event = UserLoggedInEvent.builder()
                 .eventId("00000000-0000-0000-0000-000000000001")
                 .eventType(EventType.USER_LOGGED_IN)
@@ -95,7 +93,7 @@ class HashCalculationServiceTest {
         // Hard-coded expected digest — captured with JacksonConfig as of this commit.
         // A change to this value signals a serialization format regression that would
         // break cross-ledger hash verification.
-        String expectedHex = "9dba01dcf7dc7be4dcd6b9d8571ba72f242a04efbeeeaf87ad59c3b973bb9583";
+        String expectedHex = "4e110f35da72187cc0cbece092ca857e8fa2c84b3257c563eb22cd3574bd0f94";
 
         byte[] auditBytes = hashService.computeHash(event);
         String auditHex = HashCalculationService.toHexString(auditBytes);

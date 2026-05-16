@@ -238,7 +238,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_failsFastWhenRetryCountIsNotPositive() {
+    void anchorEvent_failsFastWhenRetryCountIsNegative() {
         props.setBlockchainWriteRetries(-1);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 

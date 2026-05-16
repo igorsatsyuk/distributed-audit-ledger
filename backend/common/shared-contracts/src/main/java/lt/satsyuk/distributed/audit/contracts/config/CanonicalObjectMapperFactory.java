@@ -1,6 +1,8 @@
 package lt.satsyuk.distributed.audit.contracts.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -14,6 +16,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * Jackson module to only one service must not silently change its event hashes.
  *
  * <p>Required module: {@link JavaTimeModule} for {@link java.time.Instant} serialization.
+ * Property and map-entry ordering are pinned so the serialized JSON stays deterministic
+ * across services and runtime/library upgrades.
  */
 public final class CanonicalObjectMapperFactory {
 
@@ -23,6 +27,8 @@ public final class CanonicalObjectMapperFactory {
     public static ObjectMapper create() {
         return JsonMapper.builder()
                 .addModule(new JavaTimeModule())
+                .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+                .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
                 .build();
     }
 }

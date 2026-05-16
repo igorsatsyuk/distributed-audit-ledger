@@ -46,7 +46,7 @@ import java.util.Map;
  * mismatch between the source topic and the DLT (which is auto-created by the broker
  * with the default partition count).
  *
- * <p>Two exception types receive special handling:
+ * <p>Three exception types receive special handling:
  * <ul>
  *   <li>{@link BlockchainWriterService.NonRecoverableEventException} — registered as
  *       non-retryable; skips back-off and is forwarded immediately to the DLT.</li>
@@ -55,6 +55,10 @@ import java.util.Map;
  *       and then the custom recoverer re-throws it without publishing to the DLT.  The
  *       offset stays uncommitted and the record is redelivered once configuration is
  *       present.</li>
+ *   <li>{@link BlockchainWriterService.ReceiptTimeoutException} — also re-thrown without
+ *       publishing to the DLT, because the write outcome is unknown and may still be mined
+ *       after timeout. Keeping the offset uncommitted prevents false dead-lettering of an
+ *       event that eventually anchors successfully on-chain.</li>
  * </ul>
  *
  * <p>The DLT producer uses {@link DltValueSerializer} to preserve raw {@code byte[]}
@@ -138,10 +142,20 @@ public class KafkaListenerConfig {
                             findCause(exception, BlockchainWriterService.BlockchainNotConfiguredException.class);
                     if (notCfg != null) {
                         log.error("[audit-writer] Blockchain not configured ({}) — offset will NOT be advanced "
-                                + "to DLT; the service must be restarted/redeployed with corrected web3j.private-key "
-                                + "and web3j.contract-address values before redelivery can succeed. topic={} partition={} offset={}",
+                                + "to DLT; restart/redeploy with corrected settings from the error message before redelivery can succeed. "
+                                + "topic={} partition={} offset={}",
                                 notCfg.getMessage(), record.topic(), record.partition(), record.offset());
                         throw notCfg; // rethrow to keep the partition offset uncommitted
+                    }
+
+                    BlockchainWriterService.ReceiptTimeoutException timeout =
+                            findCause(exception, BlockchainWriterService.ReceiptTimeoutException.class);
+                    if (timeout != null) {
+                        log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
+                                        + "transaction outcome is unknown and will be re-checked on redelivery. "
+                                        + "topic={} partition={} offset={}",
+                                timeout.getMessage(), record.topic(), record.partition(), record.offset());
+                        throw timeout;
                     }
                     dltRecoverer.accept(record, exception);
                 };
