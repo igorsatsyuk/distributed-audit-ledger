@@ -163,19 +163,39 @@ class AuditEventConsumerKafkaTestcontainersTest {
         return record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
     }
 
-    private void awaitSourceOffsetSettled() {
-        final Long[] last = new Long[1];
-        Awaitility.await()
-                .during(Duration.ofSeconds(2))
-                .atMost(Duration.ofSeconds(20))
-                .untilAsserted(() -> {
-                    Long current = committedSourceOffset();
-                    if (last[0] == null) {
-                        last[0] = current;
-                    } else {
-                        assertThat(current).isEqualTo(last[0]);
-                    }
-                });
+    private Long awaitSourceOffsetSettled() throws Exception {
+        Long baseline = committedSourceOffset();
+        int unchangedReads = 0;
+        long deadlineNanos = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+
+        while (System.nanoTime() < deadlineNanos) {
+            Thread.sleep(200L);
+            Long current = committedSourceOffset();
+            if (Objects.equals(current, baseline)) {
+                unchangedReads++;
+                if (unchangedReads >= 5) {
+                    return baseline;
+                }
+            } else {
+                baseline = current;
+                unchangedReads = 0;
+            }
+        }
+
+        throw new IllegalStateException("Source committed offset did not settle within timeout");
+    }
+
+    private KafkaConsumer<byte[], byte[]> buildDltByteArrayConsumer(String groupId) {
+        Map<String, Object> consumerProps = new HashMap<>();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        return new KafkaConsumer<>(consumerProps);
     }
 
     // -------------------------------------------------------------------------
@@ -223,17 +243,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
         kafkaTemplate.flush();
 
         // Build a raw byte-array consumer so we don't need to deserialise DLT payload
-        Map<String, Object> consumerProps = new HashMap<>();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-verify-group-" + System.nanoTime());
-        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = buildDltByteArrayConsumer(
+                "dlt-verify-group-" + System.nanoTime())) {
             dltConsumer.subscribe(List.of(DLT_TOPIC));
 
             List<ConsumerRecord<byte[], byte[]>> received = new ArrayList<>();
@@ -271,8 +282,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
         UserLoggedInEvent event = UserLoggedInEvent.of("not-configured-user", "10.0.0.2", null);
         // Drain async commits from earlier test methods before capturing this method's baseline.
-        awaitSourceOffsetSettled();
-        Long committedBefore = committedSourceOffset();
+        Long committedBefore = awaitSourceOffsetSettled();
 
         KafkaTemplate<String, AuditEvent> kafkaTemplate = buildProducer();
         waitForListenerAssignment();
@@ -290,17 +300,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
                 .atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertThat(committedSourceOffset()).isEqualTo(committedBefore));
 
-        Map<String, Object> consumerProps = new HashMap<>();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-not-configured-" + System.nanoTime());
-        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = buildDltByteArrayConsumer(
+                "dlt-not-configured-" + System.nanoTime())) {
             dltConsumer.subscribe(List.of(DLT_TOPIC));
 
             List<ConsumerRecord<byte[], byte[]>> received = new ArrayList<>();
@@ -350,17 +351,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
         rawProducer.send(TOPIC, poisonKey, poisonPayload).get(10, TimeUnit.SECONDS);
         rawProducer.flush();
 
-        Map<String, Object> consumerProps = new HashMap<>();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-poison-" + System.nanoTime());
-        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = buildDltByteArrayConsumer(
+                "dlt-poison-" + System.nanoTime())) {
             dltConsumer.subscribe(List.of(DLT_TOPIC));
 
             final ConsumerRecord<byte[], byte[]>[] matched = new ConsumerRecord[1];
@@ -397,17 +389,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
         rawProducer.send(TOPIC, tombstoneKey, null).get(10, TimeUnit.SECONDS);
         rawProducer.flush();
 
-        Map<String, Object> consumerProps = new HashMap<>();
-        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-tombstone-" + System.nanoTime());
-        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = buildDltByteArrayConsumer(
+                "dlt-tombstone-" + System.nanoTime())) {
             dltConsumer.subscribe(List.of(DLT_TOPIC));
 
             final ConsumerRecord<byte[], byte[]>[] matched = new ConsumerRecord[1];

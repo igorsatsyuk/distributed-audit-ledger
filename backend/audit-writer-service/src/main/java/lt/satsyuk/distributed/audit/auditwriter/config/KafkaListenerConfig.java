@@ -128,6 +128,12 @@ public class KafkaListenerConfig {
             @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic,
             @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs
     ) {
+        long effectiveRetryIntervalMs = retryIntervalMs > 0L ? retryIntervalMs : 1L;
+        if (retryIntervalMs <= 0L) {
+            log.warn("[audit-writer] kafka.listener.retry-interval-ms={} is invalid; clamping to {} ms to avoid tight re-delivery loops",
+                    retryIntervalMs, effectiveRetryIntervalMs);
+        }
+
         // Always route DLT records to partition 0.
         // Using record.partition() would require the DLT topic to have at least as many
         // partitions as the source topic; with auto-creation that is not guaranteed.
@@ -154,7 +160,7 @@ public class KafkaListenerConfig {
                     BlockchainWriterService.ReceiptTimeoutException timeout =
                             findCause(exception, BlockchainWriterService.ReceiptTimeoutException.class);
                     if (timeout != null) {
-                        sleepQuietly(retryIntervalMs);
+                        sleepQuietly(effectiveRetryIntervalMs);
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
                                         + "transaction outcome is unknown and will be re-checked on redelivery. "
                                         + "topic={} partition={} offset={}",
@@ -165,7 +171,7 @@ public class KafkaListenerConfig {
                 };
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
-                new FixedBackOff(retryIntervalMs, RETRY_ATTEMPTS));
+                new FixedBackOff(effectiveRetryIntervalMs, RETRY_ATTEMPTS));
 
         // Skip retries for known terminal malformed events and for receipt timeouts whose
         // outcome is still unknown. Exclude BlockchainNotConfiguredException from this list

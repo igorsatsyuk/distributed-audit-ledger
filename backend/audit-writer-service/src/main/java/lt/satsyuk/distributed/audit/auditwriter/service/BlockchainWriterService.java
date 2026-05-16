@@ -277,8 +277,10 @@ public class BlockchainWriterService {
                     "Blockchain writer is not configured: web3j.client-address is missing");
         }
         if (!Web3jValidationUtils.isValidClientAddress(clientAddress)) {
+            String redactedClientAddress = redactUrl(clientAddress);
             throw new BlockchainNotConfiguredException(
-                    "Blockchain writer has malformed web3j.client-address (expected http(s) URL): " + clientAddress);
+                    "Blockchain writer has malformed web3j.client-address (expected http(s) URL): "
+                            + redactedClientAddress);
         }
         if (credentials.isEmpty()) {
             String privateKey = props.getPrivateKey();
@@ -319,6 +321,25 @@ public class BlockchainWriterService {
 
     private void sleep(long millis) throws InterruptedException {
         Thread.sleep(millis);
+    }
+
+    private static String redactUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return "<empty>";
+        }
+        String url = rawUrl.trim();
+        int schemeIdx = url.indexOf("://");
+        if (schemeIdx < 0) {
+            return "<redacted>";
+        }
+        int authorityStart = schemeIdx + 3;
+        int slashIdx = url.indexOf('/', authorityStart);
+        String authority = slashIdx >= 0 ? url.substring(authorityStart, slashIdx) : url.substring(authorityStart);
+        int atIdx = authority.indexOf('@');
+        if (atIdx >= 0) {
+            return url.substring(0, authorityStart) + "<redacted>@" + authority.substring(atIdx + 1);
+        }
+        return url;
     }
 
     private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
