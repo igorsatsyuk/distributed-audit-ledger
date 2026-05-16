@@ -1,7 +1,8 @@
 package lt.satsyuk.distributed.audit.eventstore.service;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.r2dbc.postgresql.codec.Json;
+import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
+import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import lt.satsyuk.distributed.audit.eventstore.model.StoredAuditEvent;
 import lt.satsyuk.distributed.audit.eventstore.repository.StoredAuditEventRepository;
@@ -36,7 +37,7 @@ class EventPersistenceServiceTest {
     @BeforeEach
     void setUp() {
         service = new EventPersistenceService(
-                JsonMapper.builder().findAndAddModules().build(),
+                CanonicalObjectMapperFactory.create(),
                 new EventHashService(),
                 repository
         );
@@ -46,8 +47,15 @@ class EventPersistenceServiceTest {
     void persistMapsUserLoginEventToEntityAndStoresHash() {
         when(repository.save(any(StoredAuditEvent.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        UserLoggedInEvent event = UserLoggedInEvent.of("user-42", "192.0.2.10", "JUnit");
-        event.setOccurredAt(Instant.parse("2026-05-15T10:15:30Z"));
+        UserLoggedInEvent event = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000042")
+                .eventType(EventType.USER_LOGGED_IN)
+                .occurredAt(Instant.parse("2026-05-15T10:15:30Z"))
+                .sourceService("command-service")
+                .userId("user-42")
+                .ipAddress("192.0.2.10")
+                .userAgent("JUnit")
+                .build();
 
         StoredAuditEvent saved = service.persist(event).block();
 
@@ -59,6 +67,7 @@ class EventPersistenceServiceTest {
         assertNotNull(saved.getPayload());
         assertNotNull(saved.getEventHash());
         assertEquals(64, saved.getEventHash().length());
+        assertEquals("c998da0631c14d67105f0bb3aa31930617b8998f867de027ca5f7698bb526932", saved.getEventHash());
         assertNotNull(saved.getCreatedAt());
         assertEquals(LocalDateTime.of(2026, 5, 15, 10, 15, 30), saved.getCreatedAt());
 

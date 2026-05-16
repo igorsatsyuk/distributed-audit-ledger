@@ -15,7 +15,7 @@ spring:
       properties:
         spring.json.trusted.packages: "lt.satsyuk.distributed.audit.event"
         spring.json.use.type.headers: false
-        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.AuditEvent
+        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.UserLoggedInEvent
 
 kafka:
   topics:

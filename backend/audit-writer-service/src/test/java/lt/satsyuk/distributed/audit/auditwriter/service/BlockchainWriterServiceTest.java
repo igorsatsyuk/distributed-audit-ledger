@@ -214,6 +214,38 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_respectsCustomRetryCount_singleAttemptWhenConfiguredAsOne() throws Exception {
+        props.setBlockchainWriteRetries(1);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenThrow(new RuntimeException("RPC error"));
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                    .hasMessageContaining("after 1 attempts");
+        }
+
+        verify(contract, times(1))
+                .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_failsFastWhenRetryCountIsNotPositive() {
+        props.setBlockchainWriteRetries(0);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("blockchain-write-retries must be > 0");
+    }
+
+    @Test
     void anchorEvent_failsFastOnMissingEventId() {
         // eventId is null; occurredAt and eventType are valid → should fail on eventId check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();

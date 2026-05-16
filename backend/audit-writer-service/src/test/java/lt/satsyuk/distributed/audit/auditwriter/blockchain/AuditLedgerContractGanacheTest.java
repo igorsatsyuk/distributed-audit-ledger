@@ -1,5 +1,7 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -20,9 +22,10 @@ import org.web3j.tx.gas.DefaultGasProvider;
 import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 import org.web3j.utils.Numeric;
 
-import java.io.InputStream;
+import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Instant;
 
@@ -42,10 +45,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       confirming the {@code owner()} ABI wrapper is correctly encoded.</li>
  * </ul>
  *
- * <p>Bytecode is read from {@code test/resources/AuditLedger.bytecode}.  Update that file
- * (re-run {@code npm run compile} in {@code blockchain/} and copy the new {@code bytecode}
- * field from {@code artifacts/contracts/AuditLedger.sol/AuditLedger.json}) whenever the
- * Solidity contract changes.
+ * <p>Bytecode is read directly from the repository artifact
+ * {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json} so this
+ * integration test always deploys the same contract build that ships in the repo.
  *
  * <p>Automatically skipped when Docker is unavailable.
  */
@@ -160,18 +162,8 @@ class AuditLedgerContractGanacheTest {
      * contract-creation transaction.  Returns the deployed contract address once mined.
      */
     private static String deployAuditLedger(Web3j web3j, Credentials credentials) throws Exception {
-        String bytecode;
-        try (InputStream in = AuditLedgerContractGanacheTest.class
-                .getClassLoader().getResourceAsStream("AuditLedger.bytecode")) {
-            if (in == null) {
-                throw new IllegalStateException(
-                        "AuditLedger.bytecode not found on test classpath. "
-                        + "Copy the 'bytecode' field from "
-                        + "blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json "
-                        + "to audit-writer-service/src/test/resources/AuditLedger.bytecode.");
-            }
-            bytecode = new String(in.readAllBytes(), StandardCharsets.UTF_8).strip();
-        }
+        Path artifactPath = locateAuditLedgerArtifact();
+        String bytecode = readBytecodeFromArtifact(artifactPath);
 
         long chainId = web3j.ethChainId().send().getChainId().longValue();
 
@@ -203,6 +195,33 @@ class AuditLedgerContractGanacheTest {
                     "Deploy tx mined but contractAddress is null; status=" + receipt.getStatus());
         }
         return contractAddress;
+    }
+
+    private static Path locateAuditLedgerArtifact() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        for (int i = 0; i < 8 && current != null; i++) {
+            Path candidate = current
+                    .resolve("blockchain")
+                    .resolve("artifacts")
+                    .resolve("contracts")
+                    .resolve("AuditLedger.sol")
+                    .resolve("AuditLedger.json");
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException(
+                "Cannot find blockchain artifact: blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json");
+    }
+
+    private static String readBytecodeFromArtifact(Path artifactPath) throws IOException {
+        JsonNode json = new ObjectMapper().readTree(Files.readString(artifactPath));
+        String bytecode = json.path("bytecode").asText(null);
+        if (bytecode == null || bytecode.isBlank() || "0x".equals(bytecode)) {
+            throw new IllegalStateException("AuditLedger artifact bytecode is missing or empty at " + artifactPath);
+        }
+        return bytecode;
     }
 }
 

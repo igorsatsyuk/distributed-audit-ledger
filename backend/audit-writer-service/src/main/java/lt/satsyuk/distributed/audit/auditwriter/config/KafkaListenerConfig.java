@@ -2,7 +2,6 @@ package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
-import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -87,7 +86,9 @@ public class KafkaListenerConfig {
     @Bean
     public ConsumerFactory<String, AuditEvent> consumerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
-            @Value("${spring.kafka.consumer.group-id:audit-writer-consumer}") String groupId
+            @Value("${spring.kafka.consumer.group-id:audit-writer-consumer}") String groupId,
+            @Value("${spring.kafka.consumer.properties.spring.json.value.default.type:"
+                    + "lt.satsyuk.distributed.audit.event.UserLoggedInEvent}") String valueDefaultType
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -101,7 +102,7 @@ public class KafkaListenerConfig {
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, UserLoggedInEvent.class.getName());
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
 
         return new DefaultKafkaConsumerFactory<>(props);
     }

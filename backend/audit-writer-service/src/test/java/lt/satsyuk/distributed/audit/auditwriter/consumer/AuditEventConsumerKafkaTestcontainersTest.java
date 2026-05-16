@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -154,6 +155,10 @@ class AuditEventConsumerKafkaTestcontainersTest {
         }
     }
 
+    private static String keyAsUtf8(ConsumerRecord<byte[], byte[]> record) {
+        return record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+    }
+
     // -------------------------------------------------------------------------
     // Tests
     // -------------------------------------------------------------------------
@@ -218,15 +223,19 @@ class AuditEventConsumerKafkaTestcontainersTest {
                     .untilAsserted(() -> {
                         ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
                         polled.forEach(received::add);
-                        assertThat(received)
-                                .as("expected at least one record on DLT topic " + DLT_TOPIC)
-                                .isNotEmpty();
+                        boolean hasExpectedEvent = received.stream()
+                                .map(AuditEventConsumerKafkaTestcontainersTest::keyAsUtf8)
+                                .anyMatch(event.getEventId()::equals);
+                        assertThat(hasExpectedEvent)
+                                .as("expected DLT record for eventId=" + event.getEventId())
+                                .isTrue();
                     });
 
-            // Verify the DLT record belongs to *this* test's event (key = eventId string)
-            ConsumerRecord<byte[], byte[]> dltRecord = received.get(0);
-            String dltKey = dltRecord.key() != null
-                    ? new String(dltRecord.key(), StandardCharsets.UTF_8) : null;
+            ConsumerRecord<byte[], byte[]> dltRecord = received.stream()
+                    .filter(rec -> event.getEventId().equals(keyAsUtf8(rec)))
+                    .findFirst()
+                    .orElseThrow();
+            String dltKey = keyAsUtf8(dltRecord);
             assertThat(dltKey)
                     .as("DLT record key must be the original event's eventId")
                     .isEqualTo(event.getEventId());
@@ -282,7 +291,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
             boolean foundEventInDlt = received.stream()
                     .map(ConsumerRecord::key)
-                    .filter(key -> key != null)
+                    .filter(Objects::nonNull)
                     .map(key -> new String(key, StandardCharsets.UTF_8))
                     .anyMatch(event.getEventId()::equals);
 
@@ -290,6 +299,21 @@ class AuditEventConsumerKafkaTestcontainersTest {
                     .as("record for not-configured failure must not be published to DLT")
                     .isFalse();
         }
+
+        // Important for test isolation: this scenario intentionally leaves offset uncommitted.
+        // Switch the mock back to success and wait until the same record gets redelivered and
+        // committed, so later tests are not blocked behind this offset.
+        reset(blockchainWriterService);
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> {
+                    Long committedAfterRecovery = committedSourceOffset();
+                    if (committedBefore == null) {
+                        assertThat(committedAfterRecovery).isNotNull();
+                    } else {
+                        assertThat(committedAfterRecovery).isGreaterThanOrEqualTo(committedBefore + 1L);
+                    }
+                });
 
         kafkaTemplate.destroy();
     }
