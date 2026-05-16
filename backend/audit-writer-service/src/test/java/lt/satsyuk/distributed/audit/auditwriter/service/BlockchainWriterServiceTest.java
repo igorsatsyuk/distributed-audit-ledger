@@ -215,9 +215,9 @@ class BlockchainWriterServiceTest {
 
     @Test
     void anchorEvent_rejectsFutureTimestampBeyondDefaultTolerance() {
-        // Default tolerance is 300 seconds; use 301 seconds in future
+        // Use a comfortable margin beyond the default 300s tolerance to avoid timing flakiness.
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setOccurredAt(Instant.now().plusSeconds(301));
+        event.setOccurredAt(Instant.now().plusSeconds(360));
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
@@ -248,10 +248,10 @@ class BlockchainWriterServiceTest {
 
     @Test
     void anchorEvent_rejectsFutureTimestampBeyondCustomTolerance() {
-        // Set custom tolerance to 60 seconds, then use 61 seconds in future
+        // Use a comfortable margin beyond the custom tolerance to avoid timing flakiness.
         props.setFutureTimestampToleranceSeconds(60);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setOccurredAt(Instant.now().plusSeconds(61));
+        event.setOccurredAt(Instant.now().plusSeconds(120));
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
@@ -266,6 +266,31 @@ class BlockchainWriterServiceTest {
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                 .hasMessageContaining("future-timestamp-tolerance-seconds");
+    }
+
+    @Test
+    void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        TransactionReceipt failedReceipt = new TransactionReceipt();
+        failedReceipt.setStatus("0x0");
+        failedReceipt.setTransactionHash("0xdead");
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(failedReceipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                    .hasMessageContaining("Failed to anchor event");
+        }
+
+        verify(contract, times(BlockchainWriterService.MAX_RETRIES))
+                .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 }
 

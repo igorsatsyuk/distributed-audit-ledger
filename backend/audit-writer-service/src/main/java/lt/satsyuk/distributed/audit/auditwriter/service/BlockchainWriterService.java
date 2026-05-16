@@ -155,6 +155,13 @@ public class BlockchainWriterService {
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
             TransactionReceipt receipt = contract.appendAuditRecord(hash, timestamp, eventType, source);
+            if (receipt == null) {
+                throw new RuntimeException("appendAuditRecord returned null receipt");
+            }
+            if (receipt.getStatus() != null && !receipt.isStatusOK()) {
+                throw new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
+                        + " for tx " + receipt.getTransactionHash());
+            }
             log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
                     hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
         } catch (Exception appendEx) {
