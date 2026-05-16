@@ -54,6 +54,7 @@ class BlockchainWriterServiceTest {
         props.setClientAddress("http://localhost:8545");
         props.setContractAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
         props.setPrivateKey("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+        props.setReceiptWaitTimeoutSeconds(1);
 
         hashService = new HashCalculationService(new JacksonConfig().objectMapper());
 
@@ -246,6 +247,16 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_failsFastWhenReceiptWaitTimeoutIsNotPositive() {
+        props.setReceiptWaitTimeoutSeconds(0);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("receipt-wait-timeout-seconds must be > 0");
+    }
+
+    @Test
     void anchorEvent_failsFastOnMissingEventId() {
         // eventId is null; occurredAt and eventType are valid → should fail on eventId check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
@@ -367,7 +378,7 @@ class BlockchainWriterServiceTest {
                     .hasMessageContaining("Failed to anchor event");
         }
 
-        verify(contract, times(BlockchainWriterService.MAX_RETRIES))
+        verify(contract, times(props.getBlockchainWriteRetries()))
                 .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 
@@ -449,6 +460,31 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_retriesWhenHashExistsProbeFailsTransiently() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any()))
+                .thenThrow(new RuntimeException("connection reset by peer"))
+                .thenReturn(false);
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract, times(2)).isHashExists(any());
+        verify(contract).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
     void anchorEvent_wrapsOwnerProbeFailureAsNotConfigured() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
@@ -465,6 +501,32 @@ class BlockchainWriterServiceTest {
         }
 
         verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
+
+    @Test
+    void anchorEvent_retriesWhenOwnerProbeFailsTransiently() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.owner())
+                .thenThrow(new RuntimeException("rpc timeout"))
+                .thenReturn("0xsender");
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract, times(2)).owner();
+        verify(contract).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 }
 

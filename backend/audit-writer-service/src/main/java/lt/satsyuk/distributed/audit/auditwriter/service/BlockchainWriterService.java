@@ -15,6 +15,10 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.Optional;
 
 /**
@@ -57,7 +61,6 @@ public class BlockchainWriterService {
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
 
-    static final int MAX_RETRIES      = 3;
     static final long RETRY_DELAY_MS  = 1_000L;
 
     private final Web3j web3j;
@@ -191,7 +194,7 @@ public class BlockchainWriterService {
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
-            TransactionReceipt receipt = contract.appendAuditRecord(hash, timestamp, eventType, source);
+            TransactionReceipt receipt = waitForReceipt(contract, hash, timestamp, eventType, source);
             if (receipt == null) {
                 throw new RuntimeException("appendAuditRecord returned null receipt");
             }
@@ -267,10 +270,47 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "web3j.blockchain-write-retries must be > 0 but was " + props.getBlockchainWriteRetries());
         }
+        if (props.getReceiptWaitTimeoutSeconds() <= 0) {
+            throw new BlockchainNotConfiguredException(
+                    "web3j.receipt-wait-timeout-seconds must be > 0 but was " + props.getReceiptWaitTimeoutSeconds());
+        }
     }
 
     private void sleep(long millis) throws InterruptedException {
         Thread.sleep(millis);
+    }
+
+    private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
+                                              byte[] hash,
+                                              BigInteger timestamp,
+                                              String eventType,
+                                              String source) throws Exception {
+        int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
+
+        CompletableFuture<TransactionReceipt> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return contract.appendAuditRecord(hash, timestamp, eventType, source);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+
+        try {
+            return future.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException ex) {
+            future.cancel(true);
+            throw new RuntimeException(
+                    "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
+        } catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException runtime && runtime.getCause() instanceof Exception inner) {
+                throw inner;
+            }
+            if (cause instanceof Exception inner) {
+                throw inner;
+            }
+            throw new RuntimeException("appendAuditRecord execution failed", cause);
+        }
     }
 
     private void validateEvent(AuditEvent event) {

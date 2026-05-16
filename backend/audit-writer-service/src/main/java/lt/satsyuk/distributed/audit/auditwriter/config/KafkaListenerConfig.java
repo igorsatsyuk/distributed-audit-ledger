@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -22,8 +24,8 @@ import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -32,7 +34,7 @@ import java.util.Map;
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.
  *
- * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JsonDeserializer} so that
+ * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JacksonJsonDeserializer} so that
  * poison records (malformed JSON, unknown payload type) are routed to the container
  * error handler rather than stalling the partition at the same offset indefinitely.
  *
@@ -67,13 +69,16 @@ public class KafkaListenerConfig {
 
     @Bean
     public ProducerFactory<String, Object> producerFactory(
-            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+            ConfigurableEnvironment environment
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        mergeKafkaOverrides(props, environment, "spring.kafka.properties.");
+        mergeKafkaOverrides(props, environment, "spring.kafka.producer.");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
-        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        props.put(JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -87,22 +92,26 @@ public class KafkaListenerConfig {
     public ConsumerFactory<String, AuditEvent> consumerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
             @Value("${spring.kafka.consumer.group-id:audit-writer-consumer}") String groupId,
+            @Value("${spring.kafka.consumer.auto-offset-reset:earliest}") String autoOffsetReset,
+            ConfigurableEnvironment environment,
             @Value("${spring.kafka.consumer.properties.spring.json.value.default.type:"
                     + "lt.satsyuk.distributed.audit.event.UserLoggedInEvent}") String valueDefaultType
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset);
+        mergeKafkaOverrides(props, environment, "spring.kafka.properties.");
+        mergeKafkaOverrides(props, environment, "spring.kafka.consumer.");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         // Wrap JsonDeserializer with ErrorHandlingDeserializer so poison records
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on
         // the same partition offset.
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class.getName());
+        props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
+        props.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
 
         return new DefaultKafkaConsumerFactory<>(props);
     }
@@ -174,12 +183,12 @@ public class KafkaListenerConfig {
      * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
      * catches a deserialization failure it stores the original raw bytes in the Kafka
      * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
-     * the DLT record value.  Serializing {@code byte[]} with {@link JsonSerializer}
+         * the DLT record value.  Serializing {@code byte[]} with {@link JacksonJsonSerializer}
      * would encode the array as JSON (base64 or integer array) and corrupt the payload.
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
      */
-    public static class DltValueSerializer extends JsonSerializer<Object> {
+    public static class DltValueSerializer extends JacksonJsonSerializer<Object> {
         @Override
         public byte[] serialize(String topic, Object data) {
             if (data instanceof byte[] raw) {
@@ -198,5 +207,32 @@ public class KafkaListenerConfig {
             current = current.getCause();
         }
         return null;
+    }
+
+    private static void mergeKafkaOverrides(Map<String, Object> props,
+                                            ConfigurableEnvironment environment,
+                                            String prefix) {
+        for (var propertySource : environment.getPropertySources()) {
+            if (!(propertySource instanceof EnumerablePropertySource<?> enumerable)) {
+                continue;
+            }
+            for (String propertyName : enumerable.getPropertyNames()) {
+                if (!propertyName.startsWith(prefix)) {
+                    continue;
+                }
+                String suffix = propertyName.substring(prefix.length());
+                if (suffix.isBlank()) {
+                    continue;
+                }
+                if (suffix.startsWith("properties.")) {
+                    suffix = suffix.substring("properties.".length());
+                }
+                String kafkaKey = suffix.replace('-', '.');
+                Object value = environment.getProperty(propertyName);
+                if (value != null) {
+                    props.put(kafkaKey, value);
+                }
+            }
+        }
     }
 }

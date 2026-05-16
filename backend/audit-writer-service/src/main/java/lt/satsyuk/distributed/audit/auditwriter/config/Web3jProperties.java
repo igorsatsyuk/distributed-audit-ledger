@@ -26,6 +26,13 @@ public class Web3jProperties {
     private int blockchainWriteRetries = 3;
 
     /**
+     * Maximum time to wait for a mined transaction receipt before the write attempt is
+     * treated as failed and retried. Bounded to prevent the Kafka listener thread from
+     * waiting indefinitely on receipt polling.
+     */
+    private int receiptWaitTimeoutSeconds = 30;
+
+    /**
      * Maximum number of seconds that an event's {@code occurredAt} timestamp may be
      * in the future before the event is treated as non-recoverable.  Configurable so
      * operators can compensate for producer clock-skew or intentionally future-dated fixtures without
