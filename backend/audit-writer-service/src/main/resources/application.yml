@@ -15,11 +15,16 @@ spring:
       properties:
         spring.json.trusted.packages: "lt.satsyuk.distributed.audit.event"
         spring.json.use.type.headers: false
-        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.AuditEvent
+        spring.json.value.default.type: lt.satsyuk.distributed.audit.event.UserLoggedInEvent
 
 kafka:
   topics:
     user-login-events: user.login.events
+    user-login-events-dlt: user.login.events.dlt
+  listener:
+    # Retry back-off interval in ms between Kafka redelivery attempts (default 2 000).
+    # Override in tests via @SpringBootTest(properties={"kafka.listener.retry-interval-ms=100"}).
+    retry-interval-ms: 2000
 
 # Web3j / Ganache configuration
 web3j:
@@ -28,6 +33,16 @@ web3j:
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
   # Ethereum account private key for signing transactions (Ganache deterministic account 0)
   private-key: ${GANACHE_PRIVATE_KEY:}
+  # Service-side write retries before the Kafka error handler takes over.
+  # Keep this at 0 by default so Kafka redelivery remains the main retry layer.
+  blockchain-write-retries: 0
+  # Maximum time to wait for a mined receipt before the current write attempt is abandoned.
+  # Receipt timeouts are retried or re-checked later via Kafka redelivery, not by the
+  # service-side blockchain-write-retries loop.
+  receipt-wait-timeout-seconds: 30
+  # Maximum allowed future skew for occurredAt before audit-writer logs a warning.
+  # Events are still anchored to remain aligned with event-store acceptance.
+  future-timestamp-tolerance-seconds: 300
 
 management:
   endpoints:

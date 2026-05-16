@@ -21,6 +21,10 @@
             <groupId>lt.satsyuk.distributed.audit</groupId>
             <artifactId>event-model</artifactId>
         </dependency>
+        <dependency>
+            <groupId>lt.satsyuk.distributed.audit</groupId>
+            <artifactId>shared-contracts</artifactId>
+        </dependency>
 
         <!-- Spring Boot -->
         <dependency>
