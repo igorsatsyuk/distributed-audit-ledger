@@ -52,8 +52,9 @@ public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final Pattern ETH_ADDRESS = Pattern.compile("^0x[0-9a-fA-F]{40}$");
-    private static final Pattern ETH_PRIVATE_KEY = Pattern.compile("^(?i)(0x)?[0-9a-f]{64}$");
+    private static final Pattern ETH_PRIVATE_KEY = Pattern.compile("^(0x)?[0-9a-fA-F]{64}$");
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
+    private static final String ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
     static final int MAX_RETRIES      = 3;
     static final long RETRY_DELAY_MS  = 1_000L;
@@ -221,6 +222,10 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has a malformed contract address (expected 0x + 40 hex chars): " + addr);
         }
+        if (ZERO_ADDRESS.equalsIgnoreCase(addr)) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer has invalid contract address: zero-address is not allowed");
+        }
     }
 
     private void sleep(long millis) throws InterruptedException {
@@ -249,6 +254,10 @@ public class BlockchainWriterService {
             throw new NonRecoverableEventException(
                     "Event occurredAt is more than " + toleranceSeconds
                             + "s in the future for eventId=" + event.getEventId());
+        }
+        if (event.getOccurredAt().getEpochSecond() < 0) {
+            throw new NonRecoverableEventException(
+                    "Event occurredAt is before Unix epoch for eventId=" + event.getEventId());
         }
     }
 

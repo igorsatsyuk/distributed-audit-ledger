@@ -269,6 +269,38 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_rejectsPreEpochTimestampAsNonRecoverable() {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setOccurredAt(Instant.ofEpochSecond(-1));
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("before Unix epoch");
+    }
+
+    @Test
+    void anchorEvent_failsWhenContractAddressIsZeroAddress() {
+        props.setContractAddress("0x0000000000000000000000000000000000000000");
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("zero-address");
+    }
+
+    @Test
+    void anchorEvent_failsWhenPrivateKeyHasUppercase0XPrefix() {
+        props.setPrivateKey("0X0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+        BlockchainWriterService noCredService =
+                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> noCredService.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("private-key is malformed");
+    }
+
+    @Test
     void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 

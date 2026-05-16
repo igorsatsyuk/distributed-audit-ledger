@@ -1,11 +1,15 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
 import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,5 +105,26 @@ class HashCalculationServiceTest {
                         + "if JacksonConfig changed, re-evaluate both this baseline and "
                         + "cross-service hash compatibility")
                 .isEqualTo(expectedHex);
+    }
+
+    @Test
+    void computeHash_matchesEventStoreBaselineMapperAndAlgorithm() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-00000000000a")
+                .eventType(EventType.USER_LOGGED_IN)
+                .occurredAt(Instant.parse("2024-02-01T12:00:00Z"))
+                .sourceService("command-service")
+                .userId("baseline-user")
+                .ipAddress("127.0.0.1")
+                .userAgent("ua")
+                .build();
+
+        // Mirrors event-store-service JacksonConfig + EventHashService.sha256Hex(payloadJson).
+        ObjectMapper eventStoreMapper = JsonMapper.builder().findAndAddModules().build();
+        String payloadJson = eventStoreMapper.writeValueAsString(event);
+        byte[] expected = MessageDigest.getInstance("SHA-256")
+                .digest(payloadJson.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(hashService.computeHash(event)).isEqualTo(expected);
     }
 }
