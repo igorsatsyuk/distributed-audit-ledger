@@ -73,7 +73,6 @@ public class KafkaListenerConfig {
 
     static final long RETRY_ATTEMPTS = 2L;
     static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
-    static final long DEFAULT_RECEIPT_WAIT_TIMEOUT_SECONDS = 30L;
 
     @Bean
     public ProducerFactory<String, Object> producerFactory(
@@ -129,8 +128,7 @@ public class KafkaListenerConfig {
     public CommonErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, Object> kafkaTemplate,
             @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic,
-            @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs,
-            @Value("${web3j.receipt-wait-timeout-seconds:30}") long receiptWaitTimeoutSeconds
+            @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs
     ) {
         long effectiveRetryIntervalMs = retryIntervalMs > 0L ? retryIntervalMs : DEFAULT_RETRY_INTERVAL_MS;
         if (retryIntervalMs <= 0L) {
@@ -138,13 +136,6 @@ public class KafkaListenerConfig {
                     retryIntervalMs, effectiveRetryIntervalMs);
         }
 
-        long effectiveReceiptWaitTimeoutSeconds = receiptWaitTimeoutSeconds > 0L
-                ? receiptWaitTimeoutSeconds
-                : DEFAULT_RECEIPT_WAIT_TIMEOUT_SECONDS;
-        if (receiptWaitTimeoutSeconds <= 0L) {
-            log.warn("[audit-writer] web3j.receipt-wait-timeout-seconds={} is invalid; using default {} s",
-                    receiptWaitTimeoutSeconds, effectiveReceiptWaitTimeoutSeconds);
-        }
 
         // Always route DLT records to partition 0.
         // Using record.partition() would require the DLT topic to have at least as many

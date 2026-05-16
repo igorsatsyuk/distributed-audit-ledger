@@ -319,6 +319,52 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_allowsNullOccurredAtUsingFallbackTimestamp() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setOccurredAt(null);
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract).appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_allowsNullUserIdToStayAlignedWithEventStoreFallbacks() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        event.setUserId(null);
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
     void anchorEvent_allowsFutureTimestampBeyondDefaultToleranceToStayAlignedWithEventStore() throws Exception {
         // Even when beyond tolerance, audit-writer should not DLT the record only due to clock skew.
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
@@ -342,23 +388,35 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_rejectsMalformedEventIdNotUuid() {
+    void anchorEvent_allowsNonUuidEventIdToStayAlignedWithEventStore() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setEventId("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
 
-        assertThatThrownBy(() -> service.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("not a valid UUID");
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
     }
 
     @Test
     void anchorEvent_rejectsEventIdWithWrongLength() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setEventId("123");
+        event.setEventId("x".repeat(37));
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("must be 36 chars UUID");
+                .hasMessageContaining("eventId exceeds 36 chars");
     }
 
     @Test
@@ -428,13 +486,27 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_rejectsPreEpochTimestampAsNonRecoverable() {
+    void anchorEvent_normalizesPreEpochTimestampForOnChainWrite() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.ofEpochSecond(-1));
 
-        assertThatThrownBy(() -> service.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
-                .hasMessageContaining("before Unix epoch");
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any(byte[].class))).thenReturn(false);
+        when(contract.appendAuditRecord(any(byte[].class), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract).appendAuditRecord(any(byte[].class), eq(BigInteger.ZERO), anyString(), anyString());
     }
 
     @Test

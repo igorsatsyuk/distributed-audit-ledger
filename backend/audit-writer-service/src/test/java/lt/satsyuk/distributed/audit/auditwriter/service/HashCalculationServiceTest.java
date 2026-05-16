@@ -48,10 +48,26 @@ class HashCalculationServiceTest {
     }
 
     @Test
-    void computeHash_differsForDifferentEvents() {
-        UserLoggedInEvent e1 = UserLoggedInEvent.of("user1", null, null);
-        UserLoggedInEvent e2 = UserLoggedInEvent.of("user2", null, null);
-        // Events have different userIds AND different random UUIDs, so hashes must differ
+    void computeHash_differsWhenOnlyUserIdDiffers() {
+        UserLoggedInEvent e1 = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000101")
+                .eventType(EventType.USER_LOGGED_IN)
+                .occurredAt(Instant.parse("2024-01-01T00:00:00Z"))
+                .sourceService("command-service")
+                .userId("user1")
+                .ipAddress(null)
+                .userAgent(null)
+                .build();
+        UserLoggedInEvent e2 = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000101")
+                .eventType(EventType.USER_LOGGED_IN)
+                .occurredAt(Instant.parse("2024-01-01T00:00:00Z"))
+                .sourceService("command-service")
+                .userId("user2")
+                .ipAddress(null)
+                .userAgent(null)
+                .build();
+
         assertThat(hashService.computeHash(e1)).isNotEqualTo(hashService.computeHash(e2));
     }
 

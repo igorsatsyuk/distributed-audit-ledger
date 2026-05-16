@@ -17,7 +17,6 @@ import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,10 +70,11 @@ public class BlockchainWriterService {
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
     private static final int MAX_BLOCKCHAIN_WRITE_RETRIES = 10;
-    private static final int EVENT_ID_LENGTH = 36;
+    private static final int EVENT_ID_MAX_LENGTH = 36;
     private static final int AGGREGATE_ID_MAX_LENGTH = 128;
     private static final int USER_ID_MAX_LENGTH = 255;
     private static final String USER_AGGREGATE_PREFIX = "user:";
+    private static final int MAX_STALE_IN_FLIGHT_OBSERVATIONS = 3;
 
     static final long RETRY_DELAY_MS  = 1_000L;
 
@@ -241,7 +241,8 @@ public class BlockchainWriterService {
         String signer = credentials.get().getAddress();
         ensureSignerOwnsContract(contract, signer);
 
-        BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
+        Instant occurredAt = resolveOccurredAt(event);
+        BigInteger timestamp = toContractTimestamp(occurredAt);
         String eventType = event.getEventType().name();
         String source    = signer;
 
@@ -467,6 +468,18 @@ public class BlockchainWriterService {
                         hexHash);
                 throw new DuplicateHashException(hexHash);
             }
+
+            int staleObservations = inFlight.incrementStaleObservations();
+            if (staleObservations >= MAX_STALE_IN_FLIGHT_OBSERVATIONS && inFlightWritesByHash.remove(hexHash, inFlight)) {
+                // Best-effort cleanup: if a write is repeatedly stale and still has no hash on-chain,
+                // expire local tracking so a later redelivery can attempt a fresh submission.
+                inFlight.future().cancel(true);
+                throw new ReceiptTimeoutException(
+                        "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt; "
+                                + "stale in-flight write exceeded observation limit and tracking was expired for recovery",
+                        null);
+            }
+
             throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt; "
                             + "existing in-flight write is still pending and remains tracked",
@@ -539,43 +552,53 @@ public class BlockchainWriterService {
                 + " for tx " + receipt.getTransactionHash() + reasonPart);
     }
 
-    private record InFlightWrite(Future<TransactionReceipt> future, long submittedAtNanos) {
+    private static final class InFlightWrite {
+        private final Future<TransactionReceipt> future;
+        private final long submittedAtNanos;
+        private final AtomicInteger staleObservations = new AtomicInteger(0);
+
+        private InFlightWrite(Future<TransactionReceipt> future, long submittedAtNanos) {
+            this.future = future;
+            this.submittedAtNanos = submittedAtNanos;
+        }
+
+        Future<TransactionReceipt> future() {
+            return future;
+        }
+
+        long submittedAtNanos() {
+            return submittedAtNanos;
+        }
+
+        int incrementStaleObservations() {
+            return staleObservations.incrementAndGet();
+        }
     }
 
     private void validateEvent(AuditEvent event) {
         if (event == null) {
             throw new NonRecoverableEventException("Event is null");
         }
-        if (event.getEventId() == null || event.getEventId().isBlank()) {
-            throw new NonRecoverableEventException("Event eventId is null or blank");
+        if (event.getEventId() == null) {
+            throw new NonRecoverableEventException("Event eventId is null");
         }
-        if (event.getEventId().length() != EVENT_ID_LENGTH) {
-            throw new NonRecoverableEventException("Event eventId must be 36 chars UUID for eventId=" + event.getEventId());
-        }
-        try {
-            UUID.fromString(event.getEventId());
-        } catch (IllegalArgumentException malformedUuid) {
-            throw new NonRecoverableEventException("Event eventId is not a valid UUID: " + event.getEventId());
-        }
-        if (event.getOccurredAt() == null) {
-            throw new NonRecoverableEventException("Event occurredAt is null for eventId=" + event.getEventId());
+        if (event.getEventId().length() > EVENT_ID_MAX_LENGTH) {
+            throw new NonRecoverableEventException("Event eventId exceeds " + EVENT_ID_MAX_LENGTH + " chars for eventId=" + event.getEventId());
         }
         if (event.getEventType() == null) {
             throw new NonRecoverableEventException("Event eventType is null for eventId=" + event.getEventId());
         }
+
+        Instant occurredAt = resolveOccurredAt(event);
         long toleranceSeconds = props.getFutureTimestampToleranceSeconds();
         if (toleranceSeconds < 0) {
             throw new BlockchainNotConfiguredException(
                     "web3j.future-timestamp-tolerance-seconds must be >= 0 but was " + toleranceSeconds);
         }
-        if (event.getOccurredAt().isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
+        if (occurredAt.isAfter(Instant.now().plusSeconds(toleranceSeconds))) {
             log.warn("[#7] Event {} occurredAt={} exceeds configured future tolerance {}s; "
                             + "continuing to stay aligned with event-store acceptance",
-                    event.getEventId(), event.getOccurredAt(), toleranceSeconds);
-        }
-        if (event.getOccurredAt().getEpochSecond() < 0) {
-            throw new NonRecoverableEventException(
-                    "Event occurredAt is before Unix epoch for eventId=" + event.getEventId());
+                    event.getEventId(), occurredAt, toleranceSeconds);
         }
         if (event instanceof UserLoggedInEvent loginEvent) {
             validateUserLoggedInEvent(loginEvent, event.getEventId());
@@ -584,18 +607,30 @@ public class BlockchainWriterService {
 
     private void validateUserLoggedInEvent(UserLoggedInEvent event, String eventId) {
         String userId = event.getUserId();
-        if (userId == null || userId.isBlank()) {
-            throw new NonRecoverableEventException("UserLoggedInEvent userId is null or blank for eventId=" + eventId);
-        }
-        if (userId.length() > USER_ID_MAX_LENGTH) {
+        if (userId != null && userId.length() > USER_ID_MAX_LENGTH) {
             throw new NonRecoverableEventException("UserLoggedInEvent userId exceeds "
                     + USER_ID_MAX_LENGTH + " chars for eventId=" + eventId);
         }
-        int aggregateIdLength = USER_AGGREGATE_PREFIX.length() + userId.length();
+        int aggregateIdLength = userId != null
+                ? USER_AGGREGATE_PREFIX.length() + userId.length()
+                : eventId.length();
         if (aggregateIdLength > AGGREGATE_ID_MAX_LENGTH) {
             throw new NonRecoverableEventException("UserLoggedInEvent aggregate_id length exceeds "
                     + AGGREGATE_ID_MAX_LENGTH + " chars for eventId=" + eventId);
         }
+    }
+
+    private Instant resolveOccurredAt(AuditEvent event) {
+        return event.getOccurredAt() != null ? event.getOccurredAt() : Instant.now();
+    }
+
+    private BigInteger toContractTimestamp(Instant occurredAt) {
+        long epochSeconds = occurredAt.getEpochSecond();
+        if (epochSeconds < 0) {
+            log.warn("[#7] occurredAt={} is before Unix epoch; normalizing on-chain timestamp to 0", occurredAt);
+            return BigInteger.ZERO;
+        }
+        return BigInteger.valueOf(epochSeconds);
     }
 
     private boolean isDuplicateHashRevert(Throwable error) {

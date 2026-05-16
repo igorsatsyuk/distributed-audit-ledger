@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
  * the configured error handler can apply central retry policy. Recoverable write
  * failures and non-recoverable event payload failures are eventually routed to the
  * DLT, while {@code BlockchainNotConfiguredException} and
- * {@code ReceiptTimeoutException} are re-thrown to keep the source offset
+ * {@code BlockchainWriterService.ReceiptTimeoutException} are re-thrown to keep the source offset
  * uncommitted until configuration is fixed or in-flight transaction outcome
  * becomes known.
  */

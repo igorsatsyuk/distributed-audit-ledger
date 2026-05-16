@@ -24,7 +24,7 @@ class KafkaListenerConfigTest {
         KafkaListenerConfig config = new KafkaListenerConfig();
         KafkaTemplate<String, Object> kafkaTemplate = mockKafkaTemplate();
         DefaultErrorHandler errorHandler = (DefaultErrorHandler)
-                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 2_000L, 30L);
+                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 2_000L);
 
         assertThat(errorHandler.removeClassification(BlockchainWriterService.ReceiptTimeoutException.class))
                 .as("ReceiptTimeoutException should use default retryable classification so container backoff can be applied")
@@ -36,7 +36,7 @@ class KafkaListenerConfigTest {
         KafkaListenerConfig config = new KafkaListenerConfig();
         KafkaTemplate<String, Object> kafkaTemplate = mockKafkaTemplate();
         DefaultErrorHandler errorHandler = (DefaultErrorHandler)
-                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 0L, 30L);
+                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 0L);
 
         assertThat(errorHandler.removeClassification(BlockchainWriterService.ReceiptTimeoutException.class))
                 .as("ReceiptTimeoutException should remain retryable when retry interval is clamped")
@@ -48,7 +48,7 @@ class KafkaListenerConfigTest {
         KafkaListenerConfig config = new KafkaListenerConfig();
         KafkaTemplate<String, Object> kafkaTemplate = mockKafkaTemplate();
         DefaultErrorHandler errorHandler = (DefaultErrorHandler)
-                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 2_000L, 30L);
+                config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 2_000L);
 
         assertThat(errorHandler.removeClassification(DeserializationException.class))
                 .as("DeserializationException must bypass retries and go to DLT immediately")
