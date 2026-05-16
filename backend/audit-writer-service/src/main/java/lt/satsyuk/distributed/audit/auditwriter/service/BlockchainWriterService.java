@@ -153,8 +153,12 @@ public class BlockchainWriterService {
         try {
             hashExists = contract.isHashExists(hash);
         } catch (Exception probeEx) {
-            throw new BlockchainNotConfiguredException(
-                    "Cannot verify AuditLedger at configured contract address (isHashExists probe failed)", probeEx);
+            if (isPermanentContractProbeFailure(probeEx)) {
+                throw new BlockchainNotConfiguredException(
+                        "Cannot verify AuditLedger at configured contract address (isHashExists probe failed)", probeEx);
+            }
+            // Transient RPC / node availability failures should use normal retry + DLT path.
+            throw probeEx;
         }
         if (hashExists) {
             throw new DuplicateHashException(hexHash);
@@ -165,8 +169,12 @@ public class BlockchainWriterService {
         try {
             owner = contract.owner();
         } catch (Exception probeEx) {
-            throw new BlockchainNotConfiguredException(
-                    "Cannot resolve AuditLedger owner at configured contract address", probeEx);
+            if (isPermanentContractProbeFailure(probeEx)) {
+                throw new BlockchainNotConfiguredException(
+                        "Cannot resolve AuditLedger owner at configured contract address", probeEx);
+            }
+            // Transient RPC / node availability failures should use normal retry + DLT path.
+            throw probeEx;
         }
         if (owner == null || owner.isBlank()) {
             throw new BlockchainNotConfiguredException(
@@ -315,6 +323,24 @@ public class BlockchainWriterService {
                 if (normalized.contains("unauthorized")
                         || normalized.contains("onlyowner")
                         || normalized.contains(UNAUTHORIZED_SELECTOR)) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean isPermanentContractProbeFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                // Heuristic for deterministic misconfiguration (wrong/non-contract address).
+                if (normalized.contains("no contract")
+                        || normalized.contains("empty value")
+                        || normalized.contains("code at address")) {
                     return true;
                 }
             }

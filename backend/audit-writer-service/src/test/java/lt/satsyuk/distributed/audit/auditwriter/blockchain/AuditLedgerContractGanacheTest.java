@@ -23,7 +23,9 @@ import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 import org.web3j.utils.Numeric;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -45,9 +47,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       confirming the {@code owner()} ABI wrapper is correctly encoded.</li>
  * </ul>
  *
- * <p>Bytecode is read directly from the repository artifact
- * {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json} so this
- * integration test always deploys the same contract build that ships in the repo.
+ * <p>Bytecode source order:
+ * <ol>
+ *   <li>{@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json} when present
+ *       (freshly compiled local artifact)</li>
+ *   <li>Fallback test resource {@code AuditLedger.bytecode} committed in this module for
+ *       clean checkouts where {@code blockchain/artifacts} is absent.</li>
+ * </ol>
  *
  * <p>Automatically skipped when Docker is unavailable.
  */
@@ -158,12 +164,11 @@ class AuditLedgerContractGanacheTest {
 
     /**
      * Deploys {@code AuditLedger} by reading its deployment bytecode from
-     * {@code AuditLedger.bytecode} on the test classpath and submitting a raw signed
+     * the Hardhat artifact when available (or from classpath fallback otherwise), then submitting a raw signed
      * contract-creation transaction.  Returns the deployed contract address once mined.
      */
     private static String deployAuditLedger(Web3j web3j, Credentials credentials) throws Exception {
-        Path artifactPath = locateAuditLedgerArtifact();
-        String bytecode = readBytecodeFromArtifact(artifactPath);
+        String bytecode = resolveAuditLedgerBytecode();
 
         long chainId = web3j.ethChainId().send().getChainId().longValue();
 
@@ -197,6 +202,26 @@ class AuditLedgerContractGanacheTest {
         return contractAddress;
     }
 
+    private static String resolveAuditLedgerBytecode() throws IOException {
+        Path artifactPath = locateAuditLedgerArtifact();
+        if (artifactPath != null) {
+            return readBytecodeFromArtifact(artifactPath);
+        }
+        try (InputStream in = AuditLedgerContractGanacheTest.class
+                .getClassLoader().getResourceAsStream("AuditLedger.bytecode")) {
+            if (in == null) {
+                throw new IllegalStateException(
+                        "Cannot find AuditLedger bytecode: neither blockchain/artifacts/.../AuditLedger.json "
+                                + "nor classpath resource AuditLedger.bytecode is available.");
+            }
+            String bytecode = new String(in.readAllBytes(), StandardCharsets.UTF_8).strip();
+            if (bytecode.isBlank() || "0x".equals(bytecode)) {
+                throw new IllegalStateException("Classpath resource AuditLedger.bytecode is empty.");
+            }
+            return bytecode;
+        }
+    }
+
     private static Path locateAuditLedgerArtifact() {
         Path current = Path.of("").toAbsolutePath().normalize();
         for (int i = 0; i < 8 && current != null; i++) {
@@ -211,8 +236,7 @@ class AuditLedgerContractGanacheTest {
             }
             current = current.getParent();
         }
-        throw new IllegalStateException(
-                "Cannot find blockchain artifact: blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json");
+        return null;
     }
 
     private static String readBytecodeFromArtifact(Path artifactPath) throws IOException {
