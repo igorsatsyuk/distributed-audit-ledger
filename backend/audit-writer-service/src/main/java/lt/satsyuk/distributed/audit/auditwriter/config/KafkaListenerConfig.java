@@ -55,10 +55,11 @@ import java.util.Map;
  *       and then the custom recoverer re-throws it without publishing to the DLT.  The
  *       offset stays uncommitted and the record is redelivered once configuration is
  *       present.</li>
- *   <li>{@link BlockchainWriterService.ReceiptTimeoutException} — also re-thrown without
+ *   <li>{@link BlockchainWriterService.ReceiptTimeoutException} — registered as
+ *       non-retryable at the container level and then re-thrown by the recoverer without
  *       publishing to the DLT, because the write outcome is unknown and may still be mined
- *       after timeout. Keeping the offset uncommitted prevents false dead-lettering of an
- *       event that eventually anchors successfully on-chain.</li>
+ *       after timeout. Keeping the offset uncommitted prevents both false dead-lettering and
+ *       duplicate in-flight blockchain writes before Kafka redelivery can re-check state.</li>
  * </ul>
  *
  * <p>The DLT producer uses {@link DltValueSerializer} to preserve raw {@code byte[]}
@@ -163,12 +164,13 @@ public class KafkaListenerConfig {
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
                 new FixedBackOff(retryIntervalMs, RETRY_ATTEMPTS));
 
-        // Skip retries only for known non-recoverable malformed events — send them
-        // straight to DLT without the backoff cycle. Exclude BlockchainNotConfiguredException
-        // from this list so that unconfigured startup still includes a backoff pause,
-        // preventing a tight re-poll loop while the service awaits configuration.
+        // Skip retries for known terminal malformed events and for receipt timeouts whose
+        // outcome is still unknown. Exclude BlockchainNotConfiguredException from this list
+        // so that unconfigured startup still includes a backoff pause, preventing a tight
+        // re-poll loop while the service awaits configuration.
         errorHandler.addNotRetryableExceptions(
-                BlockchainWriterService.NonRecoverableEventException.class
+                BlockchainWriterService.NonRecoverableEventException.class,
+                BlockchainWriterService.ReceiptTimeoutException.class
         );
 
         return errorHandler;

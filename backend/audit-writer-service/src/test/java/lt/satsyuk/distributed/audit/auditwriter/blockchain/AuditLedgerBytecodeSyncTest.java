@@ -11,8 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Comparator;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,21 +25,12 @@ class AuditLedgerBytecodeSyncTest {
     private static final ObjectMapper JSON = JsonMapper.builder().build();
 
     @Test
-    void auditLedgerSnapshots_stayInSyncWithCurrentSoliditySourceAndArtifact() throws Exception {
+    void auditLedgerSnapshots_stayInSyncWithCurrentSoliditySourceAndCommittedCompileSnapshot() throws Exception {
         Path repoRoot = locateRepoRoot();
         Path sourcePath = repoRoot.resolve("blockchain").resolve("contracts").resolve("AuditLedger.sol");
-        Path artifactPath = repoRoot.resolve("blockchain").resolve("artifacts")
-                .resolve("contracts").resolve("AuditLedger.sol").resolve("AuditLedger.json");
-        Path buildInfoPath = locateBuildInfo(repoRoot);
 
         assertThat(sourcePath)
                 .as("AuditLedger Solidity source must exist")
-                .exists();
-        assertThat(artifactPath)
-                .as("Hardhat artifact for AuditLedger must exist")
-                .exists();
-        assertThat(buildInfoPath)
-                .as("Hardhat build-info for AuditLedger must exist")
                 .exists();
 
         String currentSource = Files.readString(sourcePath);
@@ -53,32 +42,32 @@ class AuditLedgerBytecodeSyncTest {
                 .as("AuditLedger.sol hash marker must match current Solidity source")
                 .isEqualTo(expectedHash);
 
-        JsonNode buildInfo = JSON.readTree(Files.readString(buildInfoPath));
-        String compiledSource = buildInfo.path("input")
-                .path("sources")
-                .path("contracts/AuditLedger.sol")
-                .path("content")
+        JsonNode compileSnapshot = JSON.readTree(readClasspathResource("/AuditLedger.compile-snapshot.json"));
+        assertThat(compileSnapshot.path("sourceName").asText())
+                .as("compile snapshot must point to AuditLedger.sol")
+                .isEqualTo("contracts/AuditLedger.sol");
+        assertThat(compileSnapshot.path("contractName").asText())
+                .as("compile snapshot must target the AuditLedger contract")
+                .isEqualTo("AuditLedger");
+
+        String compiledSource = compileSnapshot.path("source")
                 .asText(null);
         assertThat(compiledSource)
-                .as("Hardhat build-info must include contracts/AuditLedger.sol source content")
+                .as("Committed compile snapshot must include contracts/AuditLedger.sol source content")
                 .isNotBlank();
         assertThat(normalizeLineEndings(compiledSource))
-                .as("Hardhat artifacts must be rebuilt from the current AuditLedger.sol source")
+                .as("Committed compile snapshot must be regenerated from the current AuditLedger.sol source")
                 .isEqualTo(normalizedCurrentSource);
 
-        JsonNode artifact = JSON.readTree(Files.readString(artifactPath));
-        String artifactBytecode = artifact.path("bytecode").asText(null);
-        assertThat(artifact.path("sourceName").asText())
-                .as("artifact must point to AuditLedger.sol")
-                .isEqualTo("contracts/AuditLedger.sol");
-        assertThat(artifactBytecode)
-                .as("Hardhat artifact bytecode must be present")
+        String compiledBytecode = compileSnapshot.path("bytecode").asText(null);
+        assertThat(compiledBytecode)
+                .as("Committed compile snapshot must include AuditLedger bytecode")
                 .isNotBlank();
 
         String committedBytecode = readClasspathResource("/AuditLedger.bytecode");
         assertThat(normalizeHexBytecode(committedBytecode))
-                .as("Committed AuditLedger.bytecode snapshot must match the current Hardhat artifact bytecode")
-                .isEqualTo(normalizeHexBytecode(artifactBytecode));
+                .as("Committed AuditLedger.bytecode snapshot must match the committed compile snapshot bytecode")
+                .isEqualTo(normalizeHexBytecode(compiledBytecode));
     }
 
     private static Path locateRepoRoot() {
@@ -93,19 +82,6 @@ class AuditLedgerBytecodeSyncTest {
         throw new IllegalStateException("Cannot find repository root containing blockchain/contracts/AuditLedger.sol");
     }
 
-    private static Path locateBuildInfo(Path repoRoot) throws Exception {
-        Path buildInfoDir = repoRoot.resolve("blockchain").resolve("artifacts").resolve("build-info");
-        if (!Files.isDirectory(buildInfoDir)) {
-            throw new IllegalStateException("Hardhat build-info directory not found: " + buildInfoDir);
-        }
-        try (Stream<Path> files = Files.list(buildInfoDir)) {
-            return files
-                    .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .max(Comparator.comparing(path -> path.getFileName().toString()))
-                    .orElseThrow(() -> new IllegalStateException(
-                            "No Hardhat build-info JSON files found under " + buildInfoDir));
-        }
-    }
 
     private static String readClasspathResource(String resourcePath) throws Exception {
         try (InputStream stream = AuditLedgerBytecodeSyncTest.class.getResourceAsStream(resourcePath)) {
