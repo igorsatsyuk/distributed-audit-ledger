@@ -57,13 +57,10 @@ import java.util.concurrent.TimeUnit;
  *       and then the custom recoverer re-throws it without publishing to the DLT.  The
  *       offset stays uncommitted and the record is redelivered once configuration is
  *       present.</li>
- *   <li>{@link BlockchainWriterService.ReceiptTimeoutException} — registered as
- *       non-retryable at the container level and then re-thrown by the recoverer without
- *       publishing to the DLT, because the write outcome is unknown and may still be mined
- *       after timeout. Keeping the offset uncommitted prevents both false dead-lettering and
- *       duplicate in-flight blockchain writes before Kafka redelivery can re-check state.
- *       A single explicit delay is applied in the recoverer before rethrow to avoid
- *       immediate tight-loop redelivery.</li>
+ *   <li>{@link BlockchainWriterService.ReceiptTimeoutException} — retried with the
+ *       container back-off (no explicit thread sleep in the recoverer) and re-thrown by
+ *       the recoverer without publishing to the DLT when retries are exhausted, because
+ *       the write outcome is unknown and may still be mined after timeout.</li>
  * </ul>
  *
  * <p>The DLT producer uses {@link DltValueSerializer} to preserve raw {@code byte[]}
@@ -147,7 +144,7 @@ public class KafkaListenerConfig {
                     receiptWaitTimeoutSeconds, effectiveReceiptWaitTimeoutSeconds);
         }
 
-        long receiptUncertaintyDelayMs = Math.max(
+        long timeoutAwareRetryIntervalMs = Math.max(
                 effectiveRetryIntervalMs,
                 TimeUnit.SECONDS.toMillis(effectiveReceiptWaitTimeoutSeconds)
         );
@@ -178,28 +175,24 @@ public class KafkaListenerConfig {
                     BlockchainWriterService.ReceiptTimeoutException timeout =
                             findCause(exception, BlockchainWriterService.ReceiptTimeoutException.class);
                     if (timeout != null) {
-                        // Keep enough delay for pending tx receipts before Kafka redelivery can trigger another send.
-                        sleepQuietly(receiptUncertaintyDelayMs);
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
-                                        + "transaction outcome is unknown and will be re-checked on redelivery after {} ms. "
+                                        + "transaction outcome is unknown and will be re-checked on redelivery. "
                                         + "topic={} partition={} offset={}",
-                                timeout.getMessage(), receiptUncertaintyDelayMs,
-                                record.topic(), record.partition(), record.offset());
+                                timeout.getMessage(), record.topic(), record.partition(), record.offset());
                         throw timeout;
                     }
                     dltRecoverer.accept(record, exception);
                 };
 
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
-                new FixedBackOff(effectiveRetryIntervalMs, RETRY_ATTEMPTS));
+                new FixedBackOff(timeoutAwareRetryIntervalMs, RETRY_ATTEMPTS));
 
-        // Skip retries for known terminal malformed events and for receipt timeouts whose
-        // outcome is still unknown. Exclude BlockchainNotConfiguredException from this list
-        // so that unconfigured startup still includes a backoff pause, preventing a tight
-        // re-poll loop while the service awaits configuration.
+        // Skip retries for known terminal malformed events.
+        // Exclude BlockchainNotConfiguredException from this list so that unconfigured startup
+        // still includes a backoff pause, preventing a tight re-poll loop while the service
+        // awaits configuration.
         errorHandler.addNotRetryableExceptions(
                 BlockchainWriterService.NonRecoverableEventException.class,
-                BlockchainWriterService.ReceiptTimeoutException.class,
                 DeserializationException.class
         );
 
@@ -254,16 +247,6 @@ public class KafkaListenerConfig {
         return null;
     }
 
-    private static void sleepQuietly(long retryIntervalMs) {
-        if (retryIntervalMs <= 0L) {
-            return;
-        }
-        try {
-            Thread.sleep(retryIntervalMs);
-        } catch (InterruptedException _) {
-            Thread.currentThread().interrupt();
-        }
-    }
 
     /**
      * Merges Kafka client properties from the Spring environment into {@code props}.

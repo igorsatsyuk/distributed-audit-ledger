@@ -628,5 +628,61 @@ class BlockchainWriterServiceTest {
         verify(contract, times(2)).owner();
         verify(contract).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
+
+    @Test
+    void anchorEvent_cachesOwnerProbeAcrossEvents() throws Exception {
+        UserLoggedInEvent event1 = UserLoggedInEvent.of("u1", null, null);
+        UserLoggedInEvent event2 = UserLoggedInEvent.of("u2", null, null);
+
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash("0xabc");
+        receipt.setBlockNumber("0x1");
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event1)).doesNotThrowAnyException();
+            assertThatCode(() -> service.anchorEvent(event2)).doesNotThrowAnyException();
+        }
+
+        verify(contract, times(1)).owner();
+        verify(contract, times(2)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_redeliveryDoesNotSubmitSecondTxWhileFirstIsInFlight() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    Thread.sleep(1_500L);
+                    TransactionReceipt receipt = new TransactionReceipt();
+                    receipt.setStatus("0x1");
+                    receipt.setTransactionHash("0xpending");
+                    receipt.setBlockNumber("0x1");
+                    return receipt;
+                });
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class)
+                    .hasMessageContaining("Timed out waiting 1s");
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
 }
 

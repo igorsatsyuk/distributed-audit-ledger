@@ -17,15 +17,15 @@ class KafkaListenerConfigTest {
     }
 
     @Test
-    void kafkaErrorHandler_registersReceiptTimeoutAsNonRetryable() {
+    void kafkaErrorHandler_doesNotRegisterReceiptTimeoutAsNonRetryable() {
         KafkaListenerConfig config = new KafkaListenerConfig();
         KafkaTemplate<String, Object> kafkaTemplate = mockKafkaTemplate();
         DefaultErrorHandler errorHandler = (DefaultErrorHandler)
                 config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 2_000L, 30L);
 
         assertThat(errorHandler.removeClassification(BlockchainWriterService.ReceiptTimeoutException.class))
-                .as("ReceiptTimeoutException must be classified as non-retryable by the Kafka error handler")
-                .isEqualTo(Boolean.FALSE);
+                .as("ReceiptTimeoutException should use default retryable classification so container backoff can be applied")
+                .isNull();
     }
 
     @Test
@@ -36,8 +36,8 @@ class KafkaListenerConfigTest {
                 config.kafkaErrorHandler(kafkaTemplate, "user.login.events.dlt", 0L, 30L);
 
         assertThat(errorHandler.removeClassification(BlockchainWriterService.ReceiptTimeoutException.class))
-                .as("ReceiptTimeoutException classification must remain non-retryable when retry interval is clamped")
-                .isEqualTo(Boolean.FALSE);
+                .as("ReceiptTimeoutException should remain retryable when retry interval is clamped")
+                .isNull();
     }
 
     @Test

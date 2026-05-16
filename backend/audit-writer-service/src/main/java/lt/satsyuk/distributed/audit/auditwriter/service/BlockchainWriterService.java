@@ -17,6 +17,7 @@ import org.web3j.tx.gas.DefaultGasProvider;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -79,6 +80,8 @@ public class BlockchainWriterService {
     private final long retryDelayMs;
     private final ExecutorService receiptExecutor;
     private final boolean ownsReceiptExecutor;
+    private final ConcurrentHashMap<String, Future<TransactionReceipt>> inFlightWritesByHash = new ConcurrentHashMap<>();
+    private volatile String cachedContractOwner;
 
     /**
      * {@code credentials} is optional — injected as empty Optional when the private-key
@@ -207,6 +210,9 @@ public class BlockchainWriterService {
         AuditLedgerContract contract = AuditLedgerContract.load(
                 props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
+        // If a previous write for this hash is still in-flight, poll it first instead of sending a new tx.
+        awaitInFlightWriteIfPresent(hexHash);
+
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
         final boolean hashExists;
         try {
@@ -224,25 +230,7 @@ public class BlockchainWriterService {
         }
 
         String signer = credentials.get().getAddress();
-        String owner;
-        try {
-            owner = contract.owner();
-        } catch (Exception probeEx) {
-            if (isPermanentContractProbeFailure(probeEx)) {
-                throw new BlockchainNotConfiguredException(
-                        "Cannot resolve AuditLedger owner at configured contract address", probeEx);
-            }
-            // Transient RPC / node availability failures should use normal retry + DLT path.
-            throw probeEx;
-        }
-        if (owner == null || owner.isBlank()) {
-            throw new BlockchainNotConfiguredException(
-                    "Cannot resolve AuditLedger owner at configured contract address (empty owner response)");
-        }
-        if (!owner.equalsIgnoreCase(signer)) {
-            throw new BlockchainNotConfiguredException(
-                    "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
-        }
+        ensureSignerOwnsContract(contract, signer);
 
         BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
         String eventType = event.getEventType().name();
@@ -250,7 +238,7 @@ public class BlockchainWriterService {
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
-            TransactionReceipt receipt = waitForReceipt(contract, hash, timestamp, eventType, source);
+            TransactionReceipt receipt = waitForReceipt(contract, hash, hexHash, timestamp, eventType, source);
             if (receipt == null) {
                 throw new RuntimeException("appendAuditRecord returned null receipt");
             }
@@ -273,6 +261,7 @@ public class BlockchainWriterService {
             // Contract owner mismatch (onlyOwner modifier): treat as a configuration error so
             // the offset stays uncommitted rather than draining events to the DLT.
             if (isOwnershipRevert(appendEx)) {
+                cachedContractOwner = null;
                 throw new BlockchainNotConfiguredException(
                         "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract",
                         appendEx);
@@ -292,6 +281,43 @@ public class BlockchainWriterService {
             }
             throw appendEx; // original transient error; retry loop will handle it
         }
+    }
+
+    private void ensureSignerOwnsContract(AuditLedgerContract contract, String signer) throws Exception {
+        String owner = cachedContractOwner;
+        if (owner == null || owner.isBlank()) {
+            owner = resolveContractOwner(contract);
+            cachedContractOwner = owner;
+        }
+        if (owner.equalsIgnoreCase(signer)) {
+            return;
+        }
+
+        // Ownership can rotate at runtime; refresh once before failing.
+        String refreshedOwner = resolveContractOwner(contract);
+        cachedContractOwner = refreshedOwner;
+        if (!refreshedOwner.equalsIgnoreCase(signer)) {
+            throw new BlockchainNotConfiguredException(
+                    "Configured signer does not own AuditLedger contract (owner=" + refreshedOwner + ", signer=" + signer + ")");
+        }
+    }
+
+    private String resolveContractOwner(AuditLedgerContract contract) throws Exception {
+        String owner;
+        try {
+            owner = contract.owner();
+        } catch (Exception probeEx) {
+            if (isPermanentContractProbeFailure(probeEx)) {
+                throw new BlockchainNotConfiguredException(
+                        "Cannot resolve AuditLedger owner at configured contract address", probeEx);
+            }
+            throw probeEx;
+        }
+        if (owner == null || owner.isBlank()) {
+            throw new BlockchainNotConfiguredException(
+                    "Cannot resolve AuditLedger owner at configured contract address (empty owner response)");
+        }
+        return owner;
     }
 
     private void validateConfiguration() {
@@ -368,10 +394,17 @@ public class BlockchainWriterService {
 
     private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
                                               byte[] hash,
+                                              String hexHash,
                                               BigInteger timestamp,
                                               String eventType,
                                               String source) throws Exception {
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
+
+        Future<TransactionReceipt> existing = inFlightWritesByHash.get(hexHash);
+        if (existing != null) {
+            return awaitInFlightResult(hexHash, existing, timeoutSeconds);
+        }
+
         Future<TransactionReceipt> future;
         try {
             future = receiptExecutor.submit(() -> contract.appendAuditRecord(hash, timestamp, eventType, source));
@@ -381,22 +414,58 @@ public class BlockchainWriterService {
                     ex);
         }
 
+        Future<TransactionReceipt> previous = inFlightWritesByHash.putIfAbsent(hexHash, future);
+        if (previous != null) {
+            future.cancel(true);
+            return awaitInFlightResult(hexHash, previous, timeoutSeconds);
+        }
+
+        return awaitInFlightResult(hexHash, future, timeoutSeconds);
+    }
+
+    private TransactionReceipt awaitInFlightResult(String hexHash,
+                                                   Future<TransactionReceipt> future,
+                                                   int timeoutSeconds) throws Exception {
         try {
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
+            TransactionReceipt receipt = future.get(timeoutSeconds, TimeUnit.SECONDS);
+            inFlightWritesByHash.remove(hexHash, future);
+            return receipt;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new BlockchainWriteException("Interrupted while waiting for appendAuditRecord receipt", ex);
         } catch (TimeoutException ex) {
-            future.cancel(true);
             throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
         } catch (java.util.concurrent.ExecutionException ex) {
+            inFlightWritesByHash.remove(hexHash, future);
             Throwable cause = ex.getCause();
             if (cause instanceof Exception inner) {
                 throw inner;
             }
             throw new RuntimeException("appendAuditRecord execution failed", cause);
         }
+    }
+
+    private void awaitInFlightWriteIfPresent(String hexHash) throws Exception {
+        Future<TransactionReceipt> inFlight = inFlightWritesByHash.get(hexHash);
+        if (inFlight == null) {
+            return;
+        }
+        TransactionReceipt receipt = awaitInFlightResult(hexHash, inFlight, props.getReceiptWaitTimeoutSeconds());
+        if (receipt == null) {
+            throw new RuntimeException("appendAuditRecord returned null receipt");
+        }
+        if (receipt.getStatus() == null || !receipt.isStatusOK()) {
+            String revertReason = receipt.getRevertReason();
+            String reasonPart = (revertReason == null || revertReason.isBlank())
+                    ? ""
+                    : " (revertReason=" + revertReason + ")";
+            throw new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
+                    + " for tx " + receipt.getTransactionHash() + reasonPart);
+        }
+        log.info("[#7] Hash {} already has an in-flight tx that is now mined successfully. Tx={} Block={}",
+                hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
+        throw new DuplicateHashException(hexHash);
     }
 
     private void validateEvent(AuditEvent event) {
