@@ -59,8 +59,9 @@ import java.util.Optional;
  * can compensate for producer clock-skew or intentionally future-dated fixtures.
  *
  * <p>The service-side write retry budget is configurable via
- * {@code web3j.blockchain-write-retries} (default 3). This value is interpreted as
- * retry count; total attempts are {@code retries + 1}.
+ * {@code web3j.blockchain-write-retries} (default 0). This value is interpreted as
+ * retry count; total attempts are {@code retries + 1}. Kafka listener redelivery/back-off is
+ * the outer retry layer, so the default keeps the combined attempt budget conservative.
  */
 @Service
 public class BlockchainWriterService {
@@ -81,8 +82,7 @@ public class BlockchainWriterService {
     private final long retryDelayMs;
     private final ExecutorService receiptExecutor;
     private final boolean ownsReceiptExecutor;
-    private final ConcurrentHashMap<String, Future<TransactionReceipt>> inFlightWritesByHash = new ConcurrentHashMap<>();
-    private volatile String cachedContractOwner;
+    private final ConcurrentHashMap<String, InFlightWrite> inFlightWritesByHash = new ConcurrentHashMap<>();
 
     /**
      * {@code credentials} is optional — injected as empty Optional when the private-key
@@ -172,7 +172,7 @@ public class BlockchainWriterService {
         Exception lastException = null;
         int maxAttempts = Math.addExact(props.getBlockchainWriteRetries(), 1);
         // Service-side retries are explicit/configurable; Kafka's error handler applies the
-        // outer redelivery/backoff layer around this loop.
+        // outer redelivery/backoff layer around this loop, so keep this inner budget small.
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
@@ -211,8 +211,9 @@ public class BlockchainWriterService {
         AuditLedgerContract contract = AuditLedgerContract.load(
                 props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
-        // If a previous write for this hash is still in-flight, poll it first instead of sending a new tx.
-        awaitInFlightWriteIfPresent(hexHash);
+        // If a previous write for this hash is still in-flight, inspect it first instead of
+        // blindly sending a new tx.
+        awaitInFlightWriteIfPresent(contract, hash, hexHash);
 
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
         final boolean hashExists;
@@ -254,55 +255,18 @@ public class BlockchainWriterService {
             log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
                     hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
         } catch (Exception appendEx) {
-            // Legacy heuristic: some JSON-RPC implementations surface the Solidity custom-error
-            // name in the message; use it as a fast-path check.
-            if (isDuplicateHashRevert(appendEx)) {
-                throw new DuplicateHashException(hexHash);
-            }
-            // Contract owner mismatch (onlyOwner modifier): treat as a configuration error so
-            // the offset stays uncommitted rather than draining events to the DLT.
-            if (isOwnershipRevert(appendEx)) {
-                cachedContractOwner = null;
-                throw new BlockchainNotConfiguredException(
-                        "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract",
-                        appendEx);
-            }
-            // Deterministic fallback: the DuplicateHash custom error is often returned only as
-            // ABI-encoded revert data (not as literal text), so re-check isHashExists to decide
-            // reliably whether this is an idempotent duplicate or a real failure.
-            try {
-                if (contract.isHashExists(hash)) {
-                    log.debug("[#7] Post-failure isHashExists confirmed duplicate for hash {}", hexHash);
-                    throw new DuplicateHashException(hexHash);
-                }
-            } catch (DuplicateHashException dupe) {
-                throw dupe; // re-throw duplicate signal to caller
-            } catch (Exception checkEx) {
-                log.warn("[#7] Post-failure isHashExists check failed for hash {}: {}", hexHash, checkEx.getMessage());
-            }
-            throw appendEx; // original transient error; retry loop will handle it
+            throw classifyAppendFailure(contract, hash, hexHash, appendEx);
         }
     }
 
     private void ensureSignerOwnsContract(AuditLedgerContract contract, String signer) throws Exception {
-        String owner = cachedContractOwner;
-        if (owner == null || owner.isBlank()) {
-            owner = resolveContractOwner(contract);
-            cachedContractOwner = owner;
-        }
+        String owner = resolveContractOwner(contract);
         if (owner.equalsIgnoreCase(signer)) {
             return;
         }
 
-        // Ownership can rotate at runtime; refresh before failing.
-        // This ensures that if the owner changes while the service is running,
-        // we detect it and report configuration instead of treating the event as a transient write failure.
-        String refreshedOwner = resolveContractOwner(contract);
-        cachedContractOwner = refreshedOwner;
-        if (!refreshedOwner.equalsIgnoreCase(signer)) {
-            throw new BlockchainNotConfiguredException(
-                    "Configured signer does not own AuditLedger contract (owner=" + refreshedOwner + ", signer=" + signer + ")");
-        }
+        throw new BlockchainNotConfiguredException(
+                "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
     }
 
     private String resolveContractOwner(AuditLedgerContract contract) throws Exception {
@@ -413,11 +377,14 @@ public class BlockchainWriterService {
 
         // Use computeIfAbsent to atomically check and submit for this hash,
         // ensuring only one concurrent transaction per hash is in-flight.
-        Future<TransactionReceipt> future = inFlightWritesByHash.computeIfAbsent(hexHash, k ->
-                submitAppendAuditRecord(contract, hash, timestamp, eventType, source)
+        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, k ->
+                new InFlightWrite(
+                        submitAppendAuditRecord(contract, hash, timestamp, eventType, source),
+                        System.nanoTime()
+                )
         );
 
-        return awaitInFlightResult(hexHash, future, timeoutSeconds);
+        return awaitInFlightResult(hexHash, inFlightWrite, timeoutSeconds);
     }
 
     private Future<TransactionReceipt> submitAppendAuditRecord(
@@ -439,11 +406,12 @@ public class BlockchainWriterService {
     }
 
     private TransactionReceipt awaitInFlightResult(String hexHash,
-                                                   Future<TransactionReceipt> future,
+                                                   InFlightWrite inFlightWrite,
                                                    int timeoutSeconds) throws Exception {
+        Future<TransactionReceipt> future = inFlightWrite.future();
         try {
             TransactionReceipt receipt = future.get(timeoutSeconds, TimeUnit.SECONDS);
-            inFlightWritesByHash.remove(hexHash, future);
+            inFlightWritesByHash.remove(hexHash, inFlightWrite);
             return receipt;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -452,7 +420,7 @@ public class BlockchainWriterService {
             throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
         } catch (java.util.concurrent.ExecutionException ex) {
-            inFlightWritesByHash.remove(hexHash, future);
+            inFlightWritesByHash.remove(hexHash, inFlightWrite);
             Throwable cause = ex.getCause();
             if (cause instanceof Exception inner) {
                 throw inner;
@@ -461,26 +429,90 @@ public class BlockchainWriterService {
         }
     }
 
-    private void awaitInFlightWriteIfPresent(String hexHash) throws Exception {
-        Future<TransactionReceipt> inFlight = inFlightWritesByHash.get(hexHash);
+    private void awaitInFlightWriteIfPresent(AuditLedgerContract contract, byte[] hash, String hexHash) throws Exception {
+        InFlightWrite inFlight = inFlightWritesByHash.get(hexHash);
         if (inFlight == null) {
             return;
         }
-        TransactionReceipt receipt = awaitInFlightResult(hexHash, inFlight, props.getReceiptWaitTimeoutSeconds());
+
+        int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
+        if (!inFlight.future().isDone() && isInFlightWriteStale(inFlight, timeoutSeconds)) {
+            if (inFlightWritesByHash.remove(hexHash, inFlight)) {
+                inFlight.future().cancel(true);
+                log.warn("[#7] In-flight appendAuditRecord for hash {} exceeded {}s without completing; "
+                                + "dropping stale tracking entry and re-checking chain state on redelivery",
+                        hexHash, timeoutSeconds);
+            }
+            return;
+        }
+
+        final TransactionReceipt receipt;
+        try {
+            receipt = awaitInFlightResult(hexHash, inFlight, timeoutSeconds);
+        } catch (ReceiptTimeoutException timeout) {
+            throw timeout;
+        } catch (Exception appendEx) {
+            throw classifyAppendFailure(contract, hash, hexHash, appendEx);
+        }
+
         if (receipt == null) {
-            throw new RuntimeException("appendAuditRecord returned null receipt");
+            throw classifyAppendFailure(contract, hash, hexHash,
+                    new RuntimeException("appendAuditRecord returned null receipt"));
         }
         if (receipt.getStatus() == null || !receipt.isStatusOK()) {
-            String revertReason = receipt.getRevertReason();
-            String reasonPart = (revertReason == null || revertReason.isBlank())
-                    ? ""
-                    : " (revertReason=" + revertReason + ")";
-            throw new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
-                    + " for tx " + receipt.getTransactionHash() + reasonPart);
+            throw classifyAppendFailure(contract, hash, hexHash, failedReceiptException(receipt));
         }
         log.info("[#7] Hash {} already has an in-flight tx that is now mined successfully. Tx={} Block={}",
                 hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
         throw new DuplicateHashException(hexHash);
+    }
+
+    private boolean isInFlightWriteStale(InFlightWrite inFlightWrite, int timeoutSeconds) {
+        long staleThresholdSeconds = Math.max(1L, Math.multiplyExact(timeoutSeconds, 2L));
+        long ageNanos = System.nanoTime() - inFlightWrite.submittedAtNanos();
+        return ageNanos >= TimeUnit.SECONDS.toNanos(staleThresholdSeconds);
+    }
+
+    private Exception classifyAppendFailure(AuditLedgerContract contract,
+                                            byte[] hash,
+                                            String hexHash,
+                                            Exception appendEx) throws Exception {
+        // Legacy heuristic: some JSON-RPC implementations surface the Solidity custom-error
+        // name in the message; use it as a fast-path check.
+        if (isDuplicateHashRevert(appendEx)) {
+            return new DuplicateHashException(hexHash);
+        }
+        // Contract owner mismatch (onlyOwner modifier): treat as a configuration error so
+        // the offset stays uncommitted rather than draining events to the DLT.
+        if (isOwnershipRevert(appendEx)) {
+            return new BlockchainNotConfiguredException(
+                    "appendAuditRecord reverted with Unauthorized — the configured key does not own the contract",
+                    appendEx);
+        }
+        // Deterministic fallback: the DuplicateHash custom error is often returned only as
+        // ABI-encoded revert data (not as literal text), so re-check isHashExists to decide
+        // reliably whether this is an idempotent duplicate or a real failure.
+        try {
+            if (contract.isHashExists(hash)) {
+                log.debug("[#7] Post-failure isHashExists confirmed duplicate for hash {}", hexHash);
+                return new DuplicateHashException(hexHash);
+            }
+        } catch (Exception checkEx) {
+            log.warn("[#7] Post-failure isHashExists check failed for hash {}: {}", hexHash, checkEx.getMessage());
+        }
+        return appendEx;
+    }
+
+    private RuntimeException failedReceiptException(TransactionReceipt receipt) {
+        String revertReason = receipt.getRevertReason();
+        String reasonPart = (revertReason == null || revertReason.isBlank())
+                ? ""
+                : " (revertReason=" + revertReason + ")";
+        return new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
+                + " for tx " + receipt.getTransactionHash() + reasonPart);
+    }
+
+    private record InFlightWrite(Future<TransactionReceipt> future, long submittedAtNanos) {
     }
 
     private void validateEvent(AuditEvent event) {

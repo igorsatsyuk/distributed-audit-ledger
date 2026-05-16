@@ -32,7 +32,6 @@ import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.

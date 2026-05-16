@@ -21,11 +21,15 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.concurrent.Callable;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -560,6 +564,7 @@ class BlockchainWriterServiceTest {
     @Test
     void anchorEvent_retriesWhenHashExistsProbeFailsTransiently() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setBlockchainWriteRetries(1);
 
         when(contract.isHashExists(any()))
                 .thenThrow(new RuntimeException("connection reset by peer"))
@@ -605,6 +610,7 @@ class BlockchainWriterServiceTest {
     @Test
     void anchorEvent_retriesWhenOwnerProbeFailsTransiently() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setBlockchainWriteRetries(1);
 
         when(contract.isHashExists(any())).thenReturn(false);
         when(contract.owner())
@@ -630,7 +636,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_cachesOwnerProbeAcrossEvents() throws Exception {
+    void anchorEvent_revalidatesOwnerOnEachWrite() throws Exception {
         UserLoggedInEvent event1 = UserLoggedInEvent.of("u1", null, null);
         UserLoggedInEvent event2 = UserLoggedInEvent.of("u2", null, null);
 
@@ -651,7 +657,7 @@ class BlockchainWriterServiceTest {
             assertThatCode(() -> service.anchorEvent(event2)).doesNotThrowAnyException();
         }
 
-        verify(contract, times(1)).owner();
+        verify(contract, times(2)).owner();
         verify(contract, times(2)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 
@@ -680,6 +686,108 @@ class BlockchainWriterServiceTest {
                     .hasMessageContaining("Timed out waiting 1s");
 
             assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_redeliveryDropsStaleInFlightEntryAndRechecksChain() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+        Future<TransactionReceipt> staleFuture = new Future<>() {
+            private volatile boolean cancelled;
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                cancelled = true;
+                return true;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return cancelled;
+            }
+
+            @Override
+            public boolean isDone() {
+                return false;
+            }
+
+            @Override
+            public TransactionReceipt get() {
+                return null;
+            }
+
+            @Override
+            public TransactionReceipt get(long timeout, java.util.concurrent.TimeUnit unit)
+                    throws java.util.concurrent.TimeoutException {
+                throw new java.util.concurrent.TimeoutException("still pending");
+            }
+        };
+
+        byte[] hash = hashService.computeHash(event);
+        String hexHash = HashCalculationService.toHexString(hash);
+
+        java.lang.reflect.Field field = BlockchainWriterService.class.getDeclaredField("inFlightWritesByHash");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
+                (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
+
+        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
+                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
+                .findFirst()
+                .orElseThrow();
+        java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
+        ctor.setAccessible(true);
+        Object staleEntry = ctor.newInstance(staleFuture, System.nanoTime() - TimeUnit.SECONDS.toNanos(3));
+        inFlightWritesByHash.put(hexHash, staleEntry);
+
+        when(contract.isHashExists(any())).thenReturn(true);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        assertThat(staleFuture.isCancelled()).isTrue();
+        assertThat(inFlightWritesByHash).doesNotContainKey(hexHash);
+        verify(contract, times(1)).isHashExists(any());
+        verify(contract, never()).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_redeliveryClassifiesCompletedInFlightUnauthorizedAsNotConfigured() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+
+        TransactionReceipt failedReceipt = new TransactionReceipt();
+        failedReceipt.setStatus("0x0");
+        failedReceipt.setTransactionHash("0xunauthorized");
+        failedReceipt.setRevertReason("Unauthorized()");
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    Thread.sleep(1_200L);
+                    return failedReceipt;
+                });
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class);
+
+            Thread.sleep(400L);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("does not own the contract");
         }
 
         verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());

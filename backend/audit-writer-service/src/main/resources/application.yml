@@ -34,7 +34,8 @@ web3j:
   # Ethereum account private key for signing transactions (Ganache deterministic account 0)
   private-key: ${GANACHE_PRIVATE_KEY:}
   # Service-side write retries before the Kafka error handler takes over.
-  blockchain-write-retries: 3
+  # Keep this at 0 by default so Kafka redelivery remains the main retry layer.
+  blockchain-write-retries: 0
   # Maximum time to wait for a mined receipt before the current write attempt is abandoned.
   # Receipt timeouts are retried or re-checked later via Kafka redelivery, not by the
   # service-side blockchain-write-retries loop.

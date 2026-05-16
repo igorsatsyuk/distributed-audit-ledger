@@ -24,9 +24,10 @@ public class Web3jProperties {
 
     /**
      * Number of service-side write retries before the Kafka error handler takes over.
-     * Total attempts are {@code blockchainWriteRetries + 1}.
+     * Total attempts are {@code blockchainWriteRetries + 1}. Defaults to 0 so Kafka
+     * redelivery remains the primary retry layer unless operators explicitly increase it.
      */
-    private int blockchainWriteRetries = 3;
+    private int blockchainWriteRetries = 0;
 
     /**
      * Maximum time to wait for a mined transaction receipt before the write attempt is
