@@ -347,5 +347,23 @@ class BlockchainWriterServiceTest {
                     .hasMessageContaining("does not own the contract");
         }
     }
+
+    @Test
+    void anchorEvent_failsFastWhenSignerIsNotContractOwner() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.owner()).thenReturn("0x0000000000000000000000000000000000000001");
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("does not own AuditLedger contract");
+        }
+
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
 }
 

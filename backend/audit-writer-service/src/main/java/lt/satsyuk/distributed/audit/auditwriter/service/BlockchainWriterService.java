@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
 import lt.satsyuk.distributed.audit.auditwriter.blockchain.AuditLedgerContract;
+import lt.satsyuk.distributed.audit.auditwriter.config.Web3jValidationUtils;
 import lt.satsyuk.distributed.audit.auditwriter.config.Web3jProperties;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.slf4j.Logger;
@@ -15,7 +16,6 @@ import org.web3j.tx.gas.DefaultGasProvider;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /**
  * Anchors event hashes on the AuditLedger smart contract.
@@ -51,10 +51,7 @@ import java.util.regex.Pattern;
 public class BlockchainWriterService {
 
     private static final Logger log = LoggerFactory.getLogger(BlockchainWriterService.class);
-    private static final Pattern ETH_ADDRESS = Pattern.compile("^0x[0-9a-fA-F]{40}$");
-    private static final Pattern ETH_PRIVATE_KEY = Pattern.compile("^(0x)?[0-9a-fA-F]{64}$");
     private static final String UNAUTHORIZED_SELECTOR = selector("Unauthorized()");
-    private static final String ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
     static final int MAX_RETRIES      = 3;
     static final long RETRY_DELAY_MS  = 1_000L;
@@ -144,6 +141,13 @@ public class BlockchainWriterService {
         AuditLedgerContract contract = AuditLedgerContract.load(
                 props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
+        String signer = credentials.get().getAddress();
+        String owner = contract.owner();
+        if (owner != null && !owner.equalsIgnoreCase(signer)) {
+            throw new BlockchainNotConfiguredException(
+                    "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
+        }
+
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
         if (contract.isHashExists(hash)) {
             throw new DuplicateHashException(hexHash);
@@ -151,7 +155,7 @@ public class BlockchainWriterService {
 
         BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
         String eventType = event.getEventType().name();
-        String source    = credentials.get().getAddress();
+        String source    = signer;
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
@@ -209,7 +213,7 @@ public class BlockchainWriterService {
                     "Blockchain writer is not configured: web3j.private-key is missing");
         }
         String privateKey = props.getPrivateKey();
-        if (privateKey != null && !privateKey.isBlank() && !ETH_PRIVATE_KEY.matcher(privateKey.trim()).matches()) {
+        if (privateKey != null && !privateKey.isBlank() && !Web3jValidationUtils.isValidPrivateKey(privateKey)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
         }
@@ -218,11 +222,11 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.contract-address is missing");
         }
-        if (!ETH_ADDRESS.matcher(addr).matches()) {
+        if (!Web3jValidationUtils.isValidContractAddress(addr)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has a malformed contract address (expected 0x + 40 hex chars): " + addr);
         }
-        if (ZERO_ADDRESS.equalsIgnoreCase(addr)) {
+        if (Web3jValidationUtils.isZeroAddress(addr)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has invalid contract address: zero-address is not allowed");
         }

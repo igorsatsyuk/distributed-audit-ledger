@@ -36,6 +36,7 @@ public class AuditLedgerContract extends Contract {
 
     public static final String FUNC_APPEND_AUDIT_RECORD = "appendAuditRecord";
     public static final String FUNC_IS_HASH_EXISTS      = "isHashExists";
+    public static final String FUNC_OWNER               = "owner";
 
     protected AuditLedgerContract(String contractAddress,
                                    Web3j web3j,
@@ -112,12 +113,27 @@ public class AuditLedgerContract extends Contract {
         ).send();
     }
 
+    /** Calls Ownable {@code owner()} and returns the current contract owner address. */
+    public String owner() throws Exception {
+        return executeRemoteCallSingleValueReturn(
+                buildOwnerFunction(), String.class
+        ).send();
+    }
+
     /** Package-private: builds the ABI-encoded {@link Function} for {@code isHashExists}. */
     static Function buildIsHashExistsFunction(byte[] hash) {
         return new Function(
                 FUNC_IS_HASH_EXISTS,
                 Collections.singletonList(new Bytes32(hash)),
                 Collections.singletonList(new TypeReference<org.web3j.abi.datatypes.Bool>() {})
+        );
+    }
+
+    static Function buildOwnerFunction() {
+        return new Function(
+                FUNC_OWNER,
+                Collections.emptyList(),
+                Collections.singletonList(new TypeReference<Address>() {})
         );
     }
 }

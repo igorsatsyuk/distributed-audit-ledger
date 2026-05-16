@@ -1,8 +1,11 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Condition;
+import org.springframework.context.annotation.ConditionContext;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.http.HttpService;
@@ -12,9 +15,9 @@ import org.web3j.protocol.http.HttpService;
  *
  * <p>The {@link Web3j} bean is always created so the application can start even when
  * {@code web3j.private-key} is not configured (read-only / degraded mode).
- * The {@link Credentials} bean is only created when a non-blank private key is provided;
- * {@link lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService} guards
- * against a missing credentials bean at runtime.
+ * The {@link Credentials} bean is created only for a valid private key so startup remains
+ * in degraded mode for missing/malformed keys; runtime validation happens in
+ * {@link lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService}.
  */
 @Configuration
 public class Web3jConfig {
@@ -32,9 +35,17 @@ public class Web3jConfig {
      * in degraded mode and report misconfiguration at runtime.
      */
     @Bean
-    @ConditionalOnExpression("'${web3j.private-key:}'.trim().matches('^(0x)?[0-9a-fA-F]{64}$')")
+    @Conditional(ValidPrivateKeyCondition.class)
     public Credentials credentials(Web3jProperties props) {
         return Credentials.create(props.getPrivateKey().trim());
+    }
+
+    static class ValidPrivateKeyCondition implements Condition {
+        @Override
+        public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+            String privateKey = context.getEnvironment().getProperty("web3j.private-key");
+            return Web3jValidationUtils.isValidPrivateKey(privateKey);
+        }
     }
 }
 

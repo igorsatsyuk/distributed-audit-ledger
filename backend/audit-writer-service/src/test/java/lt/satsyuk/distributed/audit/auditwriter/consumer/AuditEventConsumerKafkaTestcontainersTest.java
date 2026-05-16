@@ -22,6 +22,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -211,7 +212,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
     }
 
     @Test
-    @Order(3)
+    @Order(6)
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     void shouldNotPublishToDltWhenBlockchainNotConfigured() throws Exception {
         doThrow(new BlockchainWriterService.BlockchainNotConfiguredException("simulated not-configured"))
                 .when(blockchainWriterService).anchorEvent(any());

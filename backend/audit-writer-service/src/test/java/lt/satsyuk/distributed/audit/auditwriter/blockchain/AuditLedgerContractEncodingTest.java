@@ -35,6 +35,14 @@ class AuditLedgerContractEncodingTest {
         assertThat(selector).isEqualTo("0x3bd4c457");
     }
 
+    @Test
+    void owner_selectorMatchesAbiSignature() {
+        String signature = "owner()";
+        String selector = Hash.sha3String(signature).substring(0, 10);
+
+        assertThat(selector).isEqualTo("0x8da5cb5b");
+    }
+
     /**
      * Exercises the {@code appendAuditRecord} ABI wrapper by encoding a real call and
      * verifying that it starts with the correct 4-byte selector and has the expected
