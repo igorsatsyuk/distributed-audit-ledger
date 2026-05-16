@@ -30,17 +30,30 @@ public class AuditIntegrityCheckService {
 
     private Mono<AuditIntegrityCheckResponse> resolveIntegrityResponse(AuditEventRecord record) {
         if (!hasText(record.getEventHash())) {
-            return Mono.just(toResponse(record, MISSING_BLOCKCHAIN_RECORD));
+            return Mono.just(toResponse(record, MISSING_BLOCKCHAIN_RECORD, false));
         }
 
         return blockchainClient.inspectEventHash(record.getEventHash())
-                .map(blockchainRecord -> toResponse(record, blockchainRecord));
+                .map(blockchainRecord -> toResponse(record, blockchainRecord, true));
     }
 
     private AuditIntegrityCheckResponse toResponse(AuditEventRecord record,
-                                                   AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord) {
-        String status = blockchainRecord.exists() ? "OK" : "MISMATCH";
-        return new AuditIntegrityCheckResponse(record.getId(), record.getEventHash(), blockchainRecord, status);
+                                                   AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord,
+                                                   boolean hasDbHash) {
+        String status;
+        if (!hasDbHash) {
+            status = "PENDING";
+        } else {
+            status = blockchainRecord.exists() ? "ON_CHAIN" : "MISMATCH";
+        }
+
+        return new AuditIntegrityCheckResponse(
+                record.getId(),
+                record.getEventId(),
+                record.getEventHash(),
+                blockchainRecord,
+                status
+        );
     }
 
     private boolean hasText(String value) {

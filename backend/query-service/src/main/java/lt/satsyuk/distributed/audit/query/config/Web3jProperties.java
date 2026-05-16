@@ -11,5 +11,6 @@ public class Web3jProperties {
 
     private String clientAddress = "http://localhost:8545";
     private String contractAddress = "";
+    private long contractDeploymentBlock = 0L;
 }
 

@@ -71,6 +71,7 @@ Reactive PostgreSQL services (`event-store-service`, `query-service`) use R2DBC;
 | `DB_PASSWORD` | `postgres` | Database password |
 | `GANACHE_RPC_URL` | `http://localhost:8545` | Ganache JSON-RPC endpoint |
 | `AUDIT_LEDGER_CONTRACT_ADDRESS` | — | Deployed AuditLedger contract address |
+| `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` | `0` | Optional start block for integrity log scans (`0` = earliest) |
 | `GANACHE_PRIVATE_KEY` | — | Ethereum private key for signing transactions |
 
 ## Architecture

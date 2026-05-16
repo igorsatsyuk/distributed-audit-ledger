@@ -48,10 +48,11 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(10L).block();
 
-        assertEquals(10L, result.eventId());
+        assertEquals(10L, result.auditLogId());
+        assertEquals("event-10", result.eventId());
         assertEquals(HASH_64, result.eventHash());
         assertEquals(blockchainRecord, result.blockchainRecord());
-        assertEquals("OK", result.status());
+        assertEquals("ON_CHAIN", result.status());
     }
 
     @Test
@@ -77,10 +78,11 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(12L).block();
 
-        assertEquals(12L, result.eventId());
+        assertEquals(12L, result.auditLogId());
+        assertEquals("event-12", result.eventId());
         assertNull(result.eventHash());
         assertFalse(result.blockchainRecord().exists());
-        assertEquals("MISMATCH", result.status());
+        assertEquals("PENDING", result.status());
         verify(blockchainClient, never()).inspectEventHash(HASH_64);
     }
 

@@ -1,7 +1,8 @@
 package lt.satsyuk.distributed.audit.query.api;
 
 public record AuditIntegrityCheckResponse(
-        Long eventId,
+        Long auditLogId,
+        String eventId,
         String eventHash,
         BlockchainRecord blockchainRecord,
         String status

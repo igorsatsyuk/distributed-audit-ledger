@@ -16,6 +16,7 @@ spring:
 web3j:
   client-address: ${GANACHE_RPC_URL:http://localhost:8545}
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
+  contract-deployment-block: ${AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK:0}
 
 management:
   endpoints:

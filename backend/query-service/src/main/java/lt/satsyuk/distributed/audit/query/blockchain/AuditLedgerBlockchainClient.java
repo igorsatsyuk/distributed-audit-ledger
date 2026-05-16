@@ -18,6 +18,7 @@ import org.web3j.abi.datatypes.Utf8String;
 import org.web3j.abi.datatypes.generated.Bytes32;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.abi.TypeReference;
+import org.web3j.crypto.WalletUtils;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
@@ -60,11 +61,15 @@ public class AuditLedgerBlockchainClient {
 
     public Mono<AuditIntegrityCheckResponse.BlockchainRecord> inspectEventHash(String eventHash) {
         return Mono.fromCallable(() -> inspectEventHashBlocking(eventHash))
-                .subscribeOn(Schedulers.boundedElastic());
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorMap(ex -> ex instanceof BlockchainIntegrityException
+                        ? ex
+                        : new BlockchainIntegrityException("Failed to read integrity data from blockchain", ex));
     }
 
     private AuditIntegrityCheckResponse.BlockchainRecord inspectEventHashBlocking(String eventHash) throws Exception {
         String contractAddress = requireText(props.getContractAddress(), "web3j.contract-address is missing");
+        validateContractAddress(contractAddress);
         byte[] hashBytes = parseEventHash(eventHash);
 
         boolean exists = isHashExists(contractAddress, hashBytes);
@@ -89,9 +94,16 @@ public class AuditLedgerBlockchainClient {
                         DefaultBlockParameterName.LATEST)
                 .send();
 
+        if (ethCall == null) {
+            throw new BlockchainIntegrityException("Blockchain call failed: empty eth_call response");
+        }
+        if (ethCall.hasError()) {
+            throw new BlockchainIntegrityException("Blockchain call failed: " + ethCall.getError().getMessage());
+        }
+
         List<Type> decoded = FunctionReturnDecoder.decode(ethCall.getValue(), function.getOutputParameters());
         if (decoded == null || decoded.isEmpty()) {
-            return false;
+            throw new BlockchainIntegrityException("Blockchain call failed: eth_call returned empty value for isHashExists");
         }
 
         return Boolean.TRUE.equals(((Bool) decoded.get(0)).getValue());
@@ -100,7 +112,7 @@ public class AuditLedgerBlockchainClient {
     private Optional<AuditIntegrityCheckResponse.BlockchainRecord> locateBlockchainRecord(String contractAddress,
                                                                                           byte[] hashBytes) throws Exception {
         EthFilter filter = new EthFilter(
-                DefaultBlockParameterName.EARLIEST,
+                resolveFromBlockParameter(),
                 DefaultBlockParameterName.LATEST,
                 contractAddress
         );
@@ -108,7 +120,13 @@ public class AuditLedgerBlockchainClient {
         filter.addSingleTopic(Numeric.prependHexPrefix(Numeric.toHexStringNoPrefixZeroPadded(new BigInteger(1, hashBytes), 64)));
 
         EthLog ethLog = web3j.ethGetLogs(filter).send();
-        if (ethLog == null || ethLog.getLogs() == null) {
+        if (ethLog == null) {
+            throw new BlockchainIntegrityException("Blockchain log lookup failed: empty eth_getLogs response");
+        }
+        if (ethLog.hasError()) {
+            throw new BlockchainIntegrityException("Blockchain log lookup failed: " + ethLog.getError().getMessage());
+        }
+        if (ethLog.getLogs() == null) {
             return Optional.empty();
         }
 
@@ -137,7 +155,13 @@ public class AuditLedgerBlockchainClient {
         }
 
         EthBlock block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(blockNumber), false).send();
-        if (block == null || block.getBlock() == null || block.getBlock().getTimestamp() == null) {
+        if (block == null) {
+            throw new BlockchainIntegrityException("Blockchain block lookup failed: empty eth_getBlockByNumber response");
+        }
+        if (block.hasError()) {
+            throw new BlockchainIntegrityException("Blockchain block lookup failed: " + block.getError().getMessage());
+        }
+        if (block.getBlock() == null || block.getBlock().getTimestamp() == null) {
             return null;
         }
 
@@ -160,6 +184,23 @@ public class AuditLedgerBlockchainClient {
             throw new BlockchainIntegrityException(message);
         }
         return value.trim();
+    }
+
+    private DefaultBlockParameter resolveFromBlockParameter() {
+        long deploymentBlock = props.getContractDeploymentBlock();
+        if (deploymentBlock < 0) {
+            throw new BlockchainIntegrityException("web3j.contract-deployment-block must be >= 0");
+        }
+        if (deploymentBlock == 0) {
+            return DefaultBlockParameterName.EARLIEST;
+        }
+        return DefaultBlockParameter.valueOf(BigInteger.valueOf(deploymentBlock));
+    }
+
+    private void validateContractAddress(String contractAddress) {
+        if (!WalletUtils.isValidAddress(contractAddress)) {
+            throw new BlockchainIntegrityException("web3j.contract-address is malformed");
+        }
     }
 }
 
