@@ -183,7 +183,7 @@ public class KafkaListenerConfig {
      * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
      * catches a deserialization failure it stores the original raw bytes in the Kafka
      * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
-         * the DLT record value.  Serializing {@code byte[]} with {@link JacksonJsonSerializer}
+     * the DLT record value.  Serializing {@code byte[]} with {@link JacksonJsonSerializer}
      * would encode the array as JSON (base64 or integer array) and corrupt the payload.
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.

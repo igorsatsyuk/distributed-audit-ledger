@@ -103,6 +103,7 @@ class BlockchainWriterServiceTest {
     void anchorEvent_successOnFirstAttempt() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", "1.2.3.4", null);
         TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
         receipt.setTransactionHash("0xabc");
         receipt.setBlockNumber("0x1");
 
@@ -215,7 +216,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_respectsCustomRetryCount_singleAttemptWhenConfiguredAsOne() throws Exception {
+    void anchorEvent_respectsCustomRetryCount_retriesInAdditionToInitialAttempt() throws Exception {
         props.setBlockchainWriteRetries(1);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
@@ -229,21 +230,21 @@ class BlockchainWriterServiceTest {
 
             assertThatThrownBy(() -> service.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
-                    .hasMessageContaining("after 1 attempts");
+                    .hasMessageContaining("after 2 attempts");
         }
 
-        verify(contract, times(1))
+        verify(contract, times(2))
                 .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 
     @Test
     void anchorEvent_failsFastWhenRetryCountIsNotPositive() {
-        props.setBlockchainWriteRetries(0);
+        props.setBlockchainWriteRetries(-1);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
-                .hasMessageContaining("blockchain-write-retries must be > 0");
+                .hasMessageContaining("blockchain-write-retries must be >= 0");
     }
 
     @Test
@@ -299,6 +300,7 @@ class BlockchainWriterServiceTest {
         event.setOccurredAt(Instant.now().plusSeconds(299));
 
         TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
         receipt.setTransactionHash("0xabc");
         receipt.setBlockNumber("0x1");
 
@@ -358,6 +360,27 @@ class BlockchainWriterServiceTest {
 
 
     @Test
+    void anchorEvent_treatsMissingReceiptStatusAsWriteFailure() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        TransactionReceipt receiptWithoutStatus = new TransactionReceipt();
+        receiptWithoutStatus.setTransactionHash("0xdead");
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(receiptWithoutStatus);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
+                    .hasMessageContaining("Failed to anchor event");
+        }
+    }
+
+    @Test
     void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
@@ -378,7 +401,7 @@ class BlockchainWriterServiceTest {
                     .hasMessageContaining("Failed to anchor event");
         }
 
-        verify(contract, times(props.getBlockchainWriteRetries()))
+        verify(contract, times(props.getBlockchainWriteRetries() + 1))
                 .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 
@@ -468,6 +491,7 @@ class BlockchainWriterServiceTest {
                 .thenReturn(false);
 
         TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
         receipt.setTransactionHash("0xabc");
         receipt.setBlockNumber("0x1");
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
@@ -513,6 +537,7 @@ class BlockchainWriterServiceTest {
                 .thenReturn("0xsender");
 
         TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
         receipt.setTransactionHash("0xabc");
         receipt.setBlockNumber("0x1");
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))

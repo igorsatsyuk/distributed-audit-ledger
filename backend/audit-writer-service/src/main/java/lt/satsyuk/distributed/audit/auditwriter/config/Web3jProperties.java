@@ -22,7 +22,10 @@ public class Web3jProperties {
     /** Hex-encoded private key for the signing account (Ganache deterministic account 0). */
     private String privateKey = "";
 
-    /** Number of service-side write retries before the Kafka error handler takes over. */
+    /**
+     * Number of service-side write retries before the Kafka error handler takes over.
+     * Total attempts are {@code blockchainWriteRetries + 1}.
+     */
     private int blockchainWriteRetries = 3;
 
     /**

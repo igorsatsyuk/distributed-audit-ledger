@@ -23,9 +23,7 @@ import org.web3j.tx.response.PollingTransactionReceiptProcessor;
 import org.web3j.utils.Numeric;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -47,13 +45,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       confirming the {@code owner()} ABI wrapper is correctly encoded.</li>
  * </ul>
  *
- * <p>Bytecode source order:
- * <ol>
- *   <li>{@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json} when present
- *       (freshly compiled local artifact)</li>
- *   <li>Fallback test resource {@code AuditLedger.bytecode} committed in this module for
- *       clean checkouts where {@code blockchain/artifacts} is absent.</li>
- * </ol>
+ * <p>Bytecode source: {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json}.
+ * The test fails fast when this artifact is missing to avoid silently deploying stale
+ * committed fallback bytecode.
  *
  * <p>Automatically skipped when Docker is unavailable.
  */
@@ -204,22 +198,12 @@ class AuditLedgerContractGanacheTest {
 
     private static String resolveAuditLedgerBytecode() throws IOException {
         Path artifactPath = locateAuditLedgerArtifact();
-        if (artifactPath != null) {
-            return readBytecodeFromArtifact(artifactPath);
+        if (artifactPath == null) {
+            throw new IllegalStateException(
+                    "Cannot find AuditLedger artifact at blockchain/artifacts/.../AuditLedger.json. "
+                            + "Run `npm run compile` in the blockchain module before this test.");
         }
-        try (InputStream in = AuditLedgerContractGanacheTest.class
-                .getClassLoader().getResourceAsStream("AuditLedger.bytecode")) {
-            if (in == null) {
-                throw new IllegalStateException(
-                        "Cannot find AuditLedger bytecode: neither blockchain/artifacts/.../AuditLedger.json "
-                                + "nor classpath resource AuditLedger.bytecode is available.");
-            }
-            String bytecode = new String(in.readAllBytes(), StandardCharsets.UTF_8).strip();
-            if (bytecode.isBlank() || "0x".equals(bytecode)) {
-                throw new IllegalStateException("Classpath resource AuditLedger.bytecode is empty.");
-            }
-            return bytecode;
-        }
+        return readBytecodeFromArtifact(artifactPath);
     }
 
     private static Path locateAuditLedgerArtifact() {
