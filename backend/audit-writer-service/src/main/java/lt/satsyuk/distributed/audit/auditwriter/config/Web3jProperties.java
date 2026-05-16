@@ -30,8 +30,9 @@ public class Web3jProperties {
 
     /**
      * Maximum time to wait for a mined transaction receipt before the write attempt is
-     * treated as failed and retried. Bounded to prevent the Kafka listener thread from
-     * waiting indefinitely on receipt polling.
+     * abandoned. Receipt timeouts bypass the service-side retry loop and are retried or
+     * re-checked later via Kafka redelivery, so this bound exists mainly to prevent the
+     * listener thread from waiting indefinitely on receipt polling.
      */
     private int receiptWaitTimeoutSeconds = 30;
 

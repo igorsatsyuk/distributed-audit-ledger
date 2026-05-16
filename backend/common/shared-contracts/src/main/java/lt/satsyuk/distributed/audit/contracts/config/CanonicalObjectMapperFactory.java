@@ -17,7 +17,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  *
  * <p>Required module: {@link JavaTimeModule} for {@link java.time.Instant} serialization.
  * Property and map-entry ordering are pinned so the serialized JSON stays deterministic
- * across services and runtime/library upgrades.
+ * across services and runtime/library upgrades. Java time output is also pinned explicitly
+ * to ISO-8601 strings (not numeric timestamps) so hash inputs do not change when Jackson
+ * defaults evolve.
  */
 public final class CanonicalObjectMapperFactory {
 
@@ -29,6 +31,8 @@ public final class CanonicalObjectMapperFactory {
                 .addModule(new JavaTimeModule())
                 .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
                 .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
                 .build();
     }
 }

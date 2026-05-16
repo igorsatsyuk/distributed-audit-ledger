@@ -93,7 +93,7 @@ class HashCalculationServiceTest {
         // Hard-coded expected digest — captured with JacksonConfig as of this commit.
         // A change to this value signals a serialization format regression that would
         // break cross-ledger hash verification.
-        String expectedHex = "4e110f35da72187cc0cbece092ca857e8fa2c84b3257c563eb22cd3574bd0f94";
+        String expectedHex = "aababb51f242aa45ee51932d9aeb6dfe96456901a380f4934af71a68b6e5bde1";
 
         byte[] auditBytes = hashService.computeHash(event);
         String auditHex = HashCalculationService.toHexString(auditBytes);

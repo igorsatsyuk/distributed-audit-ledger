@@ -67,7 +67,7 @@ class EventPersistenceServiceTest {
         assertNotNull(saved.getPayload());
         assertNotNull(saved.getEventHash());
         assertEquals(64, saved.getEventHash().length());
-        assertEquals("f5af4f9385df6e6095a581e73637da8964fd1bf242f54431d532ee733dc3c2aa", saved.getEventHash());
+        assertEquals("661fa908d63fb896bf2f5b8aca9b0db207a73e99d04af2216005bdb98237607b", saved.getEventHash());
         assertNotNull(saved.getCreatedAt());
         assertEquals(LocalDateTime.of(2026, 5, 15, 10, 15, 30), saved.getCreatedAt());
 

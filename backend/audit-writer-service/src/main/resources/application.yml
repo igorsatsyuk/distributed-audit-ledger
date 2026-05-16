@@ -35,7 +35,9 @@ web3j:
   private-key: ${GANACHE_PRIVATE_KEY:}
   # Service-side write retries before the Kafka error handler takes over.
   blockchain-write-retries: 3
-  # Maximum time to wait for a mined receipt before the attempt fails and is retried.
+  # Maximum time to wait for a mined receipt before the current write attempt is abandoned.
+  # Receipt timeouts are retried or re-checked later via Kafka redelivery, not by the
+  # service-side blockchain-write-retries loop.
   receipt-wait-timeout-seconds: 30
   # Maximum seconds an event's occurredAt may be in the future before it is rejected.
   # Increase to tolerate producer clock-skew or intentionally future-dated fixtures.
