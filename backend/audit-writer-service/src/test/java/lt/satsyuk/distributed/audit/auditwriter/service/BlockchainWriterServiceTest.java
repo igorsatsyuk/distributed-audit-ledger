@@ -136,7 +136,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_treatsExistingHashAsSuccessEvenWhenSignerIsNotOwner() throws Exception {
+    void anchorEvent_skipsOwnerLookupWhenHashAlreadyExists() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenReturn(true);

@@ -33,8 +33,10 @@ web3j:
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
   # Ethereum account private key for signing transactions (Ganache deterministic account 0)
   private-key: ${GANACHE_PRIVATE_KEY:}
+  # Service-side write retries before the Kafka error handler takes over.
+  blockchain-write-retries: 3
   # Maximum seconds an event's occurredAt may be in the future before it is rejected.
-  # Increase to tolerate producer clock-skew or delayed fixture replays.
+  # Increase to tolerate producer clock-skew or intentionally future-dated fixtures.
   future-timestamp-tolerance-seconds: 300
 
 management:

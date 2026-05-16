@@ -27,7 +27,7 @@ import java.util.Optional;
  *   <li>Call {@code appendAuditRecord} on the contract</li>
  * </ol>
  *
- * <p>A simple retry loop (up to {@value #MAX_RETRIES} attempts) handles
+ * <p>A simple retry loop (up to the configured service-side write-retry attempts) handles
  * transient network / RPC failures.  Duplicate hashes are treated as successful
  * no-ops when detected either by the pre-flight {@code isHashExists} check or
  * by a post-failure {@code isHashExists} re-check.  The post-failure re-check is
@@ -45,7 +45,11 @@ import java.util.Optional;
  *
  * <p>The future-timestamp tolerance window is configurable via
  * {@code web3j.future-timestamp-tolerance-seconds} (default 300 s) so operators
- * can compensate for clock-skew or delayed fixture replays.
+ * can compensate for producer clock-skew or intentionally future-dated fixtures.
+ *
+ * <p>The service-side write retry budget is configurable via
+ * {@code web3j.blockchain-write-retries} (default 3) so the combined service + Kafka
+ * retry behavior stays explicit instead of relying on a hidden constant.
  */
 @Service
 public class BlockchainWriterService {
@@ -97,15 +101,18 @@ public class BlockchainWriterService {
      * @throws BlockchainWriteException after all retry attempts are exhausted
      */
     public void anchorEvent(AuditEvent event) {
-        validateConfiguration();
         validateEvent(event);
+        validateConfiguration();
 
         byte[] hash = hashService.computeHash(event);
         String hexHash = HashCalculationService.toHexString(hash);
         log.debug("[#7] Anchoring event {} with hash {}", event.getEventId(), hexHash);
 
         Exception lastException = null;
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        int maxRetries = props.getBlockchainWriteRetries();
+        // Service-side retries are explicit/configurable; Kafka's error handler applies the
+        // outer redelivery/backoff layer around this loop.
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
                 return; // success
@@ -118,8 +125,8 @@ public class BlockchainWriterService {
                 throw e; // propagate immediately without retry/DLT
             } catch (Exception e) {
                 lastException = e;
-                log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, MAX_RETRIES, event.getEventId(), e.getMessage());
-                if (attempt < MAX_RETRIES) {
+                log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, maxRetries, event.getEventId(), e.getMessage());
+                if (attempt < maxRetries) {
                     try {
                         sleep(retryDelayMs);
                     } catch (InterruptedException interrupted) {
@@ -129,8 +136,8 @@ public class BlockchainWriterService {
                 }
             }
         }
-        log.error("[#7] All {} attempts exhausted for event {}", MAX_RETRIES, event.getEventId(), lastException);
-        throw new BlockchainWriteException("Failed to anchor event " + event.getEventId() + " after " + MAX_RETRIES + " attempts", lastException);
+        log.error("[#7] All {} attempts exhausted for event {}", maxRetries, event.getEventId(), lastException);
+        throw new BlockchainWriteException("Failed to anchor event " + event.getEventId() + " after " + maxRetries + " attempts", lastException);
     }
 
     // -------------------------------------------------------------------------
@@ -169,7 +176,6 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
         }
-
 
         BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
         String eventType = event.getEventType().name();
@@ -247,6 +253,10 @@ public class BlockchainWriterService {
         if (Web3jValidationUtils.isZeroAddress(addr)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has invalid contract address: zero-address is not allowed");
+        }
+        if (props.getBlockchainWriteRetries() <= 0) {
+            throw new BlockchainNotConfiguredException(
+                    "web3j.blockchain-write-retries must be > 0 but was " + props.getBlockchainWriteRetries());
         }
     }
 

@@ -22,10 +22,13 @@ public class Web3jProperties {
     /** Hex-encoded private key for the signing account (Ganache deterministic account 0). */
     private String privateKey = "";
 
+    /** Number of service-side write retries before the Kafka error handler takes over. */
+    private int blockchainWriteRetries = 3;
+
     /**
      * Maximum number of seconds that an event's {@code occurredAt} timestamp may be
      * in the future before the event is treated as non-recoverable.  Configurable so
-     * operators can compensate for producer clock-skew or delayed replays without
+     * operators can compensate for producer clock-skew or intentionally future-dated fixtures without
      * rebuilding the service.  Defaults to 300 (5 minutes).
      */
     private int futureTimestampToleranceSeconds = 300;
