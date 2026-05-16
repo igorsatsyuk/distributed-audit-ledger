@@ -8,6 +8,9 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.kafka.KafkaContainer;
+import org.apache.kafka.common.TopicPartition;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -128,6 +132,21 @@ class AuditEventConsumerKafkaTestcontainersTest {
                 ContainerTestUtils.waitForAssignment((ConcurrentMessageListenerContainer<?, ?>) container, 1));
     }
 
+    private Long committedSourceOffset() throws Exception {
+        Map<String, Object> adminProps = new HashMap<>();
+        adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+
+        try (AdminClient adminClient = AdminClient.create(adminProps)) {
+            Map<TopicPartition, OffsetAndMetadata> committed = adminClient
+                    .listConsumerGroupOffsets("audit-writer-consumer")
+                    .partitionsToOffsetAndMetadata()
+                    .get(10, TimeUnit.SECONDS);
+
+            OffsetAndMetadata metadata = committed.get(new TopicPartition(TOPIC, 0));
+            return metadata == null ? null : metadata.offset();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Tests
     // -------------------------------------------------------------------------
@@ -219,6 +238,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
                 .when(blockchainWriterService).anchorEvent(any());
 
         UserLoggedInEvent event = UserLoggedInEvent.of("not-configured-user", "10.0.0.2", null);
+        Long committedBefore = committedSourceOffset();
 
         KafkaTemplate<String, AuditEvent> kafkaTemplate = buildProducer();
         waitForListenerAssignment();
@@ -230,6 +250,11 @@ class AuditEventConsumerKafkaTestcontainersTest {
                 .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> verify(blockchainWriterService, atLeastOnce()).anchorEvent(argThat(received ->
                         received != null && event.getEventId().equals(received.getEventId()))));
+
+        Awaitility.await()
+                .during(Duration.ofSeconds(5))
+                .atMost(Duration.ofSeconds(8))
+                .untilAsserted(() -> assertThat(committedSourceOffset()).isEqualTo(committedBefore));
 
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());

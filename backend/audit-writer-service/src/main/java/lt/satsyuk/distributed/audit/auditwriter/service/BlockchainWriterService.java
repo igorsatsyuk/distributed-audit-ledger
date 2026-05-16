@@ -37,11 +37,11 @@ import java.util.Optional;
  *
  * <p>If {@code web3j.private-key} or {@code web3j.contract-address} is missing or
  * malformed, or if the configured key does not own the contract ({@code Unauthorized}
- * revert from the {@code onlyOwner} modifier), the service throws
- * {@link BlockchainNotConfiguredException}.  The Kafka error handler lets that exception
- * go through the configured fixed back-off and then the recoverer re-throws it without
- * publishing to the DLT, so the offset stays uncommitted until the configuration is
- * corrected.
+ * revert from the {@code onlyOwner} modifier), or if the contract cannot be probed at the
+ * configured address, the service throws {@link BlockchainNotConfiguredException}.  The
+ * Kafka error handler lets that exception go through the configured fixed back-off and then
+ * the recoverer re-throws it without publishing to the DLT, so the offset stays uncommitted
+ * until the configuration is corrected.
  *
  * <p>The future-timestamp tolerance window is configurable via
  * {@code web3j.future-timestamp-tolerance-seconds} (default 300 s) so operators
@@ -142,12 +142,25 @@ public class BlockchainWriterService {
                 props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
         // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
-        if (contract.isHashExists(hash)) {
+        final boolean hashExists;
+        try {
+            hashExists = contract.isHashExists(hash);
+        } catch (Exception probeEx) {
+            throw new BlockchainNotConfiguredException(
+                    "Cannot verify AuditLedger at configured contract address (isHashExists probe failed)", probeEx);
+        }
+        if (hashExists) {
             throw new DuplicateHashException(hexHash);
         }
 
         String signer = credentials.get().getAddress();
-        String owner = contract.owner();
+        String owner;
+        try {
+            owner = contract.owner();
+        } catch (Exception probeEx) {
+            throw new BlockchainNotConfiguredException(
+                    "Cannot resolve AuditLedger owner at configured contract address", probeEx);
+        }
         if (owner == null || owner.isBlank()) {
             throw new BlockchainNotConfiguredException(
                     "Cannot resolve AuditLedger owner at configured contract address (empty owner response)");
@@ -338,6 +351,10 @@ public class BlockchainWriterService {
     public static class BlockchainNotConfiguredException extends BlockchainWriteException {
         public BlockchainNotConfiguredException(String message) {
             super(message, null);
+        }
+
+        public BlockchainNotConfiguredException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 

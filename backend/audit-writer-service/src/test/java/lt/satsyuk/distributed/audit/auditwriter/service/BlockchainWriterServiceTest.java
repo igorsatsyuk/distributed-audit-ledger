@@ -46,6 +46,7 @@ class BlockchainWriterServiceTest {
     private Web3jProperties props;
     private HashCalculationService hashService;
     private BlockchainWriterService service;
+    private static final String SECP256K1_ORDER_HEX = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141";
 
     @BeforeEach
     void setUp() throws Exception {
@@ -91,6 +92,8 @@ class BlockchainWriterServiceTest {
         return Stream.of(
                 arguments("", "not configured"),
                 arguments("0x1234", "private-key is malformed"),
+                arguments("0x0000000000000000000000000000000000000000000000000000000000000000", "private-key is malformed"),
+                arguments("0x" + SECP256K1_ORDER_HEX, "private-key is malformed"),
                 arguments("0X0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "private-key is malformed")
         );
     }
@@ -193,7 +196,9 @@ class BlockchainWriterServiceTest {
     void anchorEvent_throwsBlockchainWriteExceptionAfterAllRetriesExhausted() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
-        when(contract.isHashExists(any())).thenThrow(new RuntimeException("RPC error"));
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenThrow(new RuntimeException("RPC error"));
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
@@ -388,6 +393,43 @@ class BlockchainWriterServiceTest {
             assertThatThrownBy(() -> service.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                     .hasMessageContaining("empty owner response");
+        }
+
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
+
+    @Test
+    void anchorEvent_wrapsHashExistsProbeFailureAsNotConfigured() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any())).thenThrow(new RuntimeException("no contract at address"));
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("isHashExists probe failed");
+        }
+
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
+
+    @Test
+    void anchorEvent_wrapsOwnerProbeFailureAsNotConfigured() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.owner()).thenThrow(new RuntimeException("no contract owner"));
+        when(contract.isHashExists(any())).thenReturn(false);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("Cannot resolve AuditLedger owner");
         }
 
         verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
