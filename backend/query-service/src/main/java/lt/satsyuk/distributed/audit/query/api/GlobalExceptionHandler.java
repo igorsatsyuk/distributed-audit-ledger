@@ -26,7 +26,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ServerWebInputException.class)
     public ResponseEntity<ApiErrorResponse> handleWebInput(ServerWebInputException ex) {
-        String message = Objects.requireNonNullElse(ex.getReason(), "Invalid request payload");
+        String message = Objects.requireNonNullElse(ex.getReason(), "Invalid request parameters");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ApiErrorResponse(message));
     }

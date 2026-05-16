@@ -83,6 +83,27 @@ class AuditLogQueryServiceTest {
     }
 
     @Test
+    void findAuditLogsRejectsNegativeLimit() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.findAuditLogs(null, null, null, null, -1, 0L));
+        assertEquals("Query parameter 'limit' must be greater than 0", exception.getMessage());
+    }
+
+    @Test
+    void findAuditLogsRejectsZeroLimit() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.findAuditLogs(null, null, null, null, 0, 0L));
+        assertEquals("Query parameter 'limit' must be greater than 0", exception.getMessage());
+    }
+
+    @Test
+    void findAuditLogsRejectsNegativeOffset() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.findAuditLogs(null, null, null, null, 100, -1L));
+        assertEquals("Query parameter 'offset' must be greater than or equal to 0", exception.getMessage());
+    }
+
+    @Test
     void findAuditLogsRejectsLimitAboveMax() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> service.findAuditLogs(

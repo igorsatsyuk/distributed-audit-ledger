@@ -22,7 +22,7 @@ class AuditEventDtoMapperTest {
         eventRecord.setEventType("USER_LOGGED_IN");
         eventRecord.setUserId("user-15");
         eventRecord.setPayload("{\"userId\":\"user-15\"}");
-        eventRecord.setEventHash("abc");
+        eventRecord.setEventHash("abc123xyz");
         eventRecord.setCreatedAt(LocalDateTime.of(2026, 5, 15, 10, 30, 0));
 
         AuditEventDto dto = mapper.toDto(eventRecord);
@@ -32,6 +32,7 @@ class AuditEventDtoMapperTest {
         assertEquals(EventType.USER_LOGGED_IN, dto.getEventType());
         assertEquals("user-15", dto.getUserId());
         assertEquals("{\"userId\":\"user-15\"}", dto.getEventDataJson());
+        assertEquals("abc123xyz", dto.getEventHash());
         assertEquals("PENDING", dto.getIntegrityStatus());
         assertEquals("2026-05-15T10:30:00Z", dto.getOccurredAt().toString());
     }
