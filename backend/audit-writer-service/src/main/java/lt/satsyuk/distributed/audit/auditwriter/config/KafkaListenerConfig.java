@@ -24,8 +24,8 @@ import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -34,7 +34,7 @@ import java.util.Map;
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.
  *
- * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JacksonJsonDeserializer} so that
+ * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JsonDeserializer} so that
  * poison records (malformed JSON, unknown payload type) are routed to the container
  * error handler rather than stalling the partition at the same offset indefinitely.
  *
@@ -78,7 +78,7 @@ public class KafkaListenerConfig {
         mergeKafkaOverrides(props, environment, "spring.kafka.producer.");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
-        props.put(JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -108,10 +108,10 @@ public class KafkaListenerConfig {
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on
         // the same partition offset.
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class.getName());
-        props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
-        props.put(JacksonJsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
 
         return new DefaultKafkaConsumerFactory<>(props);
     }
@@ -183,12 +183,12 @@ public class KafkaListenerConfig {
      * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
      * catches a deserialization failure it stores the original raw bytes in the Kafka
      * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
-     * the DLT record value.  Serializing {@code byte[]} with {@link JacksonJsonSerializer}
+     * the DLT record value.  Serializing {@code byte[]} with {@link JsonSerializer}
      * would encode the array as JSON (base64 or integer array) and corrupt the payload.
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
      */
-    public static class DltValueSerializer extends JacksonJsonSerializer<Object> {
+    public static class DltValueSerializer extends JsonSerializer<Object> {
         @Override
         public byte[] serialize(String topic, Object data) {
             if (data instanceof byte[] raw) {
