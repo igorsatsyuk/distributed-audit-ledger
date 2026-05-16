@@ -20,7 +20,10 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.Optional;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -451,6 +454,30 @@ class BlockchainWriterServiceTest {
         }
 
         verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_treatsReceiptExecutorSaturationAsReceiptTimeout() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        ExecutorService rejectingExecutor = mock(ExecutorService.class);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(rejectingExecutor.submit(any(Callable.class)))
+                .thenThrow(new RejectedExecutionException("executor queue is full"));
+
+        BlockchainWriterService serviceWithRejectingExecutor =
+                new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L, rejectingExecutor);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> serviceWithRejectingExecutor.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class)
+                    .hasMessageContaining("executor is saturated");
+        }
+
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
     }
 
     @Test

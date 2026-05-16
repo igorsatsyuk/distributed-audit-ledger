@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,6 +78,7 @@ public class BlockchainWriterService {
     private final HashCalculationService hashService;
     private final long retryDelayMs;
     private final ExecutorService receiptExecutor;
+    private final boolean ownsReceiptExecutor;
 
     /**
      * {@code credentials} is optional — injected as empty Optional when the private-key
@@ -101,10 +103,30 @@ public class BlockchainWriterService {
         this.props       = props;
         this.hashService = hashService;
         this.retryDelayMs = retryDelayMs;
+        this.receiptExecutor = newReceiptExecutor();
+        this.ownsReceiptExecutor = true;
+    }
+
+    BlockchainWriterService(Web3j web3j,
+                            Optional<Credentials> credentials,
+                            Web3jProperties props,
+                            HashCalculationService hashService,
+                            long retryDelayMs,
+                            ExecutorService receiptExecutor) {
+        this.web3j = web3j;
+        this.credentials = credentials;
+        this.props = props;
+        this.hashService = hashService;
+        this.retryDelayMs = retryDelayMs;
+        this.receiptExecutor = receiptExecutor;
+        this.ownsReceiptExecutor = false;
+    }
+
+    private static ExecutorService newReceiptExecutor() {
         // Use a bounded pool so slow or stuck receipt waits cannot grow without limit.
         // Web3j call cancellation is best-effort, so we cap both the worker count and the
         // queue length to keep repeated redeliveries from exhausting resources.
-        this.receiptExecutor = new ThreadPoolExecutor(
+        return new ThreadPoolExecutor(
                 RECEIPT_EXECUTOR_THREADS,
                 RECEIPT_EXECUTOR_THREADS,
                 0L,
@@ -121,7 +143,9 @@ public class BlockchainWriterService {
 
     @PreDestroy
     void shutdownReceiptExecutor() {
-        receiptExecutor.shutdownNow();
+        if (ownsReceiptExecutor) {
+            receiptExecutor.shutdownNow();
+        }
     }
 
     /**
@@ -348,8 +372,14 @@ public class BlockchainWriterService {
                                               String eventType,
                                               String source) throws Exception {
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
-        Future<TransactionReceipt> future = receiptExecutor.submit(
-                () -> contract.appendAuditRecord(hash, timestamp, eventType, source));
+        Future<TransactionReceipt> future;
+        try {
+            future = receiptExecutor.submit(() -> contract.appendAuditRecord(hash, timestamp, eventType, source));
+        } catch (RejectedExecutionException ex) {
+            throw new ReceiptTimeoutException(
+                    "Receipt wait executor is saturated; transaction outcome is unknown and will be re-checked on Kafka redelivery",
+                    ex);
+        }
 
         try {
             return future.get(timeoutSeconds, TimeUnit.SECONDS);

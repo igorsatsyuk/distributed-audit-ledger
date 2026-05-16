@@ -24,6 +24,7 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
@@ -74,6 +75,7 @@ public class KafkaListenerConfig {
     private static final Logger log = LoggerFactory.getLogger(KafkaListenerConfig.class);
 
     static final long RETRY_ATTEMPTS = 2L;
+    static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
 
     @Bean
     public ProducerFactory<String, Object> producerFactory(
@@ -128,9 +130,9 @@ public class KafkaListenerConfig {
             @Value("${kafka.topics.user-login-events-dlt}") String deadLetterTopic,
             @Value("${kafka.listener.retry-interval-ms:2000}") long retryIntervalMs
     ) {
-        long effectiveRetryIntervalMs = retryIntervalMs > 0L ? retryIntervalMs : 1L;
+        long effectiveRetryIntervalMs = retryIntervalMs > 0L ? retryIntervalMs : DEFAULT_RETRY_INTERVAL_MS;
         if (retryIntervalMs <= 0L) {
-            log.warn("[audit-writer] kafka.listener.retry-interval-ms={} is invalid; clamping to {} ms to avoid tight re-delivery loops",
+            log.warn("[audit-writer] kafka.listener.retry-interval-ms={} is invalid; using default {} ms to avoid tight re-delivery loops",
                     retryIntervalMs, effectiveRetryIntervalMs);
         }
 
@@ -179,7 +181,8 @@ public class KafkaListenerConfig {
         // re-poll loop while the service awaits configuration.
         errorHandler.addNotRetryableExceptions(
                 BlockchainWriterService.NonRecoverableEventException.class,
-                BlockchainWriterService.ReceiptTimeoutException.class
+                BlockchainWriterService.ReceiptTimeoutException.class,
+                DeserializationException.class
         );
 
         return errorHandler;
