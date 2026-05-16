@@ -8,6 +8,9 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -18,11 +21,13 @@ import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.*;
 
 /**
@@ -68,29 +73,26 @@ class BlockchainWriterServiceTest {
                 .hasMessageContaining("not configured");
     }
 
-    @Test
-    void anchorEvent_failsWhenCredentialsAbsent() {
-        props.setPrivateKey("");
+    @ParameterizedTest(name = "privateKey={0} -> message contains: {1}")
+    @MethodSource("invalidPrivateKeyCases")
+    void anchorEvent_failsWhenCredentialsAbsentOrPrivateKeyMalformed(String privateKey,
+                                                                      String expectedMessagePart) {
+        props.setPrivateKey(privateKey);
         BlockchainWriterService noCredService =
                 new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> noCredService.anchorEvent(event))
-                // BlockchainNotConfiguredException extends BlockchainWriteException
                 .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
-                .hasMessageContaining("not configured");
+                .hasMessageContaining(expectedMessagePart);
     }
 
-    @Test
-    void anchorEvent_failsWhenPrivateKeyMalformed() {
-        props.setPrivateKey("0x1234");
-        BlockchainWriterService noCredService =
-                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
-        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-
-        assertThatThrownBy(() -> noCredService.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
-                .hasMessageContaining("private-key is malformed");
+    private static Stream<Arguments> invalidPrivateKeyCases() {
+        return Stream.of(
+                arguments("", "not configured"),
+                arguments("0x1234", "private-key is malformed"),
+                arguments("0X0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "private-key is malformed")
+        );
     }
 
     @Test
@@ -306,17 +308,6 @@ class BlockchainWriterServiceTest {
                 .hasMessageContaining("zero-address");
     }
 
-    @Test
-    void anchorEvent_failsWhenPrivateKeyHasUppercase0XPrefix() {
-        props.setPrivateKey("0X0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-        BlockchainWriterService noCredService =
-                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
-        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-
-        assertThatThrownBy(() -> noCredService.anchorEvent(event))
-                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
-                .hasMessageContaining("private-key is malformed");
-    }
 
     @Test
     void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() throws Exception {
