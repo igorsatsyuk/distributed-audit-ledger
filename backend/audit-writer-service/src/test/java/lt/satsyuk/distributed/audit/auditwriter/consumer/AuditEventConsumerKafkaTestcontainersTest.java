@@ -163,6 +163,21 @@ class AuditEventConsumerKafkaTestcontainersTest {
         return record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
     }
 
+    private void awaitSourceOffsetSettled() {
+        final Long[] last = new Long[1];
+        Awaitility.await()
+                .during(Duration.ofSeconds(2))
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> {
+                    Long current = committedSourceOffset();
+                    if (last[0] == null) {
+                        last[0] = current;
+                    } else {
+                        assertThat(current).isEqualTo(last[0]);
+                    }
+                });
+    }
+
     // -------------------------------------------------------------------------
     // Tests
     // -------------------------------------------------------------------------
@@ -255,6 +270,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
                 .when(blockchainWriterService).anchorEvent(any());
 
         UserLoggedInEvent event = UserLoggedInEvent.of("not-configured-user", "10.0.0.2", null);
+        // Drain async commits from earlier test methods before capturing this method's baseline.
+        awaitSourceOffsetSettled();
         Long committedBefore = committedSourceOffset();
 
         KafkaTemplate<String, AuditEvent> kafkaTemplate = buildProducer();

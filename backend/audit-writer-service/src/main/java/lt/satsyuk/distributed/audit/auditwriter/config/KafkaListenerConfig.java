@@ -59,7 +59,9 @@ import java.util.Map;
  *       non-retryable at the container level and then re-thrown by the recoverer without
  *       publishing to the DLT, because the write outcome is unknown and may still be mined
  *       after timeout. Keeping the offset uncommitted prevents both false dead-lettering and
- *       duplicate in-flight blockchain writes before Kafka redelivery can re-check state.</li>
+ *       duplicate in-flight blockchain writes before Kafka redelivery can re-check state.
+ *       A single explicit delay is applied in the recoverer before rethrow to avoid
+ *       immediate tight-loop redelivery.</li>
  * </ul>
  *
  * <p>The DLT producer uses {@link DltValueSerializer} to preserve raw {@code byte[]}
@@ -152,6 +154,7 @@ public class KafkaListenerConfig {
                     BlockchainWriterService.ReceiptTimeoutException timeout =
                             findCause(exception, BlockchainWriterService.ReceiptTimeoutException.class);
                     if (timeout != null) {
+                        sleepQuietly(retryIntervalMs);
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
                                         + "transaction outcome is unknown and will be re-checked on redelivery. "
                                         + "topic={} partition={} offset={}",
@@ -222,6 +225,17 @@ public class KafkaListenerConfig {
             current = current.getCause();
         }
         return null;
+    }
+
+    private static void sleepQuietly(long retryIntervalMs) {
+        if (retryIntervalMs <= 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(retryIntervalMs);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
