@@ -131,6 +131,23 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_treatsExistingHashAsSuccessEvenWhenSignerIsNotOwner() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.isHashExists(any())).thenReturn(true);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatCode(() -> service.anchorEvent(event)).doesNotThrowAnyException();
+        }
+
+        verify(contract, never()).owner();
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
+
+    @Test
     void anchorEvent_treatsDuplicateHashContractRevertAsSuccess() throws Exception {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 

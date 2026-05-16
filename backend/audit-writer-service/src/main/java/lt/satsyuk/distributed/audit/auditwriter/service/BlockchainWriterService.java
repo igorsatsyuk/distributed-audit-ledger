@@ -141,6 +141,11 @@ public class BlockchainWriterService {
         AuditLedgerContract contract = AuditLedgerContract.load(
                 props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
 
+        // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
+        if (contract.isHashExists(hash)) {
+            throw new DuplicateHashException(hexHash);
+        }
+
         String signer = credentials.get().getAddress();
         String owner = contract.owner();
         if (owner == null || owner.isBlank()) {
@@ -152,10 +157,6 @@ public class BlockchainWriterService {
                     "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
         }
 
-        // Pre-flight idempotency check — avoids paying gas for a tx that would revert.
-        if (contract.isHashExists(hash)) {
-            throw new DuplicateHashException(hexHash);
-        }
 
         BigInteger timestamp = BigInteger.valueOf(event.getOccurredAt().getEpochSecond());
         String eventType = event.getEventType().name();

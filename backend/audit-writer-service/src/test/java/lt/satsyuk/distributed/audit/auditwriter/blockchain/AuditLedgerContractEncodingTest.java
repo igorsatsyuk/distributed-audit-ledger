@@ -37,10 +37,11 @@ class AuditLedgerContractEncodingTest {
 
     @Test
     void owner_selectorMatchesAbiSignature() {
-        String signature = "owner()";
-        String selector = Hash.sha3String(signature).substring(0, 10);
+        Function ownerFn = AuditLedgerContract.buildOwnerFunction();
+        String encoded = FunctionEncoder.encode(ownerFn);
 
-        assertThat(selector).isEqualTo("0x8da5cb5b");
+        assertThat(ownerFn.getName()).isEqualTo(AuditLedgerContract.FUNC_OWNER);
+        assertThat(encoded).startsWith("0x8da5cb5b");
     }
 
     /**
