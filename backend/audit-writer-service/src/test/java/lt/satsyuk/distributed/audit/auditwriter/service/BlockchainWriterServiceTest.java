@@ -43,7 +43,7 @@ class BlockchainWriterServiceTest {
     private BlockchainWriterService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         props = new Web3jProperties();
         props.setClientAddress("http://localhost:8545");
         props.setContractAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
@@ -52,6 +52,7 @@ class BlockchainWriterServiceTest {
         hashService = new HashCalculationService(new JacksonConfig().objectMapper());
 
         lenient().when(credentials.getAddress()).thenReturn("0xsender");
+        lenient().when(contract.owner()).thenReturn("0xsender");
 
         service = new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L);
     }
@@ -361,6 +362,24 @@ class BlockchainWriterServiceTest {
             assertThatThrownBy(() -> service.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
                     .hasMessageContaining("does not own AuditLedger contract");
+        }
+
+        verify(contract, never()).appendAuditRecord(any(), any(), any(), any());
+    }
+
+    @Test
+    void anchorEvent_failsWhenContractOwnerCannotBeResolved() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        when(contract.owner()).thenReturn(null);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("empty owner response");
         }
 
         verify(contract, never()).appendAuditRecord(any(), any(), any(), any());

@@ -143,7 +143,11 @@ public class BlockchainWriterService {
 
         String signer = credentials.get().getAddress();
         String owner = contract.owner();
-        if (owner != null && !owner.equalsIgnoreCase(signer)) {
+        if (owner == null || owner.isBlank()) {
+            throw new BlockchainNotConfiguredException(
+                    "Cannot resolve AuditLedger owner at configured contract address (empty owner response)");
+        }
+        if (!owner.equalsIgnoreCase(signer)) {
             throw new BlockchainNotConfiguredException(
                     "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
         }
