@@ -24,7 +24,7 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -82,8 +82,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
     private static final String DLT_TOPIC = "user.login.events.dlt";
 
     @Container
-    static final KafkaContainer KAFKA = new KafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.6.1").asCompatibleSubstituteFor("apache/kafka")
+    static final ConfluentKafkaContainer KAFKA = new ConfluentKafkaContainer(
+            DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
     );
 
     @DynamicPropertySource
