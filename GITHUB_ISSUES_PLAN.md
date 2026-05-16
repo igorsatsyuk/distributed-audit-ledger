@@ -225,11 +225,11 @@ CREATE TABLE audit.events (
 - Query параметры: `?userId=...&eventType=...&from=...&to=...`
 
 **Subtasks:**
-- [ ] #8.1 - Spring Boot WebFlux setup + reactive filtering/query layer
-- [ ] #8.2 - REST controllers
-- [ ] #8.3 - DTOs и MapStruct mappers
-- [ ] #8.4 - Reactive filtering/query logic (R2DBC repository/DatabaseClient)
-- [ ] #8.5 - Тесты
+- [x] #8.1 - Spring Boot WebFlux setup + reactive filtering/query layer
+- [x] #8.2 - REST controllers
+- [x] #8.3 - DTOs и MapStruct mappers
+- [x] #8.4 - Reactive filtering/query logic (R2DBC repository/DatabaseClient)
+- [x] #8.5 - Тесты
 
 **Expected PR:** PR-8 (Query Service MVP)
 
