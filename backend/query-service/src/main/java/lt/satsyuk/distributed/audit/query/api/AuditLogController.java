@@ -29,9 +29,11 @@ public class AuditLogController {
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) EventType eventType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Long offset
     ) {
-        return auditLogQueryService.findAuditLogs(userId, eventType, from, to);
+        return auditLogQueryService.findAuditLogs(userId, eventType, from, to, limit, offset);
     }
 
     @GetMapping("/{id}")
@@ -39,4 +41,3 @@ public class AuditLogController {
         return auditLogQueryService.findById(id);
     }
 }
-

@@ -48,11 +48,13 @@ class AuditLogControllerWebFluxTest {
                 "user-1",
                 EventType.USER_LOGGED_IN,
                 Instant.parse("2026-05-01T00:00:00Z"),
-                Instant.parse("2026-05-31T23:59:59Z")
+                Instant.parse("2026-05-31T23:59:59Z"),
+                50,
+                10L
         )).thenReturn(Flux.just(dto));
 
         webTestClient.get()
-                .uri("/api/audit-logs?userId=user-1&eventType=USER_LOGGED_IN&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z")
+                .uri("/api/audit-logs?userId=user-1&eventType=USER_LOGGED_IN&from=2026-05-01T00:00:00Z&to=2026-05-31T23:59:59Z&limit=50&offset=10")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -79,7 +81,9 @@ class AuditLogControllerWebFluxTest {
                 null,
                 null,
                 Instant.parse("2026-05-20T00:00:00Z"),
-                Instant.parse("2026-05-10T00:00:00Z")
+                Instant.parse("2026-05-10T00:00:00Z"),
+                null,
+                null
         )).thenReturn(Flux.error(new IllegalArgumentException("Query parameter 'from' must be before or equal to 'to'")));
 
         webTestClient.get()

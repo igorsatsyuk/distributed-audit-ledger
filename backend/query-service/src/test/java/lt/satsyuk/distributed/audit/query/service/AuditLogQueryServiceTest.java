@@ -51,7 +51,9 @@ class AuditLogQueryServiceTest {
                         "user-1",
                         EventType.USER_LOGGED_IN,
                         Instant.parse("2026-05-01T00:00:00Z"),
-                        Instant.parse("2026-05-31T23:59:59Z")
+                        Instant.parse("2026-05-31T23:59:59Z"),
+                        null,
+                        null
                 )
                 .blockFirst();
 
@@ -61,6 +63,8 @@ class AuditLogQueryServiceTest {
         verify(auditLogQueryRepository).findByFilter(filterCaptor.capture());
         assertEquals("user-1", filterCaptor.getValue().userId());
         assertEquals(EventType.USER_LOGGED_IN, filterCaptor.getValue().eventType());
+        assertEquals(100, filterCaptor.getValue().limit());
+        assertEquals(0L, filterCaptor.getValue().offset());
     }
 
     @Test
@@ -70,10 +74,27 @@ class AuditLogQueryServiceTest {
                         null,
                         null,
                         Instant.parse("2026-05-20T00:00:00Z"),
-                        Instant.parse("2026-05-10T00:00:00Z")
+                        Instant.parse("2026-05-10T00:00:00Z"),
+                        10,
+                        0L
                 ));
 
         assertEquals("Query parameter 'from' must be before or equal to 'to'", exception.getMessage());
+    }
+
+    @Test
+    void findAuditLogsRejectsLimitAboveMax() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.findAuditLogs(
+                        null,
+                        null,
+                        null,
+                        null,
+                        1000,
+                        0L
+                ));
+
+        assertEquals("Query parameter 'limit' must be less than or equal to 500", exception.getMessage());
     }
 
     @Test

@@ -44,6 +44,7 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
         }
 
         sql.append(" ORDER BY created_at DESC, id DESC");
+        sql.append(" LIMIT :limit OFFSET :offset");
 
         DatabaseClient.GenericExecuteSpec executeSpec = databaseClient.sql(sql.toString());
 
@@ -59,6 +60,8 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
         if (filter.to() != null) {
             executeSpec = executeSpec.bind("toTs", LocalDateTime.ofInstant(filter.to(), ZoneOffset.UTC));
         }
+        executeSpec = executeSpec.bind("limit", filter.limit());
+        executeSpec = executeSpec.bind("offset", filter.offset());
 
         RowsFetchSpec<AuditEventRecord> rows = executeSpec.map(this::mapRow);
         return rows.all();

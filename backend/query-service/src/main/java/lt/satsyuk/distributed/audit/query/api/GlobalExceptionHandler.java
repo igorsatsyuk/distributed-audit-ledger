@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebInputException;
 
+import java.util.Objects;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -16,10 +18,16 @@ public class GlobalExceptionHandler {
                 .body(new ApiErrorResponse(ex.getMessage()));
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, ServerWebInputException.class})
-    public ResponseEntity<ApiErrorResponse> handleBadRequest(Exception ex) {
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ApiErrorResponse(ex.getMessage()));
     }
-}
 
+    @ExceptionHandler(ServerWebInputException.class)
+    public ResponseEntity<ApiErrorResponse> handleWebInput(ServerWebInputException ex) {
+        String message = Objects.requireNonNullElse(ex.getReason(), "Invalid request payload");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(message));
+    }
+}

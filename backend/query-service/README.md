@@ -8,6 +8,8 @@ Read-side service for audit history queries from `audit.events`.
   - `userId`
   - `eventType` (e.g. `USER_LOGGED_IN`)
   - `from` / `to` (ISO-8601, UTC)
+  - `limit` (default `100`, max `500`)
+  - `offset` (default `0`)
 - `GET /api/audit-logs/{id}` for a single event
 - Reactive query layer with dynamic SQL (`DatabaseClient`)
 - MapStruct mapper from DB model to shared `AuditEventDto`
@@ -18,7 +20,7 @@ Read-side service for audit history queries from `audit.events`.
 From `backend/`:
 
 ```bash
-mvn -pl query-service spring-boot:run
+mvn spring-boot:run -pl query-service -am
 ```
 
 Service port: `8084`
@@ -27,7 +29,7 @@ Service port: `8084`
 
 ```bash
 curl "http://localhost:8084/api/audit-logs"
-curl "http://localhost:8084/api/audit-logs?userId=user-1&eventType=USER_LOGGED_IN"
+curl "http://localhost:8084/api/audit-logs?userId=user-1&eventType=USER_LOGGED_IN&limit=50&offset=0"
 curl "http://localhost:8084/api/audit-logs/1"
 ```
 
@@ -36,6 +38,5 @@ curl "http://localhost:8084/api/audit-logs/1"
 From `backend/`:
 
 ```bash
-mvn -pl query-service test
+mvn test -pl query-service -am
 ```
-

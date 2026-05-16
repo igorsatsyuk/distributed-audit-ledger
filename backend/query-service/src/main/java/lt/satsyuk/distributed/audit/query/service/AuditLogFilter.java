@@ -8,7 +8,8 @@ public record AuditLogFilter(
         String userId,
         EventType eventType,
         Instant from,
-        Instant to
+        Instant to,
+        int limit,
+        long offset
 ) {
 }
-
