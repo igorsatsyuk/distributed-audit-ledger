@@ -56,5 +56,14 @@ class AuditEventConsumerTest {
 
         verify(blockchainWriterService).anchorEvent(event);
     }
+
+    @Test
+    void consume_throwsNonRecoverableForNullPayload() {
+        assertThatThrownBy(() -> consumer.consume(null, 1, 42L))
+                .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
+                .hasMessageContaining("tombstone");
+
+        verifyNoInteractions(blockchainWriterService);
+    }
 }
 

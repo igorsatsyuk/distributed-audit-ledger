@@ -292,5 +292,28 @@ class BlockchainWriterServiceTest {
         verify(contract, times(BlockchainWriterService.MAX_RETRIES))
                 .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
+
+    @Test
+    void anchorEvent_mapsUnauthorizedFailedReceiptToNotConfigured() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        TransactionReceipt failedReceipt = new TransactionReceipt();
+        failedReceipt.setStatus("0x0");
+        failedReceipt.setTransactionHash("0xbad");
+        failedReceipt.setRevertReason("Unauthorized()");
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenReturn(failedReceipt);
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                    .hasMessageContaining("does not own the contract");
+        }
+    }
 }
 

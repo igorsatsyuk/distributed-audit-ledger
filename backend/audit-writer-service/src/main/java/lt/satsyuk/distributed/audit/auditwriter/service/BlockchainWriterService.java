@@ -159,8 +159,12 @@ public class BlockchainWriterService {
                 throw new RuntimeException("appendAuditRecord returned null receipt");
             }
             if (receipt.getStatus() != null && !receipt.isStatusOK()) {
+                String revertReason = receipt.getRevertReason();
+                String reasonPart = (revertReason == null || revertReason.isBlank())
+                        ? ""
+                        : " (revertReason=" + revertReason + ")";
                 throw new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
-                        + " for tx " + receipt.getTransactionHash());
+                        + " for tx " + receipt.getTransactionHash() + reasonPart);
             }
             log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
                     hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());

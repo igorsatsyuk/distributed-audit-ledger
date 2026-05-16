@@ -32,7 +32,7 @@ public class Web3jConfig {
      * in degraded mode and report misconfiguration at runtime.
      */
     @Bean
-    @ConditionalOnExpression("'${web3j.private-key:}'.matches('^(?i)(0x)?[0-9a-f]{64}$')")
+    @ConditionalOnExpression("'${web3j.private-key:}'.trim().matches('^(?i)(0x)?[0-9a-f]{64}$')")
     public Credentials credentials(Web3jProperties props) {
         return Credentials.create(props.getPrivateKey().trim());
     }

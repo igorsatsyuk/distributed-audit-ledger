@@ -9,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -24,7 +25,7 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.kafka.ConfluentKafkaContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -82,8 +83,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
     private static final String DLT_TOPIC = "user.login.events.dlt";
 
     @Container
-    static final ConfluentKafkaContainer KAFKA = new ConfluentKafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
+    static final KafkaContainer KAFKA = new KafkaContainer(
+            DockerImageName.parse("apache/kafka-native:3.8.0")
     );
 
     @DynamicPropertySource
@@ -93,6 +94,11 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
     @MockitoBean
     private BlockchainWriterService blockchainWriterService;
+
+    @BeforeEach
+    void resetMock() {
+        reset(blockchainWriterService);
+    }
 
     @Autowired
     private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
@@ -220,7 +226,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
-                .untilAsserted(() -> verify(blockchainWriterService, atLeastOnce()).anchorEvent(any()));
+                .untilAsserted(() -> verify(blockchainWriterService, atLeastOnce()).anchorEvent(argThat(received ->
+                        received != null && event.getEventId().equals(received.getEventId()))));
 
         Map<String, Object> consumerProps = new HashMap<>();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
@@ -253,7 +260,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
                     .isFalse();
         }
 
-        reset(blockchainWriterService);
         kafkaTemplate.destroy();
     }
 
@@ -300,6 +306,54 @@ class AuditEventConsumerKafkaTestcontainersTest {
             assertThat(matched[0].value())
                     .as("DLT payload must preserve original malformed JSON bytes")
                     .isEqualTo(poisonPayload);
+        }
+
+        rawProducer.destroy();
+    }
+
+    @Test
+    @Order(5)
+    void shouldPublishTombstoneToDltAsNonRecoverable() throws Exception {
+        String tombstoneKey = "tombstone-" + UUID.randomUUID();
+
+        KafkaTemplate<String, byte[]> rawProducer = buildRawByteProducer();
+        waitForListenerAssignment();
+
+        // Null payload simulates a Kafka tombstone record.
+        rawProducer.send(TOPIC, tombstoneKey, null).get(10, TimeUnit.SECONDS);
+        rawProducer.flush();
+
+        Map<String, Object> consumerProps = new HashMap<>();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-tombstone-" + System.nanoTime());
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        try (KafkaConsumer<byte[], byte[]> dltConsumer = new KafkaConsumer<>(consumerProps)) {
+            dltConsumer.subscribe(List.of(DLT_TOPIC));
+
+            final ConsumerRecord<byte[], byte[]>[] matched = new ConsumerRecord[1];
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(30))
+                    .untilAsserted(() -> {
+                        ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
+                        for (ConsumerRecord<byte[], byte[]> record : polled) {
+                            String key = record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+                            if (tombstoneKey.equals(key)) {
+                                matched[0] = record;
+                                break;
+                            }
+                        }
+                        assertThat(matched[0]).as("expected tombstone record on DLT").isNotNull();
+                    });
+
+            assertThat(matched[0].value())
+                    .as("DLT value for tombstone should remain null")
+                    .isNull();
         }
 
         rawProducer.destroy();
