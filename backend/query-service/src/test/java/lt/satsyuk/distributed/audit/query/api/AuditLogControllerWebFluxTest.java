@@ -4,6 +4,7 @@ import lt.satsyuk.distributed.audit.contracts.dto.AuditEventDto;
 import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.query.service.AuditLogNotFoundException;
 import lt.satsyuk.distributed.audit.query.service.AuditLogQueryService;
+import lt.satsyuk.distributed.audit.query.service.QueryValidationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -84,7 +85,7 @@ class AuditLogControllerWebFluxTest {
                 Instant.parse("2026-05-10T00:00:00Z"),
                 null,
                 null
-        )).thenReturn(Flux.error(new IllegalArgumentException("Query parameter 'from' must be before or equal to 'to'")));
+        )).thenReturn(Flux.error(new QueryValidationException("Query parameter 'from' must be before or equal to 'to'")));
 
         webTestClient.get()
                 .uri("/api/audit-logs?from=2026-05-20T00:00:00Z&to=2026-05-10T00:00:00Z")

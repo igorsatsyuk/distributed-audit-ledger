@@ -23,7 +23,13 @@ public interface AuditEventDtoMapper {
         if (value == null || value.isBlank()) {
             return null;
         }
-        return EventType.valueOf(value);
+        try {
+            return EventType.valueOf(value);
+        } catch (IllegalArgumentException _) {
+            // Return null for unknown event types to avoid breaking the whole request
+            // when query-service is deployed behind event-store with a newer enum
+            return null;
+        }
     }
 
     default Instant toInstant(LocalDateTime value) {

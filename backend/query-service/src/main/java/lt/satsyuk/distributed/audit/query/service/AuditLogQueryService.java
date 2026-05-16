@@ -54,7 +54,7 @@ public class AuditLogQueryService {
 
     private void validateRange(Instant from, Instant to) {
         if (from != null && to != null && from.isAfter(to)) {
-            throw new IllegalArgumentException("Query parameter 'from' must be before or equal to 'to'");
+            throw new QueryValidationException("Query parameter 'from' must be before or equal to 'to'");
         }
     }
 
@@ -63,10 +63,10 @@ public class AuditLogQueryService {
             return DEFAULT_LIMIT;
         }
         if (limit < 1) {
-            throw new IllegalArgumentException("Query parameter 'limit' must be greater than 0");
+            throw new QueryValidationException("Query parameter 'limit' must be greater than 0");
         }
         if (limit > MAX_LIMIT) {
-            throw new IllegalArgumentException("Query parameter 'limit' must be less than or equal to " + MAX_LIMIT);
+            throw new QueryValidationException("Query parameter 'limit' must be less than or equal to " + MAX_LIMIT);
         }
         return limit;
     }
@@ -76,7 +76,7 @@ public class AuditLogQueryService {
             return DEFAULT_OFFSET;
         }
         if (offset < 0) {
-            throw new IllegalArgumentException("Query parameter 'offset' must be greater than or equal to 0");
+            throw new QueryValidationException("Query parameter 'offset' must be greater than or equal to 0");
         }
         return offset;
     }

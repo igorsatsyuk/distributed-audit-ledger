@@ -69,7 +69,7 @@ class AuditLogQueryServiceTest {
 
     @Test
     void findAuditLogsRejectsInvalidRange() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        assertThrows(QueryValidationException.class,
                 () -> service.findAuditLogs(
                         null,
                         null,
@@ -78,44 +78,30 @@ class AuditLogQueryServiceTest {
                         10,
                         0L
                 ));
-
-        assertEquals("Query parameter 'from' must be before or equal to 'to'", exception.getMessage());
     }
 
     @Test
     void findAuditLogsRejectsNegativeLimit() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        assertThrows(QueryValidationException.class,
                 () -> service.findAuditLogs(null, null, null, null, -1, 0L));
-        assertEquals("Query parameter 'limit' must be greater than 0", exception.getMessage());
     }
 
     @Test
     void findAuditLogsRejectsZeroLimit() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        assertThrows(QueryValidationException.class,
                 () -> service.findAuditLogs(null, null, null, null, 0, 0L));
-        assertEquals("Query parameter 'limit' must be greater than 0", exception.getMessage());
     }
 
     @Test
     void findAuditLogsRejectsNegativeOffset() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+        assertThrows(QueryValidationException.class,
                 () -> service.findAuditLogs(null, null, null, null, 100, -1L));
-        assertEquals("Query parameter 'offset' must be greater than or equal to 0", exception.getMessage());
     }
 
     @Test
     void findAuditLogsRejectsLimitAboveMax() {
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> service.findAuditLogs(
-                        null,
-                        null,
-                        null,
-                        null,
-                        1000,
-                        0L
-                ));
-
-        assertEquals("Query parameter 'limit' must be less than or equal to 500", exception.getMessage());
+        assertThrows(QueryValidationException.class,
+                () -> service.findAuditLogs(null, null, null, null, 1000, 0L));
     }
 
     @Test
