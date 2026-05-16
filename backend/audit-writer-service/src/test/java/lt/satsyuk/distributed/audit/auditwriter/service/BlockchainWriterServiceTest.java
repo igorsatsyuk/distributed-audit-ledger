@@ -258,6 +258,26 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
+    void anchorEvent_failsFastWhenClientAddressMissing() {
+        props.setClientAddress(" ");
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("web3j.client-address is missing");
+    }
+
+    @Test
+    void anchorEvent_failsFastWhenClientAddressMalformed() {
+        props.setClientAddress("localhost:8545");
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+
+        assertThatThrownBy(() -> service.anchorEvent(event))
+                .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
+                .hasMessageContaining("malformed web3j.client-address");
+    }
+
+    @Test
     void anchorEvent_failsFastOnMissingEventId() {
         // eventId is null; occurredAt and eventType are valid → should fail on eventId check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
@@ -403,6 +423,34 @@ class BlockchainWriterServiceTest {
 
         verify(contract, times(props.getBlockchainWriteRetries() + 1))
                 .appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    @Test
+    void anchorEvent_doesNotRetryInsideServiceWhenReceiptWaitTimesOut() throws Exception {
+        UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
+        props.setReceiptWaitTimeoutSeconds(1);
+        props.setBlockchainWriteRetries(3);
+
+        when(contract.isHashExists(any())).thenReturn(false);
+        when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
+                .thenAnswer(invocation -> {
+                    Thread.sleep(2_000L);
+                    TransactionReceipt receipt = new TransactionReceipt();
+                    receipt.setStatus("0x1");
+                    receipt.setTransactionHash("0xlate");
+                    return receipt;
+                });
+
+        try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
+            mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
+                    .thenReturn(contract);
+
+            assertThatThrownBy(() -> service.anchorEvent(event))
+                    .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class)
+                    .hasMessageContaining("Timed out waiting 1s");
+        }
+
+        verify(contract, times(1)).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
     }
 
     @Test

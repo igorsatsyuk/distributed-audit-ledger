@@ -271,6 +271,15 @@ public class BlockchainWriterService {
     }
 
     private void validateConfiguration() {
+        String clientAddress = props.getClientAddress();
+        if (clientAddress == null || clientAddress.isBlank()) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.client-address is missing");
+        }
+        if (!Web3jValidationUtils.isValidClientAddress(clientAddress)) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer has malformed web3j.client-address (expected http(s) URL): " + clientAddress);
+        }
         if (credentials.isEmpty()) {
             String privateKey = props.getPrivateKey();
             if (privateKey != null && !privateKey.isBlank()) {

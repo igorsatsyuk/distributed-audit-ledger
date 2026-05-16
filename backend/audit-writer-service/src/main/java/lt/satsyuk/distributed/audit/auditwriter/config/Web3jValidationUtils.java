@@ -1,6 +1,8 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.regex.Pattern;
 
 /** Shared validation helpers for Web3j-related configuration values. */
@@ -34,6 +36,22 @@ public final class Web3jValidationUtils {
 
     public static boolean isZeroAddress(String value) {
         return value != null && ZERO_ADDRESS.equalsIgnoreCase(value);
+    }
+
+    public static boolean isValidClientAddress(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        try {
+            URI uri = new URI(value.trim());
+            String scheme = uri.getScheme();
+            if (scheme == null || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                return false;
+            }
+            return uri.getHost() != null;
+        } catch (URISyntaxException ex) {
+            return false;
+        }
     }
 }
 

@@ -1,9 +1,6 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
@@ -29,6 +26,8 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 
@@ -54,7 +53,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Regenerate by running {@code npm run compile} in the {@code blockchain} module and
  * copying the {@code bytecode} field from
  * {@code blockchain/artifacts/contracts/AuditLedger.sol/AuditLedger.json}
- * into {@code src/test/resources/AuditLedger.bytecode}.
+ * into {@code src/test/resources/AuditLedger.bytecode}; update
+ * {@code src/test/resources/AuditLedger.sol.sha256} in the same change.
  *
  * <p>Automatically skipped when Docker is unavailable.
  */
@@ -156,19 +156,33 @@ class AuditLedgerContractGanacheTest {
     /**
      * Guards the committed bytecode snapshot against contract drift.
      *
-     * <p>If the Hardhat artifact exists locally, the test compares it against the
-     * committed {@code /AuditLedger.bytecode} resource and fails if they diverge.
-     * On a clean checkout without the artifact, the check is skipped.
+     * <p>Compares the SHA-256 of {@code blockchain/contracts/AuditLedger.sol}
+     * (normalized to LF line endings) against the committed
+     * {@code /AuditLedger.sol.sha256} marker. This check runs on clean checkouts,
+     * so stale {@code /AuditLedger.bytecode} snapshots are detected even when
+     * Hardhat artifacts are absent.
      */
     @Test
-    void auditLedgerBytecodeSnapshot_matchesHardhatArtifactWhenPresent() throws Exception {
-        Path artifactPath = locateAuditLedgerArtifact();
-        Assumptions.assumeTrue(artifactPath != null,
-                "Hardhat artifact not found; skipping bytecode snapshot sync check");
+    void auditLedgerBytecodeSnapshot_staysInSyncWithAuditLedgerSolSource() throws Exception {
+        Path sourcePath = locateAuditLedgerSource();
+        if (sourcePath == null) {
+            throw new IllegalStateException("Cannot find blockchain/contracts/AuditLedger.sol from current working directory");
+        }
 
-        assertThat(resolveAuditLedgerBytecode())
-                .as("committed snapshot must match the generated Hardhat artifact")
-                .isEqualTo(readBytecodeFromArtifact(artifactPath));
+        String expectedHash;
+        try (InputStream stream = AuditLedgerContractGanacheTest.class.getResourceAsStream("/AuditLedger.sol.sha256")) {
+            if (stream == null) {
+                throw new IllegalStateException(
+                        "Classpath resource /AuditLedger.sol.sha256 not found. "
+                                + "Update test resources when AuditLedger.sol changes.");
+            }
+            expectedHash = new String(stream.readAllBytes(), StandardCharsets.UTF_8).strip();
+        }
+
+        String actualHash = sha256HexNormalized(Files.readString(sourcePath));
+        assertThat(actualHash)
+                .as("AuditLedger.sol hash marker must match current Solidity source")
+                .isEqualTo(expectedHash);
     }
 
     // -------------------------------------------------------------------------
@@ -249,15 +263,13 @@ class AuditLedgerContractGanacheTest {
         }
     }
 
-    private static Path locateAuditLedgerArtifact() {
+    private static Path locateAuditLedgerSource() {
         Path current = Path.of("").toAbsolutePath().normalize();
         for (int i = 0; i < 8 && current != null; i++) {
             Path candidate = current
                     .resolve("blockchain")
-                    .resolve("artifacts")
                     .resolve("contracts")
-                    .resolve("AuditLedger.sol")
-                    .resolve("AuditLedger.json");
+                    .resolve("AuditLedger.sol");
             if (Files.exists(candidate)) {
                 return candidate;
             }
@@ -266,13 +278,19 @@ class AuditLedgerContractGanacheTest {
         return null;
     }
 
-    private static String readBytecodeFromArtifact(Path artifactPath) throws IOException {
-        JsonNode json = new ObjectMapper().readTree(Files.readString(artifactPath));
-        String bytecode = json.path("bytecode").asText(null);
-        if (bytecode == null || bytecode.isBlank() || "0x".equals(bytecode)) {
-            throw new IllegalStateException("AuditLedger artifact bytecode is missing or empty at " + artifactPath);
+    private static String sha256HexNormalized(String source) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String normalized = source.replace("\r\n", "\n");
+            byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 algorithm not available", ex);
         }
-        return bytecode;
     }
 }
 
