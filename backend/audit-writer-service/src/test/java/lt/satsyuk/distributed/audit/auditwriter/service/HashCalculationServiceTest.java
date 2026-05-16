@@ -1,8 +1,8 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
+import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
 import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -119,8 +119,10 @@ class HashCalculationServiceTest {
                 .userAgent("ua")
                 .build();
 
-        // Mirrors event-store-service JacksonConfig + EventHashService.sha256Hex(payloadJson).
-        ObjectMapper eventStoreMapper = JsonMapper.builder().findAndAddModules().build();
+        // Uses the shared CanonicalObjectMapperFactory (the same factory used by both
+        // event-store-service and audit-writer-service at runtime), so any change to
+        // the shared factory will be reflected on both sides of this comparison.
+        ObjectMapper eventStoreMapper = CanonicalObjectMapperFactory.create();
         String payloadJson = eventStoreMapper.writeValueAsString(event);
         byte[] expected = MessageDigest.getInstance("SHA-256")
                 .digest(payloadJson.getBytes(StandardCharsets.UTF_8));
