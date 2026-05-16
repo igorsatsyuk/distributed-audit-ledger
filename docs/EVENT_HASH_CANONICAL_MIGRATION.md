@@ -20,7 +20,11 @@
 2. **Сделать backup** таблицы `audit.events`.
 3. **Пересчитать canonical hash** для каждой строки по фактическому `payload` и обновить `event_hash`.
 4. **Синхронизировать с blockchain (`AuditLedger`)**:
-   - для строк, которые еще не были заякорены on-chain, выполнить backfill через `appendAuditRecord(canonicalHash)`;
+   - для строк, которые еще не были заякорены on-chain, выполнить backfill через `appendAuditRecord(canonicalHash, timestamp, eventType, sourceAddress)`:
+     * `canonicalHash` — SHA-256 из пересчитанного payload (64 hex chars);
+     * `timestamp` — Unix epoch seconds из `audit.events.occurred_at`;
+     * `eventType` — имя типа события (e.g., `USER_LOGGED_IN`) из `audit.events.event_type`;
+     * `sourceAddress` — адрес writer'а (owner контракта AuditLedger);
    - для строк, уже заякоренных legacy hash, зафиксировать стратегию: либо отдельная историческая зона без строгого `DB == chain`, либо пересоздание окружения/ledger с canonical hash;
    - убедиться, что для целевого набора данных нет "только DB" записей без on-chain отражения.
 5. **Проверить консистентность**:

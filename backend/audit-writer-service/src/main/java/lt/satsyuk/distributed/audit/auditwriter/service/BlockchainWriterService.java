@@ -17,6 +17,7 @@ import org.web3j.tx.gas.DefaultGasProvider;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -293,7 +294,9 @@ public class BlockchainWriterService {
             return;
         }
 
-        // Ownership can rotate at runtime; refresh once before failing.
+        // Ownership can rotate at runtime; refresh before failing.
+        // This ensures that if the owner changes while the service is running,
+        // we detect it and report configuration instead of treating the event as a transient write failure.
         String refreshedOwner = resolveContractOwner(contract);
         cachedContractOwner = refreshedOwner;
         if (!refreshedOwner.equalsIgnoreCase(signer)) {
@@ -384,12 +387,20 @@ public class BlockchainWriterService {
         }
         int authorityStart = schemeIdx + 3;
         int slashIdx = url.indexOf('/', authorityStart);
-        String authority = slashIdx >= 0 ? url.substring(authorityStart, slashIdx) : url.substring(authorityStart);
+        int questionIdx = url.indexOf('?', authorityStart);
+
+        // Find where authority ends (before path or query)
+        int authorityEnd = slashIdx >= 0 ? slashIdx : (questionIdx >= 0 ? questionIdx : url.length());
+        String authority = url.substring(authorityStart, authorityEnd);
+
+        // Redact userinfo (before '@')
         int atIdx = authority.indexOf('@');
-        if (atIdx >= 0) {
-            return url.substring(0, authorityStart) + "<redacted>@" + authority.substring(atIdx + 1);
-        }
-        return url;
+        String safeAuthority = atIdx >= 0
+                ? "<redacted>@" + authority.substring(atIdx + 1)
+                : authority;
+
+        // Redact path and query components (may contain API tokens)
+        return url.substring(0, authorityStart) + safeAuthority + "/<redacted>";
     }
 
     private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
@@ -400,27 +411,31 @@ public class BlockchainWriterService {
                                               String source) throws Exception {
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
 
-        Future<TransactionReceipt> existing = inFlightWritesByHash.get(hexHash);
-        if (existing != null) {
-            return awaitInFlightResult(hexHash, existing, timeoutSeconds);
-        }
-
-        Future<TransactionReceipt> future;
-        try {
-            future = receiptExecutor.submit(() -> contract.appendAuditRecord(hash, timestamp, eventType, source));
-        } catch (RejectedExecutionException ex) {
-            throw new ReceiptTimeoutException(
-                    "Receipt wait executor is saturated; transaction outcome is unknown and will be re-checked on Kafka redelivery",
-                    ex);
-        }
-
-        Future<TransactionReceipt> previous = inFlightWritesByHash.putIfAbsent(hexHash, future);
-        if (previous != null) {
-            future.cancel(true);
-            return awaitInFlightResult(hexHash, previous, timeoutSeconds);
-        }
+        // Use computeIfAbsent to atomically check and submit for this hash,
+        // ensuring only one concurrent transaction per hash is in-flight.
+        Future<TransactionReceipt> future = inFlightWritesByHash.computeIfAbsent(hexHash, k ->
+                submitAppendAuditRecord(contract, hash, timestamp, eventType, source)
+        );
 
         return awaitInFlightResult(hexHash, future, timeoutSeconds);
+    }
+
+    private Future<TransactionReceipt> submitAppendAuditRecord(
+            AuditLedgerContract contract,
+            byte[] hash,
+            BigInteger timestamp,
+            String eventType,
+            String source) {
+        try {
+            return receiptExecutor.submit(() -> contract.appendAuditRecord(hash, timestamp, eventType, source));
+        } catch (RejectedExecutionException ex) {
+            // Return a failed future that will surface as ReceiptTimeoutException to the caller
+            CompletableFuture<TransactionReceipt> failedFuture = new CompletableFuture<>();
+            failedFuture.completeExceptionally(new ReceiptTimeoutException(
+                    "Receipt wait executor is saturated; transaction outcome is unknown and will be re-checked on Kafka redelivery",
+                    ex));
+            return failedFuture;
+        }
     }
 
     private TransactionReceipt awaitInFlightResult(String hexHash,

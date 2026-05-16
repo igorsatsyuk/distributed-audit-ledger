@@ -144,11 +144,6 @@ public class KafkaListenerConfig {
                     receiptWaitTimeoutSeconds, effectiveReceiptWaitTimeoutSeconds);
         }
 
-        long timeoutAwareRetryIntervalMs = Math.max(
-                effectiveRetryIntervalMs,
-                TimeUnit.SECONDS.toMillis(effectiveReceiptWaitTimeoutSeconds)
-        );
-
         // Always route DLT records to partition 0.
         // Using record.partition() would require the DLT topic to have at least as many
         // partitions as the source topic; with auto-creation that is not guaranteed.
@@ -184,8 +179,10 @@ public class KafkaListenerConfig {
                     dltRecoverer.accept(record, exception);
                 };
 
+        // Use standard backoff for all errors; for ReceiptTimeoutException specifically,
+        // the service tracks in-flight writes and will backoff before resubmitting on Kafka redelivery.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(safeRecoverer,
-                new FixedBackOff(timeoutAwareRetryIntervalMs, RETRY_ATTEMPTS));
+                new FixedBackOff(effectiveRetryIntervalMs, RETRY_ATTEMPTS));
 
         // Skip retries for known terminal malformed events.
         // Exclude BlockchainNotConfiguredException from this list so that unconfigured startup
