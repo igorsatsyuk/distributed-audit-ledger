@@ -137,7 +137,6 @@
                       #integrityInfoTooltip="matTooltip"
                       matTooltip="The table shows the last known list status, and the Details drawer performs on-demand verification for the selected row."
                       (click)="$event.stopPropagation(); integrityInfoTooltip.toggle()"
-                      (keydown.enter)="$event.stopPropagation(); integrityInfoTooltip.toggle()"
                       (keydown.space)="$event.preventDefault(); $event.stopPropagation(); integrityInfoTooltip.toggle()"
                     >
                       <mat-icon class="info-icon">info_outline</mat-icon>
@@ -180,6 +179,7 @@
             [pageSize]="pageSize()"
             [pageIndex]="pageIndex()"
             [pageSizeOptions]="PAGE_SIZE_OPTIONS"
+            showFirstLastButtons
             aria-label="Audit log pages"
             (page)="onPageChange($event)"
           ></mat-paginator>
