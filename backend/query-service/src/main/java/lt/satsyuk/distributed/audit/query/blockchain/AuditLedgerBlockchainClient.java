@@ -209,7 +209,7 @@ public class AuditLedgerBlockchainClient {
         return value.trim();
     }
 
-    private DefaultBlockParameter resolveFromBlockParameter() {
+    DefaultBlockParameter resolveFromBlockParameter() {
         long deploymentBlock = props.getContractDeploymentBlock();
         if (deploymentBlock < 0) {
             throw new BlockchainIntegrityException("web3j.contract-deployment-block must be >= 0",

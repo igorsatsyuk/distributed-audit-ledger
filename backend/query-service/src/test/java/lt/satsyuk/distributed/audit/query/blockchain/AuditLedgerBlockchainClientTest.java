@@ -7,9 +7,6 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -17,10 +14,10 @@ import static org.mockito.Mockito.mock;
 class AuditLedgerBlockchainClientTest {
 
     @Test
-    void resolveFromBlockParameterUsesEarliestForLocalGanache() throws Exception {
+    void resolveFromBlockParameterUsesEarliestForLocalGanache() {
         AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L);
 
-        DefaultBlockParameter result = invokeResolveFromBlockParameter(client);
+        DefaultBlockParameter result = client.resolveFromBlockParameter();
 
         assertEquals(DefaultBlockParameterName.EARLIEST, result);
     }
@@ -29,11 +26,10 @@ class AuditLedgerBlockchainClientTest {
     void resolveFromBlockParameterRejectsZeroBlockForNonLocalRpc() {
         AuditLedgerBlockchainClient client = newClient("https://example.com", 0L);
 
-        InvocationTargetException ex = assertThrows(InvocationTargetException.class,
-                () -> invokeResolveFromBlockParameter(client));
-        assertEquals(BlockchainIntegrityException.class, ex.getCause().getClass());
+        BlockchainIntegrityException ex = assertThrows(BlockchainIntegrityException.class,
+                client::resolveFromBlockParameter);
         assertEquals("web3j.contract-deployment-block must be configured for non-local RPC endpoints",
-                ex.getCause().getMessage());
+                ex.getMessage());
     }
 
     private AuditLedgerBlockchainClient newClient(String clientAddress, long deploymentBlock) {
@@ -44,10 +40,5 @@ class AuditLedgerBlockchainClientTest {
         return new AuditLedgerBlockchainClient(mock(Web3j.class), props);
     }
 
-    private DefaultBlockParameter invokeResolveFromBlockParameter(AuditLedgerBlockchainClient client) throws Exception {
-        Method method = AuditLedgerBlockchainClient.class.getDeclaredMethod("resolveFromBlockParameter");
-        method.setAccessible(true);
-        return (DefaultBlockParameter) method.invoke(client);
-    }
 }
 
