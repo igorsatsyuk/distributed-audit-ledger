@@ -162,7 +162,7 @@ describe('AuditDashboardComponent', () => {
     });
     await init(fullSpy);
     expect(component.estimatedTotal()).toBe(40);
-    const displayed = await new Promise<AuditLog[]>(res => component.logs$.subscribe(res));
+    const displayed = component.logs$.value;
     expect(displayed.length).toBe(20);
   });
 
@@ -173,7 +173,7 @@ describe('AuditDashboardComponent', () => {
       checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
 
     component.openDetails(pendingRow);
 
@@ -187,7 +187,7 @@ describe('AuditDashboardComponent', () => {
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
 
     component.openDetails(pendingRow);
 

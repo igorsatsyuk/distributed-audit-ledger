@@ -134,18 +134,20 @@
                       mat-icon-button
                       class="info-button"
                       aria-label="How integrity status is refreshed"
-                      matTooltip="Integrity follows the list status in the table and is verified on demand in the Details drawer."
+                      matTooltip="Visible rows with hashes are rechecked in the background; the Details drawer performs an on-demand verification as well."
                     >
                       <mat-icon class="info-icon">info_outline</mat-icon>
                     </button>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
-                  <span
-                    class="status-chip"
+                  <button
+                    type="button"
+                    class="status-chip hash-chip"
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
-                  >{{ effectiveIntegrityStatus(element) }}</span>
+                    [attr.aria-label]="element.eventHash ? 'Event hash ' + element.eventHash : 'Event hash not available'"
+                  >{{ effectiveIntegrityStatus(element) }}</button>
                 </td>
               </ng-container>
 
