@@ -38,7 +38,7 @@ class AuditIntegrityCheckServiceTest {
     }
 
     @Test
-    void checkIntegrityReturnsOkWhenHashIsAnchored() {
+    void checkIntegrityReturnsOnChainWhenHashIsAnchored() {
         AuditEventRecord eventRecord = sampleRecord(10L, HASH_64);
         AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord =
                 new AuditIntegrityCheckResponse.BlockchainRecord(true, "0xabc", 42L, 1715774400L);
@@ -71,7 +71,7 @@ class AuditIntegrityCheckServiceTest {
     }
 
     @Test
-    void checkIntegrityReturnsMismatchWhenDbHashMissing() {
+    void checkIntegrityReturnsPendingWhenDbHashMissing() {
         AuditEventRecord eventRecord = sampleRecord(12L, null);
 
         when(auditLogQueryRepository.findById(12L)).thenReturn(Mono.just(eventRecord));

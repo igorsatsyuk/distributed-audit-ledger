@@ -201,6 +201,11 @@ public class AuditLedgerBlockchainClient {
         if (!WalletUtils.isValidAddress(contractAddress)) {
             throw new BlockchainIntegrityException("web3j.contract-address is malformed");
         }
+        // Reject zero-address (0x000...000) which is not a valid contract
+        String normalized = contractAddress.toLowerCase();
+        if ("0x0000000000000000000000000000000000000000".equals(normalized)) {
+            throw new BlockchainIntegrityException("web3j.contract-address cannot be zero-address (0x000...000)");
+        }
     }
 }
 
