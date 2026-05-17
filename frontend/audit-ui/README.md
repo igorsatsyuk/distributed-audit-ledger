@@ -18,7 +18,8 @@ Angular 17 standalone UI for Distributed Audit Ledger with live backend integrat
 ## Production API routing
 
 - `environment.prod.ts` uses a relative API path by default so production builds can be served behind the same origin as the API.
-- If your deployment exposes Query Service on a different origin, set `queryServiceBaseUrl` at build/deploy time or wire a reverse proxy to `/api`.
+- `queryServiceBaseUrl` from Angular environments is a build-time setting (baked into the bundle during `ng build`).
+- For deploy-time API origin changes, use a reverse proxy for `/api` or add a runtime configuration mechanism.
 
 ## Run locally
 
