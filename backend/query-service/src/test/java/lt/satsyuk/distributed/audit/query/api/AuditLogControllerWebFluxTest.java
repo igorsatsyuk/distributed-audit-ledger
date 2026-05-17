@@ -141,7 +141,8 @@ class AuditLogControllerWebFluxTest {
     @Test
     void integrityCheckReturnsServiceUnavailableWhenBlockchainFails() {
         when(auditIntegrityCheckService.checkIntegrity(1L)).thenReturn(Mono.error(
-                new BlockchainIntegrityException("Blockchain RPC is unavailable")));
+                new BlockchainIntegrityException("Blockchain RPC is unavailable",
+                        BlockchainIntegrityException.ErrorType.RPC_FAILURE)));
 
         webTestClient.get()
                 .uri("/api/audit-logs/1/integrity-check")
@@ -149,5 +150,19 @@ class AuditLogControllerWebFluxTest {
                 .expectStatus().isEqualTo(503)
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("Blockchain RPC is unavailable");
+    }
+
+    @Test
+    void integrityCheckReturnsInternalServerErrorWhenConfigurationFails() {
+        when(auditIntegrityCheckService.checkIntegrity(1L)).thenReturn(Mono.error(
+                new BlockchainIntegrityException("web3j.contract-address is malformed",
+                        BlockchainIntegrityException.ErrorType.CONFIGURATION)));
+
+        webTestClient.get()
+                .uri("/api/audit-logs/1/integrity-check")
+                .exchange()
+                .expectStatus().isEqualTo(500)
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("web3j.contract-address is malformed");
     }
 }

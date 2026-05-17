@@ -27,6 +27,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BlockchainIntegrityException.class)
     public ResponseEntity<ApiErrorResponse> handleBlockchainIntegrity(BlockchainIntegrityException ex) {
+        // Configuration errors (missing/malformed address, invalid hash, etc.) are internal server errors
+        if (ex.getErrorType() == BlockchainIntegrityException.ErrorType.CONFIGURATION) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse(ex.getMessage()));
+        }
+        // RPC failures (network issues, timeouts, etc.) are transient service unavailable errors
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ApiErrorResponse(ex.getMessage()));
     }
