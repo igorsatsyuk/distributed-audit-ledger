@@ -152,7 +152,7 @@ public class AuditLedgerBlockchainClient {
         return Optional.empty();
     }
 
-    private AuditIntegrityCheckResponse.BlockchainRecord toBlockchainRecord(Log log) throws Exception {
+    private AuditIntegrityCheckResponse.BlockchainRecord toBlockchainRecord(Log log) {
         String transactionHash = log.getTransactionHash();
         Long blockNumber = log.getBlockNumber() == null ? null : log.getBlockNumber().longValue();
         // Decode timestamp directly from RecordAppended event data (the event includes uint256 timestamp)
@@ -160,7 +160,7 @@ public class AuditLedgerBlockchainClient {
         return new AuditIntegrityCheckResponse.BlockchainRecord(true, transactionHash, blockNumber, timestamp);
     }
 
-    private Long decodeEventTimestamp(Log log) throws Exception {
+    private Long decodeEventTimestamp(Log log) {
         if (log.getData() == null || log.getData().isBlank()) {
             return null;
         }
@@ -236,33 +236,8 @@ public class AuditLedgerBlockchainClient {
             return "localhost".equalsIgnoreCase(host)
                     || "127.0.0.1".equals(host)
                     || "::1".equals(host)
-                    || "0.0.0.0".equals(host)
-                    || "host.docker.internal".equalsIgnoreCase(host)
-                    || isPrivateIpv4(host);
+                    || "host.docker.internal".equalsIgnoreCase(host);
         } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private boolean isPrivateIpv4(String host) {
-        if (host == null) {
-            return false;
-        }
-        if (host.startsWith("10.") || host.startsWith("192.168.")) {
-            return true;
-        }
-        if (!host.startsWith("172.")) {
-            return false;
-        }
-
-        String[] parts = host.split("\\.");
-        if (parts.length < 2) {
-            return false;
-        }
-        try {
-            int secondOctet = Integer.parseInt(parts[1]);
-            return secondOctet >= 16 && secondOctet <= 31;
-        } catch (NumberFormatException ex) {
             return false;
         }
     }
