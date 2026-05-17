@@ -11,11 +11,17 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, from, map, mergeMap, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 
 type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
+type IntegritySource = 'VISIBLE' | 'DRAWER';
+
+interface RowIntegrityState {
+  status: DisplayIntegrityStatus;
+  source: IntegritySource;
+}
 
 @Component({
   selector: 'app-audit-dashboard',
@@ -76,7 +82,8 @@ export class AuditDashboardComponent implements OnDestroy {
    * switchMap cancels any in-flight check for a previously opened row.
    */
   private readonly integrityTrigger$ = new Subject<number>();
-  private readonly rowIntegrityById = signal<Record<number, DisplayIntegrityStatus>>({});
+  private readonly visibleRowsIntegrityTrigger$ = new Subject<AuditLog[]>();
+  private readonly rowIntegrityById = signal<Record<number, RowIntegrityState>>({});
 
   private readonly destroy$ = new Subject<void>();
 
@@ -88,6 +95,7 @@ export class AuditDashboardComponent implements OnDestroy {
   constructor(private readonly auditLogService: AuditLogService) {
     this.initLoadPipeline();
     this.initIntegrityPipeline();
+    this.initVisibleRowsIntegrityPipeline();
 
     // Initial load
     this.loadTrigger$.next();
@@ -142,7 +150,7 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   effectiveIntegrityStatus(item: AuditLog): DisplayIntegrityStatus {
-    return this.rowIntegrityById()[item.id] ?? item.integrityStatus;
+    return this.rowIntegrityById()[item.id]?.status ?? item.integrityStatus;
   }
 
   parseEventData(item: AuditLog): unknown {
@@ -203,7 +211,7 @@ export class AuditDashboardComponent implements OnDestroy {
 
         this.logs$.next(visibleRows);
         this.estimatedTotal.set(hasMore ? offset + size + size : offset + visibleRows.length);
-        this.rowIntegrityById.set({});
+        this.visibleRowsIntegrityTrigger$.next(visibleRows);
       });
   }
 
@@ -224,7 +232,10 @@ export class AuditDashboardComponent implements OnDestroy {
             catchError(() => {
               if (requestId === this.currentIntegrityRequestId) {
                 this.integrityCheckError.set('Could not verify blockchain integrity.');
-                this.rowIntegrityById.update(current => ({ ...current, [id]: 'UNKNOWN' }));
+                this.rowIntegrityById.update(current => ({
+                  ...current,
+                  [id]: { status: 'UNKNOWN', source: 'DRAWER' },
+                }));
               }
               return EMPTY;
             }),
@@ -241,8 +252,52 @@ export class AuditDashboardComponent implements OnDestroy {
       .subscribe(({ result, requestId }) => {
         if (requestId === this.currentIntegrityRequestId) {
           this.integrityCheckResult.set(result);
-          this.rowIntegrityById.update(current => ({ ...current, [result.auditLogId]: result.status }));
+          this.rowIntegrityById.update(current => ({
+            ...current,
+            [result.auditLogId]: { status: result.status, source: 'DRAWER' },
+          }));
         }
+      });
+  }
+
+  private initVisibleRowsIntegrityPipeline(): void {
+    this.visibleRowsIntegrityTrigger$
+      .pipe(
+        switchMap(rows => {
+          const snapshot = this.rowIntegrityById();
+          const rowsToCheck = rows.filter(row => snapshot[row.id] == null);
+
+          if (rowsToCheck.length === 0) {
+            return EMPTY;
+          }
+
+          // Run a small number of checks in parallel to avoid large request bursts.
+          return from(rowsToCheck).pipe(
+            mergeMap(
+              row =>
+                this.auditLogService.checkIntegrity(row.id).pipe(
+                  map(response => ({ id: row.id, status: response.status as DisplayIntegrityStatus })),
+                  catchError(() => from([{ id: row.id, status: 'UNKNOWN' as DisplayIntegrityStatus }])),
+                ),
+              3,
+            ),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(update => {
+        this.rowIntegrityById.update(current => {
+          const existing = current[update.id];
+          // Never let background checks overwrite a newer drawer check.
+          if (existing?.source === 'DRAWER') {
+            return current;
+          }
+
+          return {
+            ...current,
+            [update.id]: { status: update.status, source: 'VISIBLE' },
+          };
+        });
       });
   }
 

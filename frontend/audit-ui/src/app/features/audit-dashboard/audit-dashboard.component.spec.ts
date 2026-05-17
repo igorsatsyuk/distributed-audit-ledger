@@ -1,5 +1,5 @@
 import { Subject, of, throwError } from 'rxjs';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { AuditDashboardComponent } from './audit-dashboard.component';
 import { AuditLogService } from '../../services/audit-log.service';
@@ -136,17 +136,16 @@ describe('AuditDashboardComponent', () => {
     expect(component.eventTypeControl.value).toBe('');
   });
 
-  it('onPageChange updates pageSize and pageIndex then reloads', fakeAsync(async () => {
+  it('onPageChange updates pageSize and pageIndex then reloads', async () => {
     await init();
     (serviceSpy.getAuditLogs as jasmine.Spy).calls.reset();
     component.onPageChange({ pageSize: 50, pageIndex: 1, length: 100, previousPageIndex: 0 });
-    tick();
     expect(component.pageSize()).toBe(50);
     expect(component.pageIndex()).toBe(1);
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
       jasmine.objectContaining({ limit: 51, offset: 50 }),
     );
-  }));
+  });
 
   it('estimatedTotal is set correctly when page is not full', async () => {
     const partlyFull = makeServiceSpy({
@@ -167,33 +166,25 @@ describe('AuditDashboardComponent', () => {
     expect(displayed.length).toBe(20);
   });
 
-  it('effectiveIntegrityStatus uses list status until drawer check updates row status', fakeAsync(async () => {
+  it('effectiveIntegrityStatus uses visible-row check status', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
-
-    component.openDetails(pendingRow);
-    tick();
-
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
-  }));
+  });
 
-  it('effectiveIntegrityStatus returns UNKNOWN when drawer verification fails', fakeAsync(async () => {
+  it('effectiveIntegrityStatus returns UNKNOWN when visible-row verification fails', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
     }));
 
-    component.openDetails(pendingRow);
-    tick();
-
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
-  }));
+  });
 
   it('integrityClass returns correct CSS class for each status', async () => {
     await init();
@@ -203,25 +194,23 @@ describe('AuditDashboardComponent', () => {
     expect(component.integrityClass('unknown')).toBe('status-chip--unknown');
   });
 
-  it('openDetails sets selectedAuditLog and triggers integrity check', fakeAsync(async () => {
+  it('openDetails sets selectedAuditLog and triggers integrity check', async () => {
     await init();
     component.openDetails(MOCK_LOG);
-    tick();
     expect(component.selectedAuditLog()).toEqual(MOCK_LOG);
     expect(serviceSpy.checkIntegrity).toHaveBeenCalledWith(MOCK_LOG.id);
     expect(component.integrityCheckResult()).toEqual(MOCK_INTEGRITY);
-  }));
+  });
 
-  it('openDetails sets integrityCheckError when integrity check fails', fakeAsync(async () => {
+  it('openDetails sets integrityCheckError when integrity check fails', async () => {
     await init(makeServiceSpy({
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('BC error'))),
     }));
     component.openDetails(MOCK_LOG);
-    tick();
     expect(component.integrityCheckError()).toBeTruthy();
     expect(component.integrityCheckResult()).toBeNull();
     expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('UNKNOWN');
-  }));
+  });
 
   it('closeDetails clears selectedAuditLog and integrity state', async () => {
     await init();
