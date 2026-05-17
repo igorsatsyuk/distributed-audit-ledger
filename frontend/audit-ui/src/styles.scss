@@ -6,15 +6,13 @@ $audit-ui-primary: mat.define-palette(mat.$indigo-palette);
 $audit-ui-accent: mat.define-palette(mat.$blue-palette, A200, A100, A400);
 $audit-ui-warn: mat.define-palette(mat.$red-palette);
 
-$audit-ui-theme: mat.define-light-theme(
-  (
-	color: (
-	  primary: $audit-ui-primary,
-	  accent: $audit-ui-accent,
-	  warn: $audit-ui-warn,
-	),
-  )
-);
+$audit-ui-theme: mat.define-light-theme((
+color: (
+primary: $audit-ui-primary,
+accent: $audit-ui-accent,
+warn: $audit-ui-warn,
+),
+));
 
 html {
   @include mat.all-component-themes($audit-ui-theme);

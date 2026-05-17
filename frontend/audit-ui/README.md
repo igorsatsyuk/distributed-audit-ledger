@@ -8,7 +8,7 @@ Angular 17 standalone UI skeleton for Distributed Audit Ledger.
 - Audit table with columns: ID, event type, user, time, integrity status.
 - Filters by event type and user ID.
 - Event detail panel via side drawer.
-- HTTP service for Query Service endpoint (`http://localhost:8084/api/audit-logs`) with local fallback mock data.
+- HTTP service for Query Service endpoint (base URL from Angular `environment`) with visible error state on failed requests.
 
 ## Run locally
 
@@ -27,4 +27,4 @@ npm run test:headless
 
 ## Next issue alignment
 
-This skeleton is prepared for Issue #11 (switch from fallback mock usage to full backend API integration and pagination).
+This skeleton is prepared for Issue #11 (full backend API integration, pagination, and advanced loading/error handling).

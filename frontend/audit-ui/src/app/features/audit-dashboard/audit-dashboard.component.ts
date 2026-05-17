@@ -37,6 +37,7 @@ export class AuditDashboardComponent {
   readonly displayedColumns = ['id', 'eventType', 'userId', 'createdAt', 'status', 'details'];
   readonly logs$ = new BehaviorSubject<AuditLog[]>([]);
   readonly loading = signal(false);
+  readonly errorMessage = signal<string | null>(null);
   readonly selectedAuditLog = signal<AuditLog | null>(null);
 
   readonly userIdControl = new FormControl('', { nonNullable: true });
@@ -73,6 +74,7 @@ export class AuditDashboardComponent {
   }
 
   private loadAuditLogs(): void {
+    this.errorMessage.set(null);
     this.loading.set(true);
 
     this.auditLogService
@@ -81,7 +83,13 @@ export class AuditDashboardComponent {
         eventType: this.eventTypeControl.value.trim() || undefined,
       })
       .pipe(finalize(() => this.loading.set(false)))
-      .subscribe((items: AuditLog[]) => this.logs$.next(items));
+      .subscribe({
+        next: (items: AuditLog[]) => this.logs$.next(items),
+        error: () => {
+          this.logs$.next([]);
+          this.errorMessage.set('Failed to load audit logs. Please try again.');
+        },
+      });
   }
 }
 

@@ -2,6 +2,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { AuditLogService } from './audit-log.service';
+import { environment } from '../../environments/environment';
 
 describe('AuditLogService', () => {
   let service: AuditLogService;
@@ -28,7 +29,7 @@ describe('AuditLogService', () => {
     const request = httpMock.expectOne(
       (req) =>
         req.method === 'GET' &&
-        req.url === 'http://localhost:8084/api/audit-logs' &&
+        req.url === `${environment.queryServiceBaseUrl}/api/audit-logs` &&
         req.params.get('userId') === 'user1' &&
         req.params.get('eventType') === 'login',
     );
@@ -36,14 +37,21 @@ describe('AuditLogService', () => {
     request.flush([]);
   });
 
-  it('returns local fallback data when API fails', () => {
-    service.getAuditLogs({ userId: 'user1' }).subscribe((result) => {
-      expect(result.length).toBe(2);
-      expect(result.every((item) => item.userId === 'user1')).toBeTrue();
+  it('propagates API error when request fails', () => {
+    service.getAuditLogs({ userId: 'user1' }).subscribe({
+      next: () => {
+        fail('Expected observable to error');
+      },
+      error: (error: unknown) => {
+        expect(error).toBeTruthy();
+      },
     });
 
     const request = httpMock.expectOne(
-      (req) => req.method === 'GET' && req.url === 'http://localhost:8084/api/audit-logs' && req.params.get('userId') === 'user1',
+      (req) =>
+        req.method === 'GET' &&
+        req.url === `${environment.queryServiceBaseUrl}/api/audit-logs` &&
+        req.params.get('userId') === 'user1',
     );
     request.flush('error', { status: 500, statusText: 'Server Error' });
   });

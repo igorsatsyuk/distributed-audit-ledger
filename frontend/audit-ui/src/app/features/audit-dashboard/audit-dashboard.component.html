@@ -45,6 +45,10 @@
           </div>
         </section>
 
+        @if (errorMessage(); as message) {
+          <p class="state-message state-message--error">{{ message }}</p>
+        }
+
         @if (loading()) {
           <p class="state-message">Loading events...</p>
         } @else {
