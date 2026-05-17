@@ -267,7 +267,7 @@ CREATE TABLE audit.events (
 - [x] #9.1 - Web3j клиент для чтения из контракта
 - [x] #9.2 - Service для проверки хэша
 - [x] #9.3 - REST endpoint
-- [ ] #9.4 - Интеграционные тесты (unit + WebFlux controller tests added; SpringBootTest/Testcontainers integration tests pending)
+- [x] #9.4 - Интеграционные тесты (SpringBootTest + Testcontainers PostgreSQL: 11 сценариев — ON_CHAIN, MISMATCH, PENDING, 404, 503, 500, query filters)
 
 **Expected PR:** PR-9 (Integrity check endpoint)
 
