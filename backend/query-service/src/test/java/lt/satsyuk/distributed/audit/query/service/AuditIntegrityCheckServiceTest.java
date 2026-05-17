@@ -15,8 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,7 +82,21 @@ class AuditIntegrityCheckServiceTest {
         assertNull(result.eventHash());
         assertFalse(result.blockchainRecord().exists());
         assertEquals("PENDING", result.status());
-        verify(blockchainClient, never()).inspectEventHash(HASH_64);
+        verifyNoInteractions(blockchainClient);
+    }
+
+    @Test
+    void checkIntegrityNormalizesBlankHashToNullInPendingResponse() {
+        AuditEventRecord eventRecord = sampleRecord(13L, "   ");
+
+        when(auditLogQueryRepository.findById(13L)).thenReturn(Mono.just(eventRecord));
+
+        AuditIntegrityCheckResponse result = service.checkIntegrity(13L).block();
+
+        assertEquals(13L, result.auditLogId());
+        assertNull(result.eventHash());
+        assertEquals("PENDING", result.status());
+        verifyNoInteractions(blockchainClient);
     }
 
     @Test

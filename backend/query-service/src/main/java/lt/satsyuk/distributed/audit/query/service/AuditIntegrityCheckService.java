@@ -47,10 +47,12 @@ public class AuditIntegrityCheckService {
             status = blockchainRecord.exists() ? "ON_CHAIN" : "MISMATCH";
         }
 
+        String normalizedEventHash = hasText(record.getEventHash()) ? record.getEventHash().trim() : null;
+
         return new AuditIntegrityCheckResponse(
                 record.getId(),
                 record.getEventId(),
-                record.getEventHash(),
+                normalizedEventHash,
                 blockchainRecord,
                 status
         );

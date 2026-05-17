@@ -109,8 +109,9 @@ public class AuditLedgerBlockchainClient {
 
         List<Type> decoded = FunctionReturnDecoder.decode(ethCall.getValue(), function.getOutputParameters());
         if (decoded == null || decoded.isEmpty()) {
-            throw new BlockchainIntegrityException("Blockchain call failed: eth_call returned empty value for isHashExists",
-                    BlockchainIntegrityException.ErrorType.RPC_FAILURE);
+            throw new BlockchainIntegrityException(
+                    "Blockchain contract mismatch: eth_call returned empty or undecodable value for isHashExists (check contract address / ABI)",
+                    BlockchainIntegrityException.ErrorType.CONFIGURATION);
         }
 
         return Boolean.TRUE.equals(((Bool) decoded.get(0)).getValue());
