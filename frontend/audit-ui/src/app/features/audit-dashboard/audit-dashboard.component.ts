@@ -48,6 +48,8 @@ interface RowIntegrityState {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditDashboardComponent implements OnDestroy {
+  private static readonly MAX_TABLE_INTEGRITY_CHECKS = 10;
+
   readonly PAGE_SIZE_OPTIONS = [10, 20, 50];
   readonly DEFAULT_PAGE_SIZE = 20;
 
@@ -264,8 +266,23 @@ export class AuditDashboardComponent implements OnDestroy {
     this.visibleRowsIntegrityTrigger$
       .pipe(
         switchMap(rows => {
-          const snapshot = this.rowIntegrityById();
-          const rowsToCheck = rows.filter(row => snapshot[row.id] == null);
+          const visibleIds = new Set(rows.map(row => row.id));
+
+          // Keep cache only for currently visible rows; rows are rechecked on explicit reload.
+          this.rowIntegrityById.update(current => {
+            const next: Record<number, RowIntegrityState> = {};
+            for (const [idKey, value] of Object.entries(current)) {
+              const id = Number(idKey);
+              if (visibleIds.has(id)) {
+                next[id] = value;
+              }
+            }
+            return next;
+          });
+
+          const rowsToCheck = rows
+            .filter(row => this.hasText(row.eventHash))
+            .slice(0, AuditDashboardComponent.MAX_TABLE_INTEGRITY_CHECKS);
 
           if (rowsToCheck.length === 0) {
             return EMPTY;
@@ -299,6 +316,10 @@ export class AuditDashboardComponent implements OnDestroy {
           };
         });
       });
+  }
+
+  private hasText(value: string | undefined): boolean {
+    return value != null && value.trim().length > 0;
   }
 
 }
