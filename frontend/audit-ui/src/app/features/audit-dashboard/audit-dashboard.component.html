@@ -129,17 +129,19 @@
                 <th mat-header-cell *matHeaderCellDef>
                   <span class="col-header-with-info">
                     Integrity
-                    <span
+                    <button
+                      mat-icon-button
+                      type="button"
                       class="info-button"
-                      tabindex="0"
-                      role="button"
                       aria-label="How integrity status is refreshed"
+                      #integrityInfoTooltip="matTooltip"
                       matTooltip="The table shows the last known list status, and the Details drawer performs on-demand verification for the selected row."
-                      (click)="$event.stopPropagation()"
-                      (keydown.enter)="$event.stopPropagation()"
+                      (click)="$event.stopPropagation(); integrityInfoTooltip.toggle()"
+                      (keydown.enter)="$event.stopPropagation(); integrityInfoTooltip.toggle()"
+                      (keydown.space)="$event.preventDefault(); $event.stopPropagation(); integrityInfoTooltip.toggle()"
                     >
                       <mat-icon class="info-icon">info_outline</mat-icon>
-                    </span>
+                    </button>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
@@ -178,7 +180,6 @@
             [pageSize]="pageSize()"
             [pageIndex]="pageIndex()"
             [pageSizeOptions]="PAGE_SIZE_OPTIONS"
-            showFirstLastButtons
             aria-label="Audit log pages"
             (page)="onPageChange($event)"
           ></mat-paginator>
