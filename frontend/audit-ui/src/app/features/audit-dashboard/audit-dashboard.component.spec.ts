@@ -166,22 +166,30 @@ describe('AuditDashboardComponent', () => {
     expect(displayed.length).toBe(20);
   });
 
-  it('effectiveIntegrityStatus uses visible-row check status', async () => {
+  it('effectiveIntegrityStatus uses list status until drawer check updates row status', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
     }));
 
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
+
+    component.openDetails(pendingRow);
+
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
-  it('effectiveIntegrityStatus returns UNKNOWN when visible-row verification fails', async () => {
+  it('effectiveIntegrityStatus returns UNKNOWN when drawer verification fails', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
     }));
+
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
+
+    component.openDetails(pendingRow);
 
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
   });

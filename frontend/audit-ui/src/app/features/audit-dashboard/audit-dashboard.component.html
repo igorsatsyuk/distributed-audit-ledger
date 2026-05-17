@@ -92,7 +92,7 @@
         @if (errorMessage()) {
           <div class="error-block" role="alert" data-testid="audit-load-error">
             <mat-icon color="warn">error_outline</mat-icon>
-            <span>{{ errorMessage() }}</span>
+            <span class="error-message">{{ errorMessage() }}</span>
             <button mat-button color="primary" type="button" (click)="retry()" data-testid="retry-button">
               <mat-icon>refresh</mat-icon>
               Retry
@@ -129,10 +129,15 @@
                 <th mat-header-cell *matHeaderCellDef>
                   <span class="col-header-with-info">
                     Integrity
-                    <mat-icon
-                      class="info-icon"
-                      matTooltip="Integrity is auto-refreshed for visible rows with hashes (limited batch) and on demand in the Details drawer."
-                    >info_outline</mat-icon>
+                    <button
+                      type="button"
+                      mat-icon-button
+                      class="info-button"
+                      aria-label="How integrity status is refreshed"
+                      matTooltip="Integrity follows the list status in the table and is verified on demand in the Details drawer."
+                    >
+                      <mat-icon class="info-icon">info_outline</mat-icon>
+                    </button>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">

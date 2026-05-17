@@ -40,7 +40,7 @@ mat-card {
   padding: 0.5rem 1rem;
   margin-bottom: 1rem;
 
-  span {
+  .error-message {
     flex: 1;
     color: #c5221f;
     font-weight: 500;
@@ -77,13 +77,19 @@ table {
   gap: 2px;
 }
 
+.info-button {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  flex: 0 0 auto;
+}
+
 .info-icon {
   font-size: 14px;
   width: 14px;
   height: 14px;
   color: rgba(0, 0, 0, 0.38);
   vertical-align: middle;
-  cursor: help;
 }
 
 .status-chip {
