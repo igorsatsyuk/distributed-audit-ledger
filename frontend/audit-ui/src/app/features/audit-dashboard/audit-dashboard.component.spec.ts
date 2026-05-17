@@ -1,4 +1,4 @@
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { AuditDashboardComponent } from './audit-dashboard.component';
@@ -177,12 +177,22 @@ describe('AuditDashboardComponent', () => {
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
+  it('effectiveIntegrityStatus returns UNKNOWN when row verification fails', async () => {
+    const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
+    await init(makeServiceSpy({
+      getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
+      checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
+    }));
+
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
+  });
+
   it('integrityClass returns correct CSS class for each status', async () => {
     await init();
     expect(component.integrityClass('ON_CHAIN')).toBe('status-chip--on_chain');
     expect(component.integrityClass('MISMATCH')).toBe('status-chip--mismatch');
     expect(component.integrityClass('PENDING')).toBe('status-chip--pending');
-    expect(component.integrityClass('unknown')).toBe('status-chip--pending');
+    expect(component.integrityClass('unknown')).toBe('status-chip--unknown');
   });
 
   it('openDetails sets selectedAuditLog and triggers integrity check', fakeAsync(async () => {
@@ -223,5 +233,18 @@ describe('AuditDashboardComponent', () => {
     await init();
     const result = component.parseEventData({ ...MOCK_LOG, eventDataJson: 'not-json' });
     expect(result).toBe('not-json');
+  });
+
+  it('does not apply pending load result after fixture destroy', async () => {
+    const pendingList$ = new Subject<AuditLog[]>();
+    await init(makeServiceSpy({
+      getAuditLogs: jasmine.createSpy().and.returnValue(pendingList$),
+    }));
+
+    fixture.destroy();
+    pendingList$.next([MOCK_LOG]);
+    pendingList$.complete();
+
+    expect(component.logs$.value).toEqual([]);
   });
 });

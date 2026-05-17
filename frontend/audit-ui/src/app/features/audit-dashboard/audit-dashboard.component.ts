@@ -11,9 +11,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Subject, catchError, finalize, forkJoin, map, of, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, from, map, mergeMap, of, reduce, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
+
+type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
 
 @Component({
   selector: 'app-audit-dashboard',
@@ -75,7 +77,7 @@ export class AuditDashboardComponent implements OnDestroy {
    */
   private readonly integrityTrigger$ = new Subject<number>();
   private readonly visibleRowsIntegrityTrigger$ = new Subject<AuditLog[]>();
-  private readonly rowIntegrityById = signal<Record<number, IntegrityStatus>>({});
+  private readonly rowIntegrityById = signal<Record<number, DisplayIntegrityStatus>>({});
 
   private readonly destroy$ = new Subject<void>();
 
@@ -134,14 +136,14 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   integrityClass(status: string): string {
-    const normalized = status.toUpperCase() as IntegrityStatus;
+    const normalized = status.toUpperCase() as DisplayIntegrityStatus;
     if (normalized === 'ON_CHAIN' || normalized === 'MISMATCH' || normalized === 'PENDING') {
       return `status-chip--${normalized.toLowerCase()}`;
     }
-    return 'status-chip--pending';
+    return 'status-chip--unknown';
   }
 
-  effectiveIntegrityStatus(item: AuditLog): IntegrityStatus {
+  effectiveIntegrityStatus(item: AuditLog): DisplayIntegrityStatus {
     return this.rowIntegrityById()[item.id] ?? item.integrityStatus;
   }
 
@@ -251,22 +253,25 @@ export class AuditDashboardComponent implements OnDestroy {
       .pipe(
         switchMap(rows => {
           if (rows.length === 0) {
-            return of({} as Record<number, IntegrityStatus>);
+            return of({} as Record<number, DisplayIntegrityStatus>);
           }
 
-          return forkJoin(
-            rows.map(row =>
-              this.auditLogService.checkIntegrity(row.id).pipe(
-                map(response => ({ id: row.id, status: response.status })),
-                catchError(() => of({ id: row.id, status: row.integrityStatus })),
-              ),
+          // Limit parallel checks to reduce request bursts on page/filter changes.
+          return from(rows).pipe(
+            mergeMap(
+              row =>
+                this.auditLogService.checkIntegrity(row.id).pipe(
+                  map(response => ({ id: row.id, status: response.status as DisplayIntegrityStatus })),
+                  catchError(() => of({ id: row.id, status: 'UNKNOWN' as DisplayIntegrityStatus })),
+                ),
+              4,
             ),
-          ).pipe(
-            map(items =>
-              items.reduce<Record<number, IntegrityStatus>>((acc, item) => {
+            reduce(
+              (acc: Record<number, DisplayIntegrityStatus>, item: { id: number; status: DisplayIntegrityStatus }) => {
                 acc[item.id] = item.status;
                 return acc;
-              }, {}),
+              },
+              {} as Record<number, DisplayIntegrityStatus>,
             ),
           );
         }),

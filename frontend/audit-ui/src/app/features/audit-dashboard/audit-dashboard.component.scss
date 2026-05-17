@@ -109,6 +109,11 @@ table {
   color: #b06000;
 }
 
+.status-chip--unknown {
+  background: #eceff1;
+  color: #455a64;
+}
+
 .details-drawer {
   width: min(440px, 90vw);
   padding: 1rem 1.25rem;

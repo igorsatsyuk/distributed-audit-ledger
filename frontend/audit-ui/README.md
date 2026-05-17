@@ -15,6 +15,11 @@ Angular 17 standalone UI for Distributed Audit Ledger with live backend integrat
 
 `ng serve` uses `proxy.conf.json` and forwards `/api/*` to `http://localhost:8084`.
 
+## Production API routing
+
+- `environment.prod.ts` targets Query Service at `http://localhost:8084` by default.
+- If you deploy behind a reverse proxy, update `queryServiceBaseUrl` accordingly.
+
 ## Run locally
 
 ```bash

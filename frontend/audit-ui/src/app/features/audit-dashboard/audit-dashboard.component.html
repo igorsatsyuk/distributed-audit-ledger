@@ -37,7 +37,7 @@
             <dd class="mono">{{ integrityCheckResult()!.blockchainRecord.transactionHash ?? '—' }}</dd>
             <dt>Block</dt>
             <dd>{{ integrityCheckResult()!.blockchainRecord.blockNumber ?? '—' }}</dd>
-            @if (integrityCheckResult()!.blockchainRecord.timestamp) {
+            @if (integrityCheckResult()!.blockchainRecord.timestamp != null) {
               <dt>Block time</dt>
               <dd>{{ integrityCheckResult()!.blockchainRecord.timestamp! * 1000 | date : 'medium' }}</dd>
             }
@@ -68,7 +68,7 @@
     <mat-card>
       <mat-card-header>
         <mat-card-title>Audit log</mat-card-title>
-        <mat-card-subtitle>Live data · Query Service :8084</mat-card-subtitle>
+        <mat-card-subtitle>Live data from Query Service</mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
@@ -131,7 +131,7 @@
                     Integrity
                     <mat-icon
                       class="info-icon"
-                      matTooltip="Live ON_CHAIN/MISMATCH statuses are refreshed for visible rows via integrity-check API."
+                      matTooltip="Visible rows are refreshed via integrity-check API; unavailable checks are shown as UNKNOWN."
                     >info_outline</mat-icon>
                   </span>
                 </th>
@@ -145,7 +145,7 @@
               </ng-container>
 
               <ng-container matColumnDef="details">
-                <th mat-header-cell *matHeaderCellDef></th>
+                <th mat-header-cell *matHeaderCellDef>Details</th>
                 <td mat-cell *matCellDef="let element">
                   <button mat-stroked-button type="button" (click)="openDetails(element)">
                     <mat-icon>open_in_new</mat-icon>

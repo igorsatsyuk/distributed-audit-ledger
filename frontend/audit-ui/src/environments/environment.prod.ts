@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  queryServiceBaseUrl: '',
+  queryServiceBaseUrl: 'http://localhost:8084',
 };
