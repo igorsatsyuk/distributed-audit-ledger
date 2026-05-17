@@ -23,6 +23,24 @@ class AuditLedgerBlockchainClientTest {
     }
 
     @Test
+    void resolveFromBlockParameterUsesEarliestForDockerHostGateway() {
+        AuditLedgerBlockchainClient client = newClient("http://host.docker.internal:8545", 0L);
+
+        DefaultBlockParameter result = client.resolveFromBlockParameter();
+
+        assertEquals(DefaultBlockParameterName.EARLIEST, result);
+    }
+
+    @Test
+    void resolveFromBlockParameterUsesEarliestForPrivateIpv4Host() {
+        AuditLedgerBlockchainClient client = newClient("http://192.168.1.50:8545", 0L);
+
+        DefaultBlockParameter result = client.resolveFromBlockParameter();
+
+        assertEquals(DefaultBlockParameterName.EARLIEST, result);
+    }
+
+    @Test
     void resolveFromBlockParameterRejectsZeroBlockForNonLocalRpc() {
         AuditLedgerBlockchainClient client = newClient("https://example.com", 0L);
 

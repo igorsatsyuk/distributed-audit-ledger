@@ -165,10 +165,16 @@ public class AuditLedgerBlockchainClient {
         }
 
         try {
-            // Decode the non-indexed event parameters from log.data
-            // RecordAppended event has: indexed bytes32 eventHash, uint256 timestamp, string eventType, indexed address source
-            // Only non-indexed parameters are in log.data: uint256 timestamp (first 32 bytes) and string eventType (remaining)
-            List<Type> decoded = FunctionReturnDecoder.decode(log.getData(), RECORD_APPENDED_EVENT.getNonIndexedParameters());
+            // Decode only the first non-indexed field (uint256 timestamp) to avoid unnecessary dynamic string decoding.
+            Function timestampFunction = new Function(
+                    "recordAppendedTimestampOnly",
+                    Collections.emptyList(),
+                    Collections.singletonList(new TypeReference<Uint256>() {})
+            );
+            List<Type> decoded = FunctionReturnDecoder.decode(
+                    log.getData(),
+                    timestampFunction.getOutputParameters()
+            );
 
             if (decoded != null && !decoded.isEmpty() && decoded.get(0) instanceof Uint256) {
                 return ((Uint256) decoded.get(0)).getValue().longValue();
@@ -228,8 +234,34 @@ public class AuditLedgerBlockchainClient {
             String host = uri.getHost();
             return "localhost".equalsIgnoreCase(host)
                     || "127.0.0.1".equals(host)
-                    || "::1".equals(host);
+                    || "::1".equals(host)
+                    || "0.0.0.0".equals(host)
+                    || "host.docker.internal".equalsIgnoreCase(host)
+                    || isPrivateIpv4(host);
         } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean isPrivateIpv4(String host) {
+        if (host == null) {
+            return false;
+        }
+        if (host.startsWith("10.") || host.startsWith("192.168.")) {
+            return true;
+        }
+        if (!host.startsWith("172.")) {
+            return false;
+        }
+
+        String[] parts = host.split("\\.");
+        if (parts.length < 2) {
+            return false;
+        }
+        try {
+            int secondOctet = Integer.parseInt(parts[1]);
+            return secondOctet >= 16 && secondOctet <= 31;
+        } catch (NumberFormatException ex) {
             return false;
         }
     }
