@@ -4,10 +4,11 @@ export interface AuditLog {
   id: number;
   eventId: string;
   eventType: string;
-  userId: string;
-  createdAt: string;
-  status: IntegrityStatus;
-  payload: Record<string, unknown>;
+  userId: string | null;
+  occurredAt: string;
+  eventDataJson: string;
+  eventHash?: string;
+  integrityStatus: IntegrityStatus;
 }
 
 export interface AuditLogFilters {

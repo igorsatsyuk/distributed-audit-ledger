@@ -1,5 +1,5 @@
 export const environment = {
-  production: false,
+  production: true,
   queryServiceBaseUrl: 'http://localhost:8084',
 };
 

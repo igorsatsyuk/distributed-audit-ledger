@@ -11,12 +11,13 @@
       <p><strong>ID:</strong> {{ item.id }}</p>
       <p><strong>Event ID:</strong> {{ item.eventId }}</p>
       <p><strong>Type:</strong> {{ item.eventType }}</p>
-      <p><strong>User:</strong> {{ item.userId }}</p>
-      <p><strong>Time:</strong> {{ item.createdAt | date : 'medium' }}</p>
-      <p><strong>Status:</strong> {{ item.status }}</p>
+      <p><strong>User:</strong> {{ item.userId ?? '-' }}</p>
+      <p><strong>Time:</strong> {{ item.occurredAt | date : 'medium' }}</p>
+      <p><strong>Status:</strong> {{ item.integrityStatus }}</p>
+      <p><strong>Event hash:</strong> {{ item.eventHash ?? '-' }}</p>
 
       <h3>Payload</h3>
-      <pre>{{ item.payload | json }}</pre>
+      <pre>{{ parseEventData(item) | json }}</pre>
     }
   </mat-sidenav>
 
@@ -66,18 +67,18 @@
 
               <ng-container matColumnDef="userId">
                 <th mat-header-cell *matHeaderCellDef>User</th>
-                <td mat-cell *matCellDef="let element">{{ element.userId }}</td>
+                <td mat-cell *matCellDef="let element">{{ element.userId ?? '-' }}</td>
               </ng-container>
 
-              <ng-container matColumnDef="createdAt">
+              <ng-container matColumnDef="occurredAt">
                 <th mat-header-cell *matHeaderCellDef>Time</th>
-                <td mat-cell *matCellDef="let element">{{ element.createdAt | date : 'medium' }}</td>
+                <td mat-cell *matCellDef="let element">{{ element.occurredAt | date : 'medium' }}</td>
               </ng-container>
 
-              <ng-container matColumnDef="status">
+              <ng-container matColumnDef="integrityStatus">
                 <th mat-header-cell *matHeaderCellDef>Integrity</th>
                 <td mat-cell *matCellDef="let element">
-                  <span class="status-chip" [ngClass]="integrityClass(element.status)">{{ element.status }}</span>
+                  <span class="status-chip" [ngClass]="integrityClass(element.integrityStatus)">{{ element.integrityStatus }}</span>
                 </td>
               </ng-container>
 

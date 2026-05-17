@@ -34,7 +34,7 @@ import { AuditLogService } from '../../services/audit-log.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditDashboardComponent {
-  readonly displayedColumns = ['id', 'eventType', 'userId', 'createdAt', 'status', 'details'];
+  readonly displayedColumns = ['id', 'eventType', 'userId', 'occurredAt', 'integrityStatus', 'details'];
   readonly logs$ = new BehaviorSubject<AuditLog[]>([]);
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -69,8 +69,22 @@ export class AuditDashboardComponent {
     void this.detailsDrawer?.close();
   }
 
-  integrityClass(status: IntegrityStatus): string {
-    return `status-chip--${status.toLowerCase()}`;
+  integrityClass(status: string): string {
+    const normalized = status.toUpperCase() as IntegrityStatus;
+
+    if (normalized === 'ON_CHAIN' || normalized === 'MISMATCH' || normalized === 'PENDING') {
+      return `status-chip--${normalized.toLowerCase()}`;
+    }
+
+    return 'status-chip--pending';
+  }
+
+  parseEventData(item: AuditLog): unknown {
+    try {
+      return JSON.parse(item.eventDataJson);
+    } catch {
+      return item.eventDataJson;
+    }
   }
 
   private loadAuditLogs(): void {

@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 import { AuditLog, AuditLogFilters } from '../models/audit-log.model';
 import { environment } from '../../environments/environment';
 
@@ -14,10 +14,7 @@ export class AuditLogService {
 
   getAuditLogs(filters: AuditLogFilters = {}): Observable<AuditLog[]> {
     const params = this.toHttpParams(filters);
-
-    return this.http
-      .get<AuditLog[]>(this.apiUrl, { params })
-      .pipe(map((items: AuditLog[]) => this.applyClientFallbackFilters(items, filters)));
+    return this.http.get<AuditLog[]>(this.apiUrl, { params });
   }
 
   private toHttpParams(filters: AuditLogFilters): HttpParams {
@@ -32,16 +29,6 @@ export class AuditLogService {
     }
 
     return params;
-  }
-
-  private applyClientFallbackFilters(items: AuditLog[], filters: AuditLogFilters): AuditLog[] {
-    return items.filter((item) => {
-      const userMatch = !filters.userId || item.userId.toLowerCase().includes(filters.userId.toLowerCase());
-      const eventTypeMatch =
-        !filters.eventType || item.eventType.toLowerCase().includes(filters.eventType.toLowerCase());
-
-      return userMatch && eventTypeMatch;
-    });
   }
 }
 
