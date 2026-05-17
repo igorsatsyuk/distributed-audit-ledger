@@ -10,7 +10,12 @@ public class Web3jConfig {
 
     @Bean
     public Web3j web3j(Web3jProperties props) {
-        return Web3j.build(new HttpService(props.getClientAddress().trim()));
+        String clientAddress = props.getClientAddress();
+        if (clientAddress == null || clientAddress.isBlank()) {
+            throw new IllegalStateException("web3j.client-address must not be blank");
+        }
+
+        return Web3j.build(new HttpService(clientAddress.trim()));
     }
 }
 

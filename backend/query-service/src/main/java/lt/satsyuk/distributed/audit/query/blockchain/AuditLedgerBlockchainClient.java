@@ -3,6 +3,8 @@ package lt.satsyuk.distributed.audit.query.blockchain;
 import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
 import lt.satsyuk.distributed.audit.query.api.BlockchainIntegrityException;
 import lt.satsyuk.distributed.audit.query.config.Web3jProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -23,7 +25,6 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.request.Transaction;
-import org.web3j.protocol.core.methods.response.EthBlock;
 import org.web3j.protocol.core.methods.response.EthCall;
 import org.web3j.protocol.core.methods.response.EthLog;
 import org.web3j.protocol.core.methods.response.Log;
@@ -36,9 +37,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.net.URI;
 
 @Service
 public class AuditLedgerBlockchainClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuditLedgerBlockchainClient.class);
 
     private static final Event RECORD_APPENDED_EVENT = new Event(
             "RecordAppended",
@@ -178,7 +182,7 @@ public class AuditLedgerBlockchainClient {
                 return ((Uint256) decoded.get(0)).getValue().longValue();
             }
         } catch (Exception e) {
-            // If decoding fails, log and return null rather than throwing
+            LOGGER.debug("Failed to decode RecordAppended timestamp from event log; falling back to null", e);
             return null;
         }
 
@@ -212,9 +216,30 @@ public class AuditLedgerBlockchainClient {
                     BlockchainIntegrityException.ErrorType.CONFIGURATION);
         }
         if (deploymentBlock == 0) {
+            if (!isLocalRpcEndpoint(props.getClientAddress())) {
+                throw new BlockchainIntegrityException(
+                        "web3j.contract-deployment-block must be configured for non-local RPC endpoints",
+                        BlockchainIntegrityException.ErrorType.CONFIGURATION);
+            }
             return DefaultBlockParameterName.EARLIEST;
         }
         return DefaultBlockParameter.valueOf(BigInteger.valueOf(deploymentBlock));
+    }
+
+    private boolean isLocalRpcEndpoint(String clientAddress) {
+        if (clientAddress == null || clientAddress.isBlank()) {
+            return false;
+        }
+
+        try {
+            URI uri = URI.create(clientAddress.trim());
+            String host = uri.getHost();
+            return "localhost".equalsIgnoreCase(host)
+                    || "127.0.0.1".equals(host)
+                    || "::1".equals(host);
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private void validateContractAddress(String contractAddress) {

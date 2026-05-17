@@ -261,10 +261,10 @@ CREATE TABLE audit.events (
 ```
 
 **Subtasks:**
-- [ ] #9.1 - Web3j клиент для чтения из контракта
-- [ ] #9.2 - Service для проверки хэша
-- [ ] #9.3 - REST endpoint
-- [ ] #9.4 - Интеграционные тесты
+- [x] #9.1 - Web3j клиент для чтения из контракта
+- [x] #9.2 - Service для проверки хэша
+- [x] #9.3 - REST endpoint
+- [x] #9.4 - Интеграционные тесты
 
 **Expected PR:** PR-9 (Integrity check endpoint)
 
