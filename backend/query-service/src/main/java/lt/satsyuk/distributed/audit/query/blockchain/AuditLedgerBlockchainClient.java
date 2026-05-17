@@ -32,7 +32,6 @@ import org.web3j.protocol.core.methods.request.EthFilter;
 import org.web3j.utils.Numeric;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -169,14 +168,7 @@ public class AuditLedgerBlockchainClient {
             // Decode the non-indexed event parameters from log.data
             // RecordAppended event has: indexed bytes32 eventHash, uint256 timestamp, string eventType, indexed address source
             // Only non-indexed parameters are in log.data: uint256 timestamp (first 32 bytes) and string eventType (remaining)
-            @SuppressWarnings("rawtypes")
-            List paramTypes = new ArrayList();
-            paramTypes.add(new TypeReference<Uint256>() {});  // timestamp (first non-indexed parameter)
-            paramTypes.add(new TypeReference<Utf8String>() {}); // eventType (second non-indexed parameter)
-
-            @SuppressWarnings("unchecked")
-
-            List<Type> decoded = FunctionReturnDecoder.decode(log.getData(), paramTypes);
+            List<Type> decoded = FunctionReturnDecoder.decode(log.getData(), RECORD_APPENDED_EVENT.getNonIndexedParameters());
 
             if (decoded != null && !decoded.isEmpty() && decoded.get(0) instanceof Uint256) {
                 return ((Uint256) decoded.get(0)).getValue().longValue();
