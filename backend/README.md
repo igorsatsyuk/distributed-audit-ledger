@@ -11,7 +11,7 @@ Multi-module Maven project implementing the backend services for the Distributed
 | `command-service` | **8081** | Reactive WebFlux API for commands; publishes domain events to Kafka |
 | `event-store-service` | **8082** | Reactive Kafka consumer; persists events to PostgreSQL `audit.events` via R2DBC |
 | `audit-writer-service` | **8083** | Consumes Kafka events, anchors SHA-256 hashes on Ganache via Web3j |
-| `query-service` | **8084** | Reactive WebFlux read API for audit logs and integrity checks via R2DBC |
+| `query-service` | **8084** | Reactive WebFlux read API for audit logs plus blockchain-backed integrity checks |
 
 ## Prerequisites
 
@@ -71,6 +71,7 @@ Reactive PostgreSQL services (`event-store-service`, `query-service`) use R2DBC;
 | `DB_PASSWORD` | `postgres` | Database password |
 | `GANACHE_RPC_URL` | `http://localhost:8545` | Ganache JSON-RPC endpoint |
 | `AUDIT_LEDGER_CONTRACT_ADDRESS` | — | Deployed AuditLedger contract address |
+| `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` | `0` | Optional start block for integrity log scans (`0` = earliest, intended for local Ganache/dev only) |
 | `GANACHE_PRIVATE_KEY` | — | Ethereum private key for signing transactions |
 
 ## Architecture

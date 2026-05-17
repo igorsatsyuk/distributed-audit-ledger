@@ -248,7 +248,8 @@ CREATE TABLE audit.events (
 **Response:**
 ```json
 {
-  "eventId": 1,
+  "auditLogId": 1,
+  "eventId": "uuid-string",
   "eventHash": "abc123...",
   "blockchainRecord": {
     "exists": true,
@@ -256,15 +257,17 @@ CREATE TABLE audit.events (
     "blockNumber": 12345,
     "timestamp": 1234567890
   },
-  "status": "OK" // или "MISMATCH"
+  "status": "ON_CHAIN"
 }
 ```
 
+> Возможные значения `status`: `ON_CHAIN` (хэш найден в блокчейне), `MISMATCH` (хэш есть в БД, но не в блокчейне), `PENDING` (хэш ещё не был записан в блокчейн — поле `event_hash` отсутствует в БД).
+
 **Subtasks:**
-- [ ] #9.1 - Web3j клиент для чтения из контракта
-- [ ] #9.2 - Service для проверки хэша
-- [ ] #9.3 - REST endpoint
-- [ ] #9.4 - Интеграционные тесты
+- [x] #9.1 - Web3j клиент для чтения из контракта
+- [x] #9.2 - Service для проверки хэша
+- [x] #9.3 - REST endpoint
+- [x] #9.4 - Интеграционные тесты (SpringBootTest + Testcontainers PostgreSQL: 11 сценариев — ON_CHAIN, MISMATCH, PENDING, 404, 503, 500, query filters)
 
 **Expected PR:** PR-9 (Integrity check endpoint)
 
