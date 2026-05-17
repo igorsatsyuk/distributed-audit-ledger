@@ -6,6 +6,12 @@
   min-height: calc(100vh - 64px);
 }
 
+.page-progress {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 mat-card {
   margin: 1rem;
 }
@@ -25,6 +31,22 @@ mat-card {
   min-height: 56px;
 }
 
+.error-block {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fce8e6;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+
+  span {
+    flex: 1;
+    color: #c5221f;
+    font-weight: 500;
+  }
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -33,8 +55,15 @@ table {
   width: 100%;
 }
 
+.no-data-cell {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.54);
+}
+
 .state-message {
   margin: 1rem 0;
+  color: rgba(0, 0, 0, 0.54);
 }
 
 .state-message--error {
@@ -47,6 +76,7 @@ table {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  cursor: default;
 }
 
 .status-chip--on_chain {
@@ -65,14 +95,54 @@ table {
 }
 
 .details-drawer {
-  width: min(420px, 90vw);
-  padding: 1rem;
+  width: min(440px, 90vw);
+  padding: 1rem 1.25rem;
 }
 
 .details-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0.75rem 0;
+  font-size: 14px;
+
+  dt {
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.detail-list--blockchain {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.integrity-progress {
+  margin-bottom: 0.5rem;
+}
+
+.mono {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+}
+
+.hash-value {
+  word-break: break-all;
 }
 
 pre {
@@ -80,5 +150,5 @@ pre {
   border-radius: 8px;
   padding: 0.75rem;
   overflow-x: auto;
+  font-size: 12px;
 }
-
