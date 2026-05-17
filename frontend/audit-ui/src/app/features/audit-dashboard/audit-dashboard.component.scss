@@ -78,9 +78,7 @@ table {
 }
 
 .info-button {
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
+  /* Keep the Material button's default 40×40 touch target — do not override width/height */
   flex: 0 0 auto;
 }
 
@@ -102,7 +100,8 @@ table {
   font-size: 14px;
   width: 14px;
   height: 14px;
-  color: rgba(0, 0, 0, 0.38);
+  /* Increased from 0.38 opacity to meet ≥3:1 non-text contrast ratio on white */
+  color: rgba(0, 0, 0, 0.6);
   vertical-align: middle;
 }
 
