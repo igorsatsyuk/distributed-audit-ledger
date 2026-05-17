@@ -1,14 +1,25 @@
-# Audit UI (Issue #10)
+# Audit UI (Issue #11)
 
-Angular 17 standalone UI skeleton for Distributed Audit Ledger.
+Angular 17 standalone UI for Distributed Audit Ledger with live backend integration.
 
 ## Implemented in this step
 
-- Angular 17 app setup with routing and Material Design.
-- Audit table with columns: ID, event type, user, time, integrity status.
-- Filters by event type and user ID.
-- Event detail panel via side drawer.
-- HTTP service for Query Service endpoint (base URL from Angular `environment`) with visible error state on failed requests.
+- Live Query Service integration for list loading (`GET /api/audit-logs`) with filters.
+- Integrity checks (`GET /api/audit-logs/{id}/integrity-check`) for drawer details.
+- Paginator-based lazy loading (`limit` + `offset`, with `pageSize + 1` has-more strategy).
+- Loading and error states with retry action.
+- Drawer-driven integrity verification for selected rows, with table status reflecting the latest known value.
+- Unit tests for service + dashboard component.
+
+## Local API routing (no CORS issues in dev)
+
+`ng serve` uses `proxy.conf.json` and forwards `/api/*` to `http://localhost:8084`.
+
+## Production API routing
+
+- `environment.prod.ts` uses a relative API path by default so production builds can be served behind the same origin as the API.
+- `queryServiceBaseUrl` from Angular environments is a build-time setting (baked into the bundle during `ng build`).
+- For deploy-time API origin changes, use a reverse proxy for `/api` or add a runtime configuration mechanism.
 
 ## Run locally
 
@@ -24,7 +35,3 @@ Open `http://localhost:4200`.
 ```bash
 npm run test:headless
 ```
-
-## Next issue alignment
-
-This skeleton is prepared for Issue #11 (full backend API integration, pagination, and advanced loading/error handling).

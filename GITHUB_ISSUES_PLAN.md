@@ -314,12 +314,12 @@ CREATE TABLE audit.events (
 - Детальный просмотр с проверкой blockchain записи
 
 **Subtasks:**
-- [ ] #11.1 - Services для HTTP запросов
-- [ ] #11.2 - Models / Interfaces для типизации
-- [ ] #11.3 - Таблица с real data
-- [ ] #11.4 - Pagination и lazy loading
-- [ ] #11.5 - Error handling и loading states
-- [ ] #11.6 - Unit тесты
+- [x] #11.1 - Services для HTTP запросов
+- [x] #11.2 - Models / Interfaces для типизации
+- [x] #11.3 - Таблица с real data
+- [x] #11.4 - Pagination и lazy loading
+- [x] #11.5 - Error handling и loading states
+- [x] #11.6 - Unit тесты
 
 **Expected PR:** PR-11 (Frontend API integration)
 
