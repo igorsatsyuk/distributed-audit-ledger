@@ -288,12 +288,12 @@ CREATE TABLE audit.events (
 - Детальный просмотр события (drawer / modal)
 
 **Subtasks:**
-- [ ] #10.1 - Angular проект setup (ng new)
-- [ ] #10.2 - Material modules setup
-- [ ] #10.3 - Components для таблицы и фильтров
-- [ ] #10.4 - HTTP client для Query Service
-- [ ] #10.5 - Роутинг и layout
-- [ ] #10.6 - Стили и responsive дизайн
+- [x] #10.1 - Angular проект setup (ng new)
+- [x] #10.2 - Material modules setup
+- [x] #10.3 - Components для таблицы и фильтров
+- [x] #10.4 - HTTP client для Query Service
+- [x] #10.5 - Роутинг и layout
+- [x] #10.6 - Стили и responsive дизайн
 
 **Expected PR:** PR-10 (Angular UI skeleton)
 
