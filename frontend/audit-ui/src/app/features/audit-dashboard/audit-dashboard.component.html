@@ -34,9 +34,9 @@
         @if (integrityCheckResult()!.blockchainRecord.exists) {
           <dl class="detail-list detail-list--blockchain">
             <dt>Tx hash</dt>
-            <dd class="mono">{{ integrityCheckResult()!.blockchainRecord.transactionHash }}</dd>
+            <dd class="mono">{{ integrityCheckResult()!.blockchainRecord.transactionHash ?? '—' }}</dd>
             <dt>Block</dt>
-            <dd>{{ integrityCheckResult()!.blockchainRecord.blockNumber }}</dd>
+            <dd>{{ integrityCheckResult()!.blockchainRecord.blockNumber ?? '—' }}</dd>
             @if (integrityCheckResult()!.blockchainRecord.timestamp) {
               <dt>Block time</dt>
               <dd>{{ integrityCheckResult()!.blockchainRecord.timestamp! * 1000 | date : 'medium' }}</dd>
@@ -120,7 +120,15 @@
               </ng-container>
 
               <ng-container matColumnDef="integrityStatus">
-                <th mat-header-cell *matHeaderCellDef>Integrity</th>
+                <th mat-header-cell *matHeaderCellDef>
+                  <span class="col-header-with-info">
+                    Integrity
+                    <mat-icon
+                      class="info-icon"
+                      matTooltip="The list endpoint always returns PENDING. Click View for live blockchain verification."
+                    >info_outline</mat-icon>
+                  </span>
+                </th>
                 <td mat-cell *matCellDef="let element">
                   <span
                     class="status-chip"

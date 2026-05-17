@@ -68,8 +68,9 @@ describe('AuditDashboardComponent', () => {
 
   it('calls getAuditLogs on init with default page size and offset 0', async () => {
     await init();
+    // limit = pageSize + 1 (one extra to detect next page)
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
-      jasmine.objectContaining({ limit: 20, offset: 0 }),
+      jasmine.objectContaining({ limit: 21, offset: 0 }),
     );
   });
 
@@ -129,8 +130,9 @@ describe('AuditDashboardComponent', () => {
     tick();
     expect(component.pageSize()).toBe(50);
     expect(component.pageIndex()).toBe(1);
+    // limit = pageSize + 1 = 51, offset = pageIndex * pageSize = 50
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
-      jasmine.objectContaining({ limit: 50, offset: 50 }),
+      jasmine.objectContaining({ limit: 51, offset: 50 }),
     );
   }));
 
@@ -139,18 +141,22 @@ describe('AuditDashboardComponent', () => {
       getAuditLogs: jasmine.createSpy().and.returnValue(of([MOCK_LOG])),
     });
     await init(partlyFull);
-    // page size 20, offset 0, got 1 item → total = 1
+    // requested limit=21, got 1 item (1 < 21) → no next page → total = 1
     expect(component.estimatedTotal()).toBe(1);
   });
 
-  it('estimatedTotal assumes next page when page is full', async () => {
-    const fullPageItems = Array.from({ length: 20 }, (_, i) => ({ ...MOCK_LOG, id: i + 1 }));
+  it('estimatedTotal assumes next page when response fills limit+1', async () => {
+    // Return pageSize+1 items to signal that another page exists
+    const fullPageItems = Array.from({ length: 21 }, (_, i) => ({ ...MOCK_LOG, id: i + 1 }));
     const fullSpy = makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of(fullPageItems)),
     });
     await init(fullSpy);
-    // page size 20, offset 0, got 20 → total = 40 (assumes at least one more page)
+    // 21 > 20 → hasMore: true → display 20 items, total = 0 + 20 + 20 = 40
     expect(component.estimatedTotal()).toBe(40);
+    // Only pageSize items shown, not the sentinel extra
+    const displayed = await new Promise<AuditLog[]>(res => component.logs$.subscribe(res));
+    expect(displayed.length).toBe(20);
   });
 
   it('integrityClass returns correct CSS class for each status', async () => {

@@ -71,6 +71,21 @@ table {
   font-weight: 600;
 }
 
+.col-header-with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.info-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: rgba(0, 0, 0, 0.38);
+  vertical-align: middle;
+  cursor: help;
+}
+
 .status-chip {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;

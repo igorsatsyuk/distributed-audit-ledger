@@ -11,7 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, Subject, finalize, takeUntil } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil, tap } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 
@@ -63,10 +63,84 @@ export class AuditDashboardComponent implements OnDestroy {
 
   @ViewChild('detailsDrawer') private detailsDrawer?: MatSidenav;
 
+  /**
+   * Emitting here triggers a (possibly cancelling) list reload.
+   * switchMap ensures only the latest request's result is applied.
+   */
+  private readonly loadTrigger$ = new Subject<void>();
+
+  /**
+   * Emitting an id here triggers an integrity check for that row.
+   * switchMap cancels any in-flight check for a previously opened row.
+   */
+  private readonly integrityTrigger$ = new Subject<number>();
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(private readonly auditLogService: AuditLogService) {
-    this.loadAuditLogs();
+    // ── List loading pipeline ────────────────────────────────────────────────
+    this.loadTrigger$
+      .pipe(
+        tap(() => {
+          this.loading.set(true);
+          this.errorMessage.set(null);
+        }),
+        // switchMap cancels any previous in-flight list request
+        switchMap(() => {
+          const size = this.pageSize();
+          const offset = this.pageIndex() * size;
+          return this.auditLogService
+            .getAuditLogs({
+              userId: this.userIdControl.value.trim() || undefined,
+              eventType: this.eventTypeControl.value.trim() || undefined,
+              // Fetch one extra item to detect whether a next page exists
+              limit: size + 1,
+              offset,
+            })
+            .pipe(
+              // Carry size/offset into the subscriber so stale values aren't read
+              map(items => ({ items, size, offset })),
+              catchError(() => {
+                this.logs$.next([]);
+                this.errorMessage.set('Failed to load audit logs. Please try again.');
+                return EMPTY;
+              }),
+              finalize(() => this.loading.set(false)),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(({ items, size, offset }) => {
+        const hasMore = items.length > size;
+        this.logs$.next(hasMore ? items.slice(0, size) : items);
+        // If we got the extra item, another page exists → advance estimate by one page
+        this.estimatedTotal.set(hasMore ? offset + size + size : offset + items.length);
+      });
+
+    // ── Integrity check pipeline ─────────────────────────────────────────────
+    this.integrityTrigger$
+      .pipe(
+        tap(() => {
+          this.integrityLoading.set(true);
+          this.integrityCheckResult.set(null);
+          this.integrityCheckError.set(null);
+        }),
+        // switchMap cancels any in-flight check when a different row is opened
+        switchMap(id =>
+          this.auditLogService.checkIntegrity(id).pipe(
+            catchError(() => {
+              this.integrityCheckError.set('Could not verify blockchain integrity.');
+              return EMPTY;
+            }),
+            finalize(() => this.integrityLoading.set(false)),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(result => this.integrityCheckResult.set(result));
+
+    // Initial load
+    this.loadTrigger$.next();
   }
 
   ngOnDestroy(): void {
@@ -76,32 +150,31 @@ export class AuditDashboardComponent implements OnDestroy {
 
   applyFilters(): void {
     this.pageIndex.set(0);
-    this.loadAuditLogs();
+    this.loadTrigger$.next();
   }
 
   clearFilters(): void {
     this.userIdControl.setValue('');
     this.eventTypeControl.setValue('');
     this.pageIndex.set(0);
-    this.loadAuditLogs();
+    this.loadTrigger$.next();
   }
 
   retry(): void {
-    this.loadAuditLogs();
+    this.loadTrigger$.next();
   }
 
   onPageChange(event: PageEvent): void {
     this.pageSize.set(event.pageSize);
     this.pageIndex.set(event.pageIndex);
-    this.loadAuditLogs();
+    this.loadTrigger$.next();
   }
 
   openDetails(item: AuditLog): void {
     this.selectedAuditLog.set(item);
-    this.integrityCheckResult.set(null);
-    this.integrityCheckError.set(null);
     void this.detailsDrawer?.open();
-    this.loadIntegrityCheck(item.id);
+    // tap() inside integrityTrigger$ pipeline resets loading/result/error states
+    this.integrityTrigger$.next(item.id);
   }
 
   closeDetails(): void {
@@ -125,52 +198,5 @@ export class AuditDashboardComponent implements OnDestroy {
     } catch {
       return item.eventDataJson;
     }
-  }
-
-  private loadAuditLogs(): void {
-    this.errorMessage.set(null);
-    this.loading.set(true);
-
-    const size = this.pageSize();
-    const offset = this.pageIndex() * size;
-
-    this.auditLogService
-      .getAuditLogs({
-        userId: this.userIdControl.value.trim() || undefined,
-        eventType: this.eventTypeControl.value.trim() || undefined,
-        limit: size,
-        offset,
-      })
-      .pipe(
-        finalize(() => this.loading.set(false)),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (items: AuditLog[]) => {
-          this.logs$.next(items);
-          // Estimate total: if we received a full page, assume there's at least one more
-          const hasMore = items.length >= size;
-          this.estimatedTotal.set(hasMore ? offset + size + size : offset + items.length);
-        },
-        error: () => {
-          this.logs$.next([]);
-          this.errorMessage.set('Failed to load audit logs. Please try again.');
-        },
-      });
-  }
-
-  private loadIntegrityCheck(id: number): void {
-    this.integrityLoading.set(true);
-
-    this.auditLogService
-      .checkIntegrity(id)
-      .pipe(
-        finalize(() => this.integrityLoading.set(false)),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (result) => this.integrityCheckResult.set(result),
-        error: () => this.integrityCheckError.set('Could not verify blockchain integrity.'),
-      });
   }
 }
