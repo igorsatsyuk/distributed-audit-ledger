@@ -181,7 +181,7 @@ describe('AuditDashboardComponent', () => {
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
-  it('effectiveIntegrityStatus becomes UNKNOWN when the drawer verification fails', async () => {
+  it('effectiveIntegrityStatus preserves original list status when the drawer verification fails (transport error is not an integrity result)', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
@@ -193,7 +193,9 @@ describe('AuditDashboardComponent', () => {
     component.openDetails(pendingRow);
     await Promise.resolve();
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
+    // A transport/RPC error must NOT replace a valid PENDING status with UNKNOWN in the row cache;
+    // only the drawer error message is shown.
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
   });
 
   it('integrityClass returns correct CSS class for each status', async () => {
@@ -212,14 +214,15 @@ describe('AuditDashboardComponent', () => {
     expect(component.integrityCheckResult()).toEqual(MOCK_INTEGRITY);
   });
 
-  it('openDetails sets integrityCheckError when integrity check fails', async () => {
+  it('openDetails sets integrityCheckError when integrity check fails and preserves original row status', async () => {
     await init(makeServiceSpy({
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('BC error'))),
     }));
     component.openDetails(MOCK_LOG);
     expect(component.integrityCheckError()).toBeTruthy();
     expect(component.integrityCheckResult()).toBeNull();
-    expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('UNKNOWN');
+    // Row cache must NOT be updated to UNKNOWN on transport failure; original list status must remain.
+    expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('ON_CHAIN');
   });
 
   it('closeDetails clears selectedAuditLog and integrity state', async () => {

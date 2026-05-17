@@ -24,7 +24,7 @@
       <h3>Blockchain verification</h3>
 
       @if (integrityLoading()) {
-        <mat-progress-bar mode="indeterminate" class="integrity-progress"></mat-progress-bar>
+        <mat-progress-bar mode="indeterminate" class="integrity-progress" aria-label="Checking blockchain integrity"></mat-progress-bar>
         <p class="state-message">Checking blockchain...</p>
       } @else if (integrityCheckResult()) {
         <span class="status-chip" [ngClass]="integrityClass(integrityCheckResult()!.status)">
@@ -62,7 +62,7 @@
 
   <mat-sidenav-content>
     @if (loading()) {
-      <mat-progress-bar mode="indeterminate" class="page-progress"></mat-progress-bar>
+      <mat-progress-bar mode="indeterminate" class="page-progress" aria-label="Loading audit events"></mat-progress-bar>
     }
 
     <mat-card>
@@ -129,15 +129,17 @@
                 <th mat-header-cell *matHeaderCellDef>
                   <span class="col-header-with-info">
                     Integrity
-                    <button
-                      type="button"
-                      mat-icon-button
+                    <span
                       class="info-button"
+                      tabindex="0"
+                      role="button"
                       aria-label="How integrity status is refreshed"
                       matTooltip="The table shows the last known list status, and the Details drawer performs on-demand verification for the selected row."
+                      (click)="$event.stopPropagation()"
+                      (keydown.enter)="$event.stopPropagation()"
                     >
                       <mat-icon class="info-icon">info_outline</mat-icon>
-                    </button>
+                    </span>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
@@ -146,8 +148,7 @@
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
                     tabindex="0"
-                    role="status"
-                    [attr.aria-label]="'Integrity status ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash ' + element.eventHash : 'Event hash not available')"
+                    [attr.aria-label]="'Integrity status: ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash: ' + element.eventHash : 'Event hash not available')"
                   >{{ effectiveIntegrityStatus(element) }}</span>
                 </td>
               </ng-container>
@@ -177,6 +178,7 @@
             [pageSize]="pageSize()"
             [pageIndex]="pageIndex()"
             [pageSizeOptions]="PAGE_SIZE_OPTIONS"
+            showFirstLastButtons
             aria-label="Audit log pages"
             (page)="onPageChange($event)"
           ></mat-paginator>

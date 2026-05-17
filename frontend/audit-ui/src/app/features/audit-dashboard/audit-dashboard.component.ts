@@ -253,7 +253,9 @@ export class AuditDashboardComponent implements OnDestroy {
             catchError(() => {
               if (requestId === this.currentIntegrityRequestId) {
                 this.integrityCheckError.set('Could not verify blockchain integrity.');
-                this.rowIntegrityById.update(current => ({ ...current, [id]: 'UNKNOWN' }));
+                // Do NOT write UNKNOWN into the row cache: a transport/RPC error is not
+                // an integrity result. The previous list status (e.g. PENDING / ON_CHAIN)
+                // stays visible in the table; only the drawer shows the error message.
               }
               return EMPTY;
             }),

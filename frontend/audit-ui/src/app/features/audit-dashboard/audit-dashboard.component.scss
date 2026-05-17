@@ -130,7 +130,8 @@ table {
 
 .status-chip--pending {
   background: #fef7e0;
-  color: #b06000;
+  /* Darkened from #b06000 to ensure ≥4.5:1 contrast ratio on 12px text */
+  color: #7a4200;
 }
 
 .status-chip--unknown {
