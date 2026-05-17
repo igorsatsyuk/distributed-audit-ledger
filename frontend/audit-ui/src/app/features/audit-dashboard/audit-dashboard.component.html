@@ -147,7 +147,7 @@
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
                     tabindex="0"
                     role="status"
-                    [attr.aria-label]="element.eventHash ? 'Event hash ' + element.eventHash : 'Event hash not available'"
+                    [attr.aria-label]="'Integrity status ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash ' + element.eventHash : 'Event hash not available')"
                   >{{ effectiveIntegrityStatus(element) }}</span>
                 </td>
               </ng-container>
@@ -177,7 +177,6 @@
             [pageSize]="pageSize()"
             [pageIndex]="pageIndex()"
             [pageSizeOptions]="PAGE_SIZE_OPTIONS"
-            showFirstLastButtons
             aria-label="Audit log pages"
             (page)="onPageChange($event)"
           ></mat-paginator>

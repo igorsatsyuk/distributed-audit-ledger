@@ -114,6 +114,10 @@ table {
   cursor: default;
 }
 
+.status-chip.hash-chip {
+  cursor: help;
+}
+
 .status-chip--on_chain {
   background: #e6f4ea;
   color: #1e8e3e;
