@@ -11,7 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Subject, catchError, finalize, from, map, mergeMap, of, reduce, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 
@@ -76,7 +76,6 @@ export class AuditDashboardComponent implements OnDestroy {
    * switchMap cancels any in-flight check for a previously opened row.
    */
   private readonly integrityTrigger$ = new Subject<number>();
-  private readonly visibleRowsIntegrityTrigger$ = new Subject<AuditLog[]>();
   private readonly rowIntegrityById = signal<Record<number, DisplayIntegrityStatus>>({});
 
   private readonly destroy$ = new Subject<void>();
@@ -89,7 +88,6 @@ export class AuditDashboardComponent implements OnDestroy {
   constructor(private readonly auditLogService: AuditLogService) {
     this.initLoadPipeline();
     this.initIntegrityPipeline();
-    this.initVisibleRowsIntegrityPipeline();
 
     // Initial load
     this.loadTrigger$.next();
@@ -206,7 +204,6 @@ export class AuditDashboardComponent implements OnDestroy {
         this.logs$.next(visibleRows);
         this.estimatedTotal.set(hasMore ? offset + size + size : offset + visibleRows.length);
         this.rowIntegrityById.set({});
-        this.visibleRowsIntegrityTrigger$.next(visibleRows);
       });
   }
 
@@ -227,6 +224,7 @@ export class AuditDashboardComponent implements OnDestroy {
             catchError(() => {
               if (requestId === this.currentIntegrityRequestId) {
                 this.integrityCheckError.set('Could not verify blockchain integrity.');
+                this.rowIntegrityById.update(current => ({ ...current, [id]: 'UNKNOWN' }));
               }
               return EMPTY;
             }),
@@ -248,35 +246,4 @@ export class AuditDashboardComponent implements OnDestroy {
       });
   }
 
-  private initVisibleRowsIntegrityPipeline(): void {
-    this.visibleRowsIntegrityTrigger$
-      .pipe(
-        switchMap(rows => {
-          if (rows.length === 0) {
-            return of({} as Record<number, DisplayIntegrityStatus>);
-          }
-
-          // Limit parallel checks to reduce request bursts on page/filter changes.
-          return from(rows).pipe(
-            mergeMap(
-              row =>
-                this.auditLogService.checkIntegrity(row.id).pipe(
-                  map(response => ({ id: row.id, status: response.status as DisplayIntegrityStatus })),
-                  catchError(() => of({ id: row.id, status: 'UNKNOWN' as DisplayIntegrityStatus })),
-                ),
-              4,
-            ),
-            reduce(
-              (acc: Record<number, DisplayIntegrityStatus>, item: { id: number; status: DisplayIntegrityStatus }) => {
-                acc[item.id] = item.status;
-                return acc;
-              },
-              {} as Record<number, DisplayIntegrityStatus>,
-            ),
-          );
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe(statusMap => this.rowIntegrityById.set(statusMap));
-  }
 }

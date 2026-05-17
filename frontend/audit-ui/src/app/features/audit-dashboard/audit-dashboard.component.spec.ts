@@ -167,25 +167,33 @@ describe('AuditDashboardComponent', () => {
     expect(displayed.length).toBe(20);
   });
 
-  it('effectiveIntegrityStatus uses live row status when available', async () => {
+  it('effectiveIntegrityStatus uses list status until drawer check updates row status', fakeAsync(async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
-  });
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
 
-  it('effectiveIntegrityStatus returns UNKNOWN when row verification fails', async () => {
+    component.openDetails(pendingRow);
+    tick();
+
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
+  }));
+
+  it('effectiveIntegrityStatus returns UNKNOWN when drawer verification fails', fakeAsync(async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
     }));
 
+    component.openDetails(pendingRow);
+    tick();
+
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
-  });
+  }));
 
   it('integrityClass returns correct CSS class for each status', async () => {
     await init();
@@ -212,6 +220,7 @@ describe('AuditDashboardComponent', () => {
     tick();
     expect(component.integrityCheckError()).toBeTruthy();
     expect(component.integrityCheckResult()).toBeNull();
+    expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('UNKNOWN');
   }));
 
   it('closeDetails clears selectedAuditLog and integrity state', async () => {
