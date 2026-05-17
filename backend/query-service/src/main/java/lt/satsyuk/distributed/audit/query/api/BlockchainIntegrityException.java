@@ -6,7 +6,7 @@ public class BlockchainIntegrityException extends RuntimeException {
         /**
          * Configuration/validation problem (missing/malformed contract address, invalid hash format, etc.).
          * These are typically programming errors or deployment issues, not transient.
-         * HTTP mapping: 400 Bad Request or 500 Internal Server Error.
+         * HTTP mapping: 500 Internal Server Error (see {@code GlobalExceptionHandler}).
          */
         CONFIGURATION,
         /**
