@@ -111,7 +111,7 @@ describe('AuditDashboardComponent', () => {
       .and.returnValues(of(Array.from({ length: 21 }, (_, i) => ({ ...MOCK_LOG, id: i + 1 }))), throwError(() => new Error('fail')));
 
     await init(makeServiceSpy({ getAuditLogs: successThenFail }));
-    expect(component.estimatedTotal()).toBe(40);
+    expect(component.estimatedTotal()).toBe(21);
 
     component.retry();
     fixture.detectChanges();
@@ -161,35 +161,37 @@ describe('AuditDashboardComponent', () => {
       getAuditLogs: jasmine.createSpy().and.returnValue(of(fullPageItems)),
     });
     await init(fullSpy);
-    expect(component.estimatedTotal()).toBe(40);
+    expect(component.estimatedTotal()).toBe(21);
     const displayed = component.logs$.value;
     expect(displayed.length).toBe(20);
   });
 
-  it('effectiveIntegrityStatus uses list status until drawer check updates row status', async () => {
+  it('effectiveIntegrityStatus keeps list status until the drawer updates the row', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
 
     component.openDetails(pendingRow);
+    await Promise.resolve();
 
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
-  it('effectiveIntegrityStatus returns UNKNOWN when drawer verification fails', async () => {
+  it('effectiveIntegrityStatus becomes UNKNOWN when the drawer verification fails', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
       checkIntegrity: jasmine.createSpy().and.returnValue(throwError(() => new Error('rpc down'))),
     }));
 
-    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
 
     component.openDetails(pendingRow);
+    await Promise.resolve();
 
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('UNKNOWN');
   });

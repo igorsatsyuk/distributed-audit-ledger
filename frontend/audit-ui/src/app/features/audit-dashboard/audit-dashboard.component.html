@@ -38,7 +38,7 @@
             <dt>Block</dt>
             <dd>{{ integrityCheckResult()!.blockchainRecord.blockNumber ?? '—' }}</dd>
             @if (integrityCheckResult()!.blockchainRecord.timestamp != null) {
-              <dt>Block time</dt>
+              <dt>On-chain event timestamp</dt>
               <dd>{{ integrityCheckResult()!.blockchainRecord.timestamp! * 1000 | date : 'medium' }}</dd>
             }
           </dl>
@@ -134,20 +134,21 @@
                       mat-icon-button
                       class="info-button"
                       aria-label="How integrity status is refreshed"
-                      matTooltip="Visible rows with hashes are rechecked in the background; the Details drawer performs an on-demand verification as well."
+                      matTooltip="The table shows the last known list status, and the Details drawer performs on-demand verification for the selected row."
                     >
                       <mat-icon class="info-icon">info_outline</mat-icon>
                     </button>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
-                  <button
-                    type="button"
+                  <span
                     class="status-chip hash-chip"
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
+                    tabindex="0"
+                    role="status"
                     [attr.aria-label]="element.eventHash ? 'Event hash ' + element.eventHash : 'Event hash not available'"
-                  >{{ effectiveIntegrityStatus(element) }}</button>
+                  >{{ effectiveIntegrityStatus(element) }}</span>
                 </td>
               </ng-container>
 

@@ -8,7 +8,7 @@ Angular 17 standalone UI for Distributed Audit Ledger with live backend integrat
 - Integrity checks (`GET /api/audit-logs/{id}/integrity-check`) for drawer details.
 - Paginator-based lazy loading (`limit` + `offset`, with `pageSize + 1` has-more strategy).
 - Loading and error states with retry action.
-- Live integrity status refresh for visible rows with hashes, plus on-demand drawer verification.
+- Drawer-driven integrity verification for selected rows, with table status reflecting the latest known value.
 - Unit tests for service + dashboard component.
 
 ## Local API routing (no CORS issues in dev)

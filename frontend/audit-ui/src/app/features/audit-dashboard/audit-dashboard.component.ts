@@ -1,31 +1,43 @@
 import { AsyncPipe, DatePipe, JsonPipe, NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnDestroy, ViewChild, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injectable, OnDestroy, ViewChild, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Subject, catchError, finalize, from, map, mergeMap, switchMap, takeUntil } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 
 type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
-type IntegritySource = 'VISIBLE' | 'DRAWER';
 
-interface RowIntegrityState {
-  status: DisplayIntegrityStatus;
-  source: IntegritySource;
+let paginatorHasMore = false;
+
+@Injectable()
+class ApproximatePaginatorIntl extends MatPaginatorIntl {
+  override getRangeLabel = (page: number, pageSize: number, length: number): string => {
+    if (length === 0 || pageSize === 0) {
+      return `0 of ${paginatorHasMore ? 'at least ' : ''}${length}`;
+    }
+
+    const startIndex = page * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, length);
+    return paginatorHasMore
+      ? `${startIndex + 1} – ${endIndex} of at least ${length}`
+      : `${startIndex + 1} – ${endIndex} of ${length}`;
+  };
 }
 
 @Component({
   selector: 'app-audit-dashboard',
   standalone: true,
+  providers: [{ provide: MatPaginatorIntl, useClass: ApproximatePaginatorIntl }],
   imports: [
     AsyncPipe,
     DatePipe,
@@ -82,8 +94,7 @@ export class AuditDashboardComponent implements OnDestroy {
    * switchMap cancels any in-flight check for a previously opened row.
    */
   private readonly integrityTrigger$ = new Subject<number>();
-  private readonly visibleRowsIntegrityTrigger$ = new Subject<AuditLog[]>();
-  private readonly rowIntegrityById = signal<Record<number, RowIntegrityState>>({});
+  private readonly rowIntegrityById = signal<Record<number, DisplayIntegrityStatus>>({});
 
   private readonly destroy$ = new Subject<void>();
 
@@ -95,7 +106,6 @@ export class AuditDashboardComponent implements OnDestroy {
   constructor(private readonly auditLogService: AuditLogService) {
     this.initLoadPipeline();
     this.initIntegrityPipeline();
-    this.initVisibleRowsIntegrityPipeline();
 
     // Initial load
     this.loadTrigger$.next();
@@ -150,7 +160,7 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   effectiveIntegrityStatus(item: AuditLog): DisplayIntegrityStatus {
-    return this.rowIntegrityById()[item.id]?.status ?? item.integrityStatus;
+    return this.rowIntegrityById()[item.id] ?? item.integrityStatus;
   }
 
   parseEventData(item: AuditLog): unknown {
@@ -210,10 +220,8 @@ export class AuditDashboardComponent implements OnDestroy {
         const visibleRows = hasMore ? items.slice(0, size) : items;
 
         this.logs$.next(visibleRows);
-        this.estimatedTotal.set(hasMore ? offset + size + size : offset + visibleRows.length);
-        // Explicit reloads should allow visible-row checks to replace stale drawer-derived states.
-        this.rowIntegrityById.set({});
-        this.visibleRowsIntegrityTrigger$.next(visibleRows);
+        this.estimatedTotal.set(hasMore ? offset + size + 1 : offset + visibleRows.length);
+        paginatorHasMore = hasMore;
       });
   }
 
@@ -234,10 +242,7 @@ export class AuditDashboardComponent implements OnDestroy {
             catchError(() => {
               if (requestId === this.currentIntegrityRequestId) {
                 this.integrityCheckError.set('Could not verify blockchain integrity.');
-                this.rowIntegrityById.update(current => ({
-                  ...current,
-                  [id]: { status: 'UNKNOWN', source: 'DRAWER' },
-                }));
+                this.rowIntegrityById.update(current => ({ ...current, [id]: 'UNKNOWN' }));
               }
               return EMPTY;
             }),
@@ -254,56 +259,9 @@ export class AuditDashboardComponent implements OnDestroy {
       .subscribe(({ result, requestId }) => {
         if (requestId === this.currentIntegrityRequestId) {
           this.integrityCheckResult.set(result);
-          this.rowIntegrityById.update(current => ({
-            ...current,
-            [result.auditLogId]: { status: result.status, source: 'DRAWER' },
-          }));
+          this.rowIntegrityById.update(current => ({ ...current, [result.auditLogId]: result.status }));
         }
       });
-  }
-
-  private initVisibleRowsIntegrityPipeline(): void {
-    this.visibleRowsIntegrityTrigger$
-      .pipe(
-        switchMap(rows => {
-          const rowsToCheck = rows.filter(row => this.hasText(row.eventHash));
-
-          if (rowsToCheck.length === 0) {
-            return EMPTY;
-          }
-
-          // Check every visible row with a hash, but keep concurrency bounded.
-          return from(rowsToCheck).pipe(
-            mergeMap(
-              row =>
-                this.auditLogService.checkIntegrity(row.id).pipe(
-                  map(response => ({ id: row.id, status: response.status as DisplayIntegrityStatus })),
-                  catchError(() => from([{ id: row.id, status: 'UNKNOWN' as DisplayIntegrityStatus }])),
-                ),
-              3,
-            ),
-          );
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe(update => {
-        this.rowIntegrityById.update(current => {
-          const existing = current[update.id];
-          // Drawer-derived states remain authoritative until the row is explicitly reloaded.
-          if (existing?.source === 'DRAWER') {
-            return current;
-          }
-
-          return {
-            ...current,
-            [update.id]: { status: update.status, source: 'VISIBLE' },
-          };
-        });
-      });
-  }
-
-  private hasText(value: string | undefined): boolean {
-    return value != null && value.trim().length > 0;
   }
 
 }
