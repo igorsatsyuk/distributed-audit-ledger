@@ -17,18 +17,23 @@ import { AuditLogService } from '../../services/audit-log.service';
 
 type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
 
-let paginatorHasMore = false;
-
 @Injectable()
 class ApproximatePaginatorIntl extends MatPaginatorIntl {
+  private hasMore = false;
+
+  setHasMore(hasMore: boolean): void {
+    this.hasMore = hasMore;
+    this.changes.next();
+  }
+
   override getRangeLabel = (page: number, pageSize: number, length: number): string => {
     if (length === 0 || pageSize === 0) {
-      return `0 of ${paginatorHasMore ? 'at least ' : ''}${length}`;
+      return `0 of ${this.hasMore ? 'at least ' : ''}${length}`;
     }
 
     const startIndex = page * pageSize;
     const endIndex = Math.min(startIndex + pageSize, length);
-    return paginatorHasMore
+    return this.hasMore
       ? `${startIndex + 1} – ${endIndex} of at least ${length}`
       : `${startIndex + 1} – ${endIndex} of ${length}`;
   };
@@ -102,8 +107,13 @@ export class AuditDashboardComponent implements OnDestroy {
   private currentListRequestId = 0;
   private integrityRequestSeq = 0;
   private currentIntegrityRequestId = 0;
+  private readonly paginatorIntl: ApproximatePaginatorIntl;
 
-  constructor(private readonly auditLogService: AuditLogService) {
+  constructor(
+    private readonly auditLogService: AuditLogService,
+    paginatorIntl: MatPaginatorIntl,
+  ) {
+    this.paginatorIntl = paginatorIntl as ApproximatePaginatorIntl;
     this.initLoadPipeline();
     this.initIntegrityPipeline();
 
@@ -200,6 +210,7 @@ export class AuditDashboardComponent implements OnDestroy {
                 if (requestId === this.currentListRequestId) {
                   this.logs$.next([]);
                   this.estimatedTotal.set(0);
+                  this.paginatorIntl.setHasMore(false);
                   this.rowIntegrityById.set({});
                   this.errorMessage.set('Failed to load audit logs. Please try again.');
                 }
@@ -221,7 +232,7 @@ export class AuditDashboardComponent implements OnDestroy {
 
         this.logs$.next(visibleRows);
         this.estimatedTotal.set(hasMore ? offset + size + 1 : offset + visibleRows.length);
-        paginatorHasMore = hasMore;
+        this.paginatorIntl.setHasMore(hasMore);
       });
   }
 
