@@ -25,7 +25,7 @@
 
       @if (integrityLoading()) {
         <mat-progress-bar mode="indeterminate" class="integrity-progress"></mat-progress-bar>
-        <p class="state-message">Checking blockchain…</p>
+        <p class="state-message">Checking blockchain...</p>
       } @else if (integrityCheckResult()) {
         <span class="status-chip" [ngClass]="integrityClass(integrityCheckResult()!.status)">
           {{ integrityCheckResult()!.status }}
@@ -43,7 +43,13 @@
             }
           </dl>
         } @else {
-          <p class="state-message">Hash not yet anchored on-chain.</p>
+          @if (integrityCheckResult()!.status === 'MISMATCH') {
+            <p class="state-message state-message--error">
+              Hash mismatch: event hash exists in DB but was not found on-chain.
+            </p>
+          } @else {
+            <p class="state-message">Hash not yet anchored on-chain.</p>
+          }
         }
       } @else if (integrityCheckError()) {
         <p class="state-message state-message--error">{{ integrityCheckError() }}</p>
@@ -84,10 +90,10 @@
         </section>
 
         @if (errorMessage()) {
-          <div class="error-block" role="alert">
+          <div class="error-block" role="alert" data-testid="audit-load-error">
             <mat-icon color="warn">error_outline</mat-icon>
             <span>{{ errorMessage() }}</span>
-            <button mat-button color="primary" type="button" (click)="retry()">
+            <button mat-button color="primary" type="button" (click)="retry()" data-testid="retry-button">
               <mat-icon>refresh</mat-icon>
               Retry
             </button>
@@ -95,8 +101,8 @@
         }
 
         @if (loading()) {
-          <p class="state-message">Loading events…</p>
-        } @else {
+          <p class="state-message">Loading events...</p>
+        } @else if (!errorMessage()) {
           <div class="table-wrapper">
             <table mat-table [dataSource]="(logs$ | async) ?? []" class="mat-elevation-z1">
               <ng-container matColumnDef="id">
@@ -125,16 +131,16 @@
                     Integrity
                     <mat-icon
                       class="info-icon"
-                      matTooltip="The list endpoint always returns PENDING. Click View for live blockchain verification."
+                      matTooltip="Live ON_CHAIN/MISMATCH statuses are refreshed for visible rows via integrity-check API."
                     >info_outline</mat-icon>
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
                   <span
                     class="status-chip"
-                    [ngClass]="integrityClass(element.integrityStatus)"
+                    [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
-                  >{{ element.integrityStatus }}</span>
+                  >{{ effectiveIntegrityStatus(element) }}</span>
                 </td>
               </ng-container>
 

@@ -11,7 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil, tap } from 'rxjs';
+import { BehaviorSubject, EMPTY, Subject, catchError, finalize, forkJoin, map, of, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 
@@ -74,70 +74,20 @@ export class AuditDashboardComponent implements OnDestroy {
    * switchMap cancels any in-flight check for a previously opened row.
    */
   private readonly integrityTrigger$ = new Subject<number>();
+  private readonly visibleRowsIntegrityTrigger$ = new Subject<AuditLog[]>();
+  private readonly rowIntegrityById = signal<Record<number, IntegrityStatus>>({});
 
   private readonly destroy$ = new Subject<void>();
 
-  constructor(private readonly auditLogService: AuditLogService) {
-    // ── List loading pipeline ────────────────────────────────────────────────
-    this.loadTrigger$
-      .pipe(
-        tap(() => {
-          this.loading.set(true);
-          this.errorMessage.set(null);
-        }),
-        // switchMap cancels any previous in-flight list request
-        switchMap(() => {
-          const size = this.pageSize();
-          const offset = this.pageIndex() * size;
-          return this.auditLogService
-            .getAuditLogs({
-              userId: this.userIdControl.value.trim() || undefined,
-              eventType: this.eventTypeControl.value.trim() || undefined,
-              // Fetch one extra item to detect whether a next page exists
-              limit: size + 1,
-              offset,
-            })
-            .pipe(
-              // Carry size/offset into the subscriber so stale values aren't read
-              map(items => ({ items, size, offset })),
-              catchError(() => {
-                this.logs$.next([]);
-                this.errorMessage.set('Failed to load audit logs. Please try again.');
-                return EMPTY;
-              }),
-              finalize(() => this.loading.set(false)),
-            );
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe(({ items, size, offset }) => {
-        const hasMore = items.length > size;
-        this.logs$.next(hasMore ? items.slice(0, size) : items);
-        // If we got the extra item, another page exists → advance estimate by one page
-        this.estimatedTotal.set(hasMore ? offset + size + size : offset + items.length);
-      });
+  private listRequestSeq = 0;
+  private currentListRequestId = 0;
+  private integrityRequestSeq = 0;
+  private currentIntegrityRequestId = 0;
 
-    // ── Integrity check pipeline ─────────────────────────────────────────────
-    this.integrityTrigger$
-      .pipe(
-        tap(() => {
-          this.integrityLoading.set(true);
-          this.integrityCheckResult.set(null);
-          this.integrityCheckError.set(null);
-        }),
-        // switchMap cancels any in-flight check when a different row is opened
-        switchMap(id =>
-          this.auditLogService.checkIntegrity(id).pipe(
-            catchError(() => {
-              this.integrityCheckError.set('Could not verify blockchain integrity.');
-              return EMPTY;
-            }),
-            finalize(() => this.integrityLoading.set(false)),
-          ),
-        ),
-        takeUntil(this.destroy$),
-      )
-      .subscribe(result => this.integrityCheckResult.set(result));
+  constructor(private readonly auditLogService: AuditLogService) {
+    this.initLoadPipeline();
+    this.initIntegrityPipeline();
+    this.initVisibleRowsIntegrityPipeline();
 
     // Initial load
     this.loadTrigger$.next();
@@ -173,7 +123,6 @@ export class AuditDashboardComponent implements OnDestroy {
   openDetails(item: AuditLog): void {
     this.selectedAuditLog.set(item);
     void this.detailsDrawer?.open();
-    // tap() inside integrityTrigger$ pipeline resets loading/result/error states
     this.integrityTrigger$.next(item.id);
   }
 
@@ -192,11 +141,137 @@ export class AuditDashboardComponent implements OnDestroy {
     return 'status-chip--pending';
   }
 
+  effectiveIntegrityStatus(item: AuditLog): IntegrityStatus {
+    return this.rowIntegrityById()[item.id] ?? item.integrityStatus;
+  }
+
   parseEventData(item: AuditLog): unknown {
     try {
       return JSON.parse(item.eventDataJson);
     } catch {
       return item.eventDataJson;
     }
+  }
+
+  private initLoadPipeline(): void {
+    this.loadTrigger$
+      .pipe(
+        map(() => {
+          const requestId = ++this.listRequestSeq;
+          this.currentListRequestId = requestId;
+          this.loading.set(true);
+          this.errorMessage.set(null);
+          return requestId;
+        }),
+        switchMap(requestId => {
+          const size = this.pageSize();
+          const offset = this.pageIndex() * size;
+
+          return this.auditLogService
+            .getAuditLogs({
+              userId: this.userIdControl.value.trim() || undefined,
+              eventType: this.eventTypeControl.value.trim() || undefined,
+              // Fetch one extra item to detect whether a next page exists
+              limit: size + 1,
+              offset,
+            })
+            .pipe(
+              // Carry size/offset into the subscriber so stale values aren't read
+              map(items => ({ items, size, offset })),
+              catchError(() => {
+                if (requestId === this.currentListRequestId) {
+                  this.logs$.next([]);
+                  this.estimatedTotal.set(0);
+                  this.rowIntegrityById.set({});
+                  this.errorMessage.set('Failed to load audit logs. Please try again.');
+                }
+                return EMPTY;
+              }),
+              finalize(() => {
+                // Ignore cancellation of previous requests; only latest controls loading
+                if (requestId === this.currentListRequestId) {
+                  this.loading.set(false);
+                }
+              }),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(({ items, size, offset }) => {
+        const hasMore = items.length > size;
+        const visibleRows = hasMore ? items.slice(0, size) : items;
+
+        this.logs$.next(visibleRows);
+        this.estimatedTotal.set(hasMore ? offset + size + size : offset + visibleRows.length);
+        this.rowIntegrityById.set({});
+        this.visibleRowsIntegrityTrigger$.next(visibleRows);
+      });
+  }
+
+  private initIntegrityPipeline(): void {
+    this.integrityTrigger$
+      .pipe(
+        map(id => {
+          const requestId = ++this.integrityRequestSeq;
+          this.currentIntegrityRequestId = requestId;
+          this.integrityLoading.set(true);
+          this.integrityCheckResult.set(null);
+          this.integrityCheckError.set(null);
+          return { id, requestId };
+        }),
+        switchMap(({ id, requestId }) =>
+          this.auditLogService.checkIntegrity(id).pipe(
+            map(result => ({ result, requestId })),
+            catchError(() => {
+              if (requestId === this.currentIntegrityRequestId) {
+                this.integrityCheckError.set('Could not verify blockchain integrity.');
+              }
+              return EMPTY;
+            }),
+            finalize(() => {
+              // Ignore finalize from cancelled checks of previously selected rows
+              if (requestId === this.currentIntegrityRequestId) {
+                this.integrityLoading.set(false);
+              }
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(({ result, requestId }) => {
+        if (requestId === this.currentIntegrityRequestId) {
+          this.integrityCheckResult.set(result);
+          this.rowIntegrityById.update(current => ({ ...current, [result.auditLogId]: result.status }));
+        }
+      });
+  }
+
+  private initVisibleRowsIntegrityPipeline(): void {
+    this.visibleRowsIntegrityTrigger$
+      .pipe(
+        switchMap(rows => {
+          if (rows.length === 0) {
+            return of({} as Record<number, IntegrityStatus>);
+          }
+
+          return forkJoin(
+            rows.map(row =>
+              this.auditLogService.checkIntegrity(row.id).pipe(
+                map(response => ({ id: row.id, status: response.status })),
+                catchError(() => of({ id: row.id, status: row.integrityStatus })),
+              ),
+            ),
+          ).pipe(
+            map(items =>
+              items.reduce<Record<number, IntegrityStatus>>((acc, item) => {
+                acc[item.id] = item.status;
+                return acc;
+              }, {}),
+            ),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(statusMap => this.rowIntegrityById.set(statusMap));
   }
 }

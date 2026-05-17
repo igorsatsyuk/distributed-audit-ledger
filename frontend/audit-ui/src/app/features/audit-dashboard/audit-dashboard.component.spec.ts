@@ -68,7 +68,6 @@ describe('AuditDashboardComponent', () => {
 
   it('calls getAuditLogs on init with default page size and offset 0', async () => {
     await init();
-    // limit = pageSize + 1 (one extra to detect next page)
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
       jasmine.objectContaining({ limit: 21, offset: 0 }),
     );
@@ -89,8 +88,10 @@ describe('AuditDashboardComponent', () => {
       getAuditLogs: jasmine.createSpy().and.returnValue(throwError(() => new Error('Error'))),
     }));
     fixture.detectChanges();
-    const retryBtn = (fixture.nativeElement as HTMLElement).querySelector('button[color="primary"]');
+
+    const retryBtn = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="retry-button"]');
     expect(retryBtn).toBeTruthy();
+    expect(retryBtn?.textContent).toContain('Retry');
   });
 
   it('clears error and reloads on retry()', async () => {
@@ -103,6 +104,18 @@ describe('AuditDashboardComponent', () => {
     component.retry();
     fixture.detectChanges();
     expect(component.errorMessage()).toBeNull();
+  });
+
+  it('resets estimatedTotal to 0 on load error', async () => {
+    const successThenFail = jasmine.createSpy('getAuditLogs')
+      .and.returnValues(of(Array.from({ length: 21 }, (_, i) => ({ ...MOCK_LOG, id: i + 1 }))), throwError(() => new Error('fail')));
+
+    await init(makeServiceSpy({ getAuditLogs: successThenFail }));
+    expect(component.estimatedTotal()).toBe(40);
+
+    component.retry();
+    fixture.detectChanges();
+    expect(component.estimatedTotal()).toBe(0);
   });
 
   it('applyFilters resets pageIndex to 0', async () => {
@@ -130,7 +143,6 @@ describe('AuditDashboardComponent', () => {
     tick();
     expect(component.pageSize()).toBe(50);
     expect(component.pageIndex()).toBe(1);
-    // limit = pageSize + 1 = 51, offset = pageIndex * pageSize = 50
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
       jasmine.objectContaining({ limit: 51, offset: 50 }),
     );
@@ -141,22 +153,28 @@ describe('AuditDashboardComponent', () => {
       getAuditLogs: jasmine.createSpy().and.returnValue(of([MOCK_LOG])),
     });
     await init(partlyFull);
-    // requested limit=21, got 1 item (1 < 21) → no next page → total = 1
     expect(component.estimatedTotal()).toBe(1);
   });
 
   it('estimatedTotal assumes next page when response fills limit+1', async () => {
-    // Return pageSize+1 items to signal that another page exists
     const fullPageItems = Array.from({ length: 21 }, (_, i) => ({ ...MOCK_LOG, id: i + 1 }));
     const fullSpy = makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of(fullPageItems)),
     });
     await init(fullSpy);
-    // 21 > 20 → hasMore: true → display 20 items, total = 0 + 20 + 20 = 40
     expect(component.estimatedTotal()).toBe(40);
-    // Only pageSize items shown, not the sentinel extra
     const displayed = await new Promise<AuditLog[]>(res => component.logs$.subscribe(res));
     expect(displayed.length).toBe(20);
+  });
+
+  it('effectiveIntegrityStatus uses live row status when available', async () => {
+    const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
+    await init(makeServiceSpy({
+      getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
+      checkIntegrity: jasmine.createSpy().and.returnValue(of({ ...MOCK_INTEGRITY, status: 'MISMATCH' })),
+    }));
+
+    expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
   it('integrityClass returns correct CSS class for each status', async () => {
