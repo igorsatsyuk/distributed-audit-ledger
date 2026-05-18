@@ -95,7 +95,6 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      secrets.SONAR_TOKEN != '' &&
       ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -143,7 +142,6 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      secrets.SONAR_TOKEN != '' &&
       ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -161,10 +159,6 @@ jobs:
           name: frontend-coverage
           path: frontend/audit-ui/coverage/audit-ui
 
-      - name: Configure SonarQube organization
-        if: ${{ env.SONAR_ORGANIZATION != '' }}
-        run: echo "sonar.organization=${{ env.SONAR_ORGANIZATION }}" >> frontend/audit-ui/sonar-project.properties
-
       - name: Run SonarQube analysis (frontend)
         uses: SonarSource/sonarqube-scan-action@v6
         env:
@@ -177,6 +171,7 @@ jobs:
             -Dsonar.tests=src
             -Dsonar.test.inclusions=**/*.spec.ts
             -Dsonar.javascript.lcov.reportPaths=coverage/audit-ui/lcov.info
+            ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
   sonar-blockchain:
     name: SonarQube - blockchain
@@ -185,7 +180,6 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      secrets.SONAR_TOKEN != '' &&
       ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -196,10 +190,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Configure SonarQube organization
-        if: ${{ env.SONAR_ORGANIZATION != '' }}
-        run: echo "sonar.organization=${{ env.SONAR_ORGANIZATION }}" >> blockchain/sonar-project.properties
 
       - name: Run SonarQube analysis (blockchain)
         uses: SonarSource/sonarqube-scan-action@v6
@@ -212,6 +202,7 @@ jobs:
             -Dsonar.sources=contracts,scripts
             -Dsonar.tests=test
             -Dsonar.exclusions=node_modules/**,artifacts/**,cache/**
+            ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
   notify-telegram:
     name: Notify Telegram
