@@ -12,6 +12,6 @@ updates:
       - "dependencies"
       - "github-actions"
     commit-message:
-      prefix: "[#00] chore(deps)"
+      prefix: "chore(deps)"
       include: "scope"
 
