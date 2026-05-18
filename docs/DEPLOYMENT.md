@@ -52,7 +52,7 @@ dal-kafka-ui  running     8080->8080/tcp
 cd ../blockchain
 npm install
 cp .env.example .env
-# Edit .env: set GANACHE_PRIVATE_KEY=0x123abc...
+# Edit .env: set GANACHE_PRIVATE_KEY=0x<64-hex-private-key>
 npm run deploy:ganache
 ```
 
@@ -412,7 +412,7 @@ done
 - Kafka needs 10–30 seconds to be healthy after container start
 - Try: `docker compose logs kafka` for error messages
 
-### Audit Writer Service fails: "GANACHE_PRIVATE_KEY not set"
+### Audit Writer anchoring fails: "GANACHE_PRIVATE_KEY not set"
 
 - Service can still start, but blockchain anchoring fails at runtime when events are processed
 - Set via environment: `export GANACHE_PRIVATE_KEY=0x...` (Linux/macOS) or `$env:...` (PowerShell)

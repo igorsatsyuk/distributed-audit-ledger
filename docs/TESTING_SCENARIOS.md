@@ -221,7 +221,7 @@ curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq '.s
 
 ### 3.4 Simulate Tampering (Advanced)
 
-To test the `MISMATCH` scenario, manually modify the database:
+To test the `MISMATCH` scenario, manually modify the stored `event_hash` in the database:
 
 ```bash
 # Connect to PostgreSQL
@@ -245,6 +245,8 @@ curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq '.s
 
 # Now returns: MISMATCH
 ```
+
+Note: this scenario validates that the endpoint compares stored `event_hash` to on-chain data. The integrity-check endpoint does not recompute a hash from `payload`.
 
 **Revert tampering:**
 ```bash

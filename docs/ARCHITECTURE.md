@@ -130,7 +130,7 @@ CREATE TABLE audit.events (
     user_id      VARCHAR(255),                     -- Denormalized for filtering
     payload      JSONB        NOT NULL,            -- Full event data
     event_hash   VARCHAR(64),                      -- SHA-256 (computed by event-store)
-    created_at   TIMESTAMP    NOT NULL
+    created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for common queries
@@ -228,7 +228,7 @@ PostgreSQL
 
 1. **CQRS Split**: Separate write (command-service) and read (query-service) paths decouple scaling constraints
 2. **Event Sourcing**: Kafka + PostgreSQL provides immutable event log and temporal query capability
-3. **Blockchain Anchoring**: Event hashes on-chain provide tamper-proof trail independent of DB
+3. **Blockchain Anchoring**: Event hashes on-chain provide a tamper-evident trail independent of DB
 4. **Async Consumers**: Two independent Kafka consumers (event-store, audit-writer) allow independent failure handling
 5. **Reactive Stack**: WebFlux + R2DBC minimize thread context switches and connection pool pressure
 6. **Canonical JSON**: Deterministic serialization (sorted fields) ensures DB and blockchain hashes match
