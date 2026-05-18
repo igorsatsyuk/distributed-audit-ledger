@@ -355,18 +355,29 @@ CREATE TABLE audit.events (
 **Description:**
 Настроить GitHub Actions для автоматизированного тестирования и сборки.
 
-**Pipeline:**
-- Maven: `mvn clean test`
-- Frontend: `npm test`
-- Blockchain: `hardhat test`
-- Docker build для каждого сервиса
+**Pipeline (expanded):**
+- Backend: `mvn clean verify` из `backend/` (включая `common/*` и сервисы)
+- Frontend: `npm test` + `npm run build` из `frontend/audit-ui/`
+- Blockchain: `hardhat test` из `blockchain/`
+- SonarQube: анализ всех исходников (backend + frontend + blockchain)
+- Telegram: уведомление в канал о результате всех фаз pipeline
+
+**Acceptance Criteria:**
+- На `push` в `main` и на `pull_request` запускаются backend/frontend/blockchain проверки
+- SonarQube job запускается при наличии настроенных `SONAR_TOKEN` и variables проекта
+- Telegram notification отправляется в конце pipeline и содержит статусы ключевых jobs
+- При отсутствии Telegram secrets и/или Sonar token pipeline не падает (шаги помечаются как skipped)
+- Требования и subtasks синхронизированы между `GITHUB_ISSUES_PLAN.md`, GitHub Issue #13 и GitHub Project
 
 **Subtasks:**
-- [ ] #13.1 - Backend tests workflow (maven)
-- [ ] #13.2 - Frontend tests workflow (npm)
-- [ ] #13.3 - Blockchain tests workflow (hardhat)
-- [ ] #13.4 - Docker build workflow
-- [ ] #13.5 - Code coverage reports
+- [x] #13.1 - Backend tests workflow (maven)
+- [x] #13.2 - Frontend tests/build workflow (npm)
+- [x] #13.3 - Blockchain tests workflow (hardhat)
+- [x] #13.4 - SonarQube phase for backend sources
+- [x] #13.5 - SonarQube phase for frontend sources
+- [x] #13.6 - SonarQube phase for blockchain sources
+- [x] #13.7 - Telegram notification job for full pipeline status
+- [x] #13.8 - Synchronize subtasks in GitHub Issue #13 and GitHub Project board
 
 **Expected PR:** PR-13 (CI/CD setup)
 
