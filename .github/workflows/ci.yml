@@ -154,11 +154,11 @@ jobs:
           fetch-depth: 0
 
       - name: Download frontend coverage report
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: frontend-coverage
           path: frontend/audit-ui/coverage
-          if-no-artifact-found: warn
 
       - name: Normalize frontend lcov path for Sonar
         shell: bash
