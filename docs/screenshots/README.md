@@ -22,9 +22,18 @@ Use lowercase kebab-case names and keep files in PNG format:
 - Keep terminal width wide enough so commands/results are readable
 - Prefer one screenshot per scenario outcome
 
-## Completion Criteria for #12.4
+## Current Status
 
-- All 8 files above exist in this folder
-- `docs/TESTING_SCENARIOS.md` image links render correctly
-- `GITHUB_ISSUES_PLAN.md` subtask `#12.4` can be switched to `[x]`
+The screenshot pack files are present in this folder:
+
+- `01-command-accepted.png`
+- `02-audit-logs-list.png`
+- `03-integrity-on-chain.png`
+- `04-integrity-mismatch.png`
+- `05-kafka-topics.png`
+- `06-postgres-audit-events.png`
+- `07-health-endpoints.png`
+- `08-angular-dashboard.png`
+
+If needed for final demo polish, replace generated images with runtime-captured screenshots while keeping the same filenames.
 
