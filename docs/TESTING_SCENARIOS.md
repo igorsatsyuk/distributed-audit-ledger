@@ -32,6 +32,8 @@ echo $RESPONSE | jq .
 #   "eventId": "550e8400-e29b-41d4-a716-446655440000"
 # }
 
+# Note: body `ipAddress` / `userAgent` are fallback values; service usually persists server-derived remote IP and request `User-Agent`.
+
 # Capture eventId for later use
 EVENT_ID=$(echo $RESPONSE | jq -r '.eventId')
 echo "Event ID: $EVENT_ID"
@@ -60,7 +62,7 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com" | jq .
 #     "occurredAt": "2026-05-18T12:00:00Z",
 #     "eventDataJson": "{...}",
 #     "eventHash": "abc123def456789...",
-#     "integrityStatus": "ON_CHAIN"
+#     "integrityStatus": "PENDING"
 #   }
 # ]
 ```
@@ -370,7 +372,7 @@ docker exec dal-kafka kafka-topics \
 
 # Expected output:
 # user.login.events
-# user.login.events.dlt
+# user.login.events.dlt (only after first dead-lettered record)
 # ... (other internal topics)
 ```
 
@@ -512,7 +514,7 @@ for i in {1..100}; do
     &  # Run in parallel
   
   # Limit to 10 concurrent requests
-  if (( (i+1) % 10 == 0 )); then
+  if (( i % 10 == 0 )); then
     wait
   fi
 done
@@ -580,6 +582,8 @@ done
 curl http://localhost:8082/actuator/health/livenessState | jq .
 
 curl http://localhost:8082/actuator/health/readinessState | jq .
+
+# Note: these probe endpoints may return 404 unless health probes are explicitly enabled.
 ```
 
 ---

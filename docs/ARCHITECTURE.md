@@ -13,10 +13,10 @@ This document describes the **Distributed Audit Ledger** system architecture usi
          WRITE SIDE                                    READ SIDE
                │                                              │
       ┌────────▼────────┐                           ┌────────▼───────┐
-      │ command-service │   Publishes to Kafka      │  query-service │
-      │    (PORT 8081)  │──────────────────────────▶│   (PORT 8084)  │
-      │   WebFlux API   │   user.login.events       │   WebFlux API  │
-      └────────┬────────┘  (Kafka topic)           │                │
+      │ command-service │                           │  query-service │
+      │    (PORT 8081)  │                           │   (PORT 8084)  │
+      │   WebFlux API   │                           │   WebFlux API  │
+      └────────┬────────┘                           │                │
                │                                    │ ┌─────────────┐│
                │    Kafka Message Flow              │ │  Read Views ││
                │                                    │ │(PostgreSQL) ││
@@ -30,6 +30,7 @@ This document describes the **Distributed Audit Ledger** system architecture usi
          │ WebFlux +   │        │ Web3j Client │
          │  R2DBC      │        │ + Ganache    │
          └──────┬──────┘        └──────┬───────┘
+                │       user.login.events topic  │
                 │                      │
                 │ Persists            │ Anchors
                 │ Event Hash          │ Hash
@@ -100,7 +101,8 @@ The platform implements a **CQRS + Event Sourcing** architecture with blockchain
 
 ```
 Topic: user.login.events
-├── Partition Key: event.eventId (guarantees ordering per event)
+├── Partition Key: event.eventId (stable partition mapping per event record)
+│   └─ Note: this does not provide per-user ordering across multiple events
 ├── Schema: UserLoggedInEvent (shared from event-model)
 ├── Consumers:
 │   ├── event-store-service (group: event-store-consumer)
@@ -135,7 +137,7 @@ CREATE TABLE audit.events (
 CREATE INDEX idx_events_aggregate_id ON audit.events (aggregate_id);
 CREATE INDEX idx_events_event_type ON audit.events (event_type);
 CREATE INDEX idx_events_user_id ON audit.events (user_id);
-CREATE INDEX idx_events_created_at ON audit.events (created_at DESC);
+CREATE INDEX idx_events_created_at ON audit.events (created_at);
 ```
 
 ### Event Hash Computation

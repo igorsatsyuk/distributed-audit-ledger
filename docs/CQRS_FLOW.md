@@ -54,6 +54,8 @@ Content-Type: application/json
 }
 ```
 
+Note: `ipAddress` and `userAgent` in body are fallback values. In normal HTTP requests, command-service prefers server-derived remote IP and `User-Agent` header.
+
 Validation:
 - `userId` is required
 - `ipAddress`, `userAgent` are optional
@@ -149,10 +151,12 @@ Error handling outcomes after retries:
     "occurredAt": "2026-05-18T12:00:00Z",
     "eventDataJson": "{\"eventId\":\"550e8400...\",\"eventType\":\"USER_LOGGED_IN\",\"occurredAt\":\"2026-05-18T12:00:00Z\",\"sourceService\":\"command-service\",\"userId\":\"alice@example.com\",\"ipAddress\":\"192.0.2.1\",\"userAgent\":\"Mozilla/5.0\"}",
     "eventHash": "abc123def456...",
-    "integrityStatus": "ON_CHAIN"
+    "integrityStatus": "PENDING"
   }
 ]
 ```
+
+For live on-chain status, use `GET /api/audit-logs/{id}/integrity-check`.
 
 Repository ordering for list endpoint:
 - `ORDER BY created_at DESC, id DESC`

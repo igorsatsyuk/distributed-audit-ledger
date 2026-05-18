@@ -133,6 +133,8 @@ curl -X POST http://localhost:8081/commands/user/login \
     "userAgent": "curl/7.81.0"
   }'
 
+# Note: body `ipAddress` / `userAgent` are fallback values; service prefers remote IP and `User-Agent` header when available.
+
 # Expected response (HTTP 202 Accepted):
 # {"success":true,"message":"Command accepted","eventId":"<uuid>"}
 ```
@@ -192,7 +194,7 @@ cd deploy
 docker compose up -d
 
 # View logs
-docker compose logs -f dal-kafka
+docker compose logs -f kafka
 
 # Stop services (keep volumes)
 docker compose down
@@ -331,7 +333,7 @@ docker exec dal-kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # Expected output includes:
 # user.login.events
-# user.login.events.dlt
+# user.login.events.dlt (appears only after first DLT publish)
 
 # Inspect topic
 docker exec dal-kafka kafka-topics --bootstrap-server localhost:9092 \
@@ -399,7 +401,7 @@ done
 
 - Docker compose stack not running: `docker compose ps` from `deploy/`
 - Kafka needs 10–30 seconds to be healthy after container start
-- Try: `docker compose logs dal-kafka` for error messages
+- Try: `docker compose logs kafka` for error messages
 
 ### Audit Writer Service fails: "GANACHE_PRIVATE_KEY not set"
 
@@ -416,7 +418,7 @@ done
 ### "Port already in use" errors
 
 - Kill process on port: `lsof -i :8081` (find process), `kill -9 <PID>` (terminate)
-- Or change port in `.env` and restart Docker compose
+- Backend service ports are configured in each service `application.yml` (`server.port`) or can be overridden with `--server.port=<port>`
 
 ### Blockchain anchoring fails with "DuplicateHash" error
 
