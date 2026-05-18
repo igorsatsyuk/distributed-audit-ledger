@@ -94,8 +94,7 @@ jobs:
     needs: [backend]
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -106,7 +105,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Sonar configuration
+        id: sonar-check
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "SONAR_TOKEN not set; skipping backend analysis"
+            exit 0
+          fi
+          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Set up JDK 25
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -114,6 +125,7 @@ jobs:
           cache: maven
 
       - name: Run SonarQube analysis (backend)
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         shell: bash
         env:
           REPO_NAME: ${{ github.event.repository.name }}
@@ -141,8 +153,7 @@ jobs:
     needs: [frontend]
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -153,7 +164,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Sonar configuration
+        id: sonar-check
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "SONAR_TOKEN not set; skipping frontend analysis"
+            exit 0
+          fi
+          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Download frontend coverage report
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
@@ -161,6 +184,7 @@ jobs:
           path: frontend/audit-ui/coverage
 
       - name: Normalize frontend lcov path for Sonar
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         shell: bash
         run: |
           expected="frontend/audit-ui/coverage/audit-ui/lcov.info"
@@ -175,6 +199,7 @@ jobs:
           fi
 
       - name: Run SonarQube analysis (frontend)
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
@@ -194,8 +219,7 @@ jobs:
     needs: [blockchain]
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')) &&
-      ((vars.SONAR_HOST_URL != '' && vars.SONAR_HOST_URL != 'https://sonarcloud.io') || vars.SONAR_ORGANIZATION != '')
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -206,7 +230,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Sonar configuration
+        id: sonar-check
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "SONAR_TOKEN not set; skipping blockchain analysis"
+            exit 0
+          fi
+          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Run SonarQube analysis (blockchain)
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
