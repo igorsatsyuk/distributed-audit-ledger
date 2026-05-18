@@ -639,6 +639,46 @@ docker exec dal-kafka kafka-topics \
 
 ---
 
+## Screenshot Pack (Issue #12.4)
+
+Add the following screenshots to `docs/screenshots/` and keep the links below valid:
+
+1. Command accepted response
+
+![Command accepted response](screenshots/01-command-accepted.png)
+
+2. Audit logs list in query-service response
+
+![Audit logs list](screenshots/02-audit-logs-list.png)
+
+3. Integrity check status `ON_CHAIN`
+
+![Integrity ON_CHAIN](screenshots/03-integrity-on-chain.png)
+
+4. Integrity check status `MISMATCH`
+
+![Integrity MISMATCH](screenshots/04-integrity-mismatch.png)
+
+5. Kafka topic list (including `user.login.events`)
+
+![Kafka topics](screenshots/05-kafka-topics.png)
+
+6. PostgreSQL `audit.events` rows
+
+![Postgres audit events](screenshots/06-postgres-audit-events.png)
+
+7. Service health responses (`/actuator/health`)
+
+![Service health](screenshots/07-health-endpoints.png)
+
+8. Frontend dashboard (optional for backend-only runs, required for full demo pack)
+
+![Angular dashboard](screenshots/08-angular-dashboard.png)
+
+See `docs/screenshots/README.md` for naming/completion checklist.
+
+---
+
 ## Quick Reference Cheat Sheet
 
 ### Send Event
