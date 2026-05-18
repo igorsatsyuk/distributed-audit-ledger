@@ -157,7 +157,22 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-coverage
-          path: frontend/audit-ui/coverage/audit-ui
+          path: frontend/audit-ui/coverage
+          if-no-artifact-found: warn
+
+      - name: Normalize frontend lcov path for Sonar
+        shell: bash
+        run: |
+          expected="frontend/audit-ui/coverage/audit-ui/lcov.info"
+          found=$(find frontend/audit-ui/coverage -name "lcov.info" 2>/dev/null | head -1 || true)
+          if [ -n "$found" ] && [ "$found" != "$expected" ]; then
+            mkdir -p "$(dirname "$expected")"
+            cp "$found" "$expected"
+            echo "Reorganized lcov: $found -> $expected"
+          fi
+          if [ ! -f "$expected" ]; then
+            echo "lcov.info not found; Sonar will run without coverage input"
+          fi
 
       - name: Run SonarQube analysis (frontend)
         uses: SonarSource/sonarqube-scan-action@v6
