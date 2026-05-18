@@ -342,7 +342,7 @@ CREATE TABLE audit.events (
 - [x] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art) ✅ 189 lines
 - [x] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами ✅ 364 lines
 - [x] #12.3 - DEPLOYMENT.md - quickstart guide ✅ 348 lines
-- [x] #12.4 - TESTING_SCENARIOS.md - curl команды и тестовые сценарии ✅ 495 lines
+- [ ] #12.4 - TESTING_SCENARIOS.md - curl команды и скриншоты (скриншоты pending)
 
 **Expected PR:** PR-12 (Architecture documentation) ✅ Implemented via PR #124
 

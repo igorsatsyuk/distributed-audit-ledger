@@ -57,7 +57,7 @@ npm run deploy:ganache
 
 Now capture the deployed contract address (printed to console):
 ```
-Contract Address: 0x1234567890abcdef...
+AuditLedger deployed to: 0x1234567890abcdef...
 ```
 
 Set this in your terminal:
@@ -182,7 +182,7 @@ See the deploy README for detailed documentation on:
 | Kafka | 9092 | `localhost:9092` |
 | Zookeeper | 2181 | `localhost:2181` |
 | Ganache (RPC) | 8545 | `http://localhost:8545` |
-| pgAdmin | 5050 | http://localhost:5050 (admin/admin) |
+| pgAdmin | 5050 | http://localhost:5050 (`admin@example.com` / `admin`) |
 | Kafka UI | 8080 | http://localhost:8080 |
 
 ### Start/Stop Commands
@@ -282,7 +282,7 @@ cp .env.example .env
 npm run deploy:ganache
 
 # Output includes:
-# Contract Address: 0xabcdef123456...
+# AuditLedger deployed to: 0xabcdef123456...
 ```
 
 Ganache details:

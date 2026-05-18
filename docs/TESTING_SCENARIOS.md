@@ -285,7 +285,7 @@ curl http://localhost:8084/api/audit-logs/99999/integrity-check
 ```bash
 curl "http://localhost:8084/api/audit-logs?from=invalid-date"
 
-# Expected: HTTP 400 Bad Request or silently ignored (depending on implementation)
+# Expected: HTTP 400 Bad Request
 ```
 
 ### 4.5 Kafka Connection Failure
@@ -344,11 +344,11 @@ curl "http://localhost:8084/api/audit-logs?userId=audit_test@example.com&limit=1
 
 ### 5.3 Verify Immutability
 
-Attempt to update an event (should fail or be ignored):
+Verify API-level immutability expectations:
 
 ```bash
-# Try to update via direct database manipulation (not supported by API)
-# Events in audit.events should never be modified, only inserted
+# No backend API endpoint supports event updates; only inserts are supported.
+# Direct SQL updates are technically possible for DB owner accounts and should be restricted operationally.
 
 # Verify with:
 psql -h localhost -U postgres -d audit_ledger \
@@ -494,7 +494,8 @@ INSERT INTO audit.events
 VALUES 
   ('<existing_event_id>', 'test', 'USER_LOGGED_IN', 'test@example.com', '{}');
 
--- Error: duplicate key value violates unique constraint "audit.events_event_id_key"
+-- Error: duplicate key value violates unique constraint
+-- Constraint name may differ by migration path (for example: "events_event_id_key" or "uk_events_event_id").
 ```
 
 ---
