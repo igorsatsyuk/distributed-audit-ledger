@@ -432,11 +432,12 @@ done
 
 ### Add a new event type
 
-1. Define DTO in `common/event-model`
-2. Add command handler in `command-service`
-3. Add Kafka consumer in `event-store-service` and `audit-writer-service`
-4. Add query filters in `query-service`
-5. Rebuild and restart services
+1. Define domain event model in `common/event-model`
+2. Define/extend API DTOs in `common/shared-contracts` (if command/query contract changes)
+3. Add command handler in `command-service`
+4. Add Kafka consumer in `event-store-service` and `audit-writer-service`
+5. Add query filters in `query-service`
+6. Rebuild and restart services
 
 ### View database contents
 
@@ -477,9 +478,17 @@ mvn clean
 cd ../deploy
 docker compose up -d
 
+# Ganache chain state is reset after down -v, so redeploy contract and refresh env vars.
+cd ../blockchain
+npm run deploy:ganache
+
+# Export refreshed values in each relevant terminal:
+# AUDIT_LEDGER_CONTRACT_ADDRESS=<new address from deploy output>
+# GANACHE_PRIVATE_KEY=<configured key>
+
 cd ../backend
 mvn spring-boot:run -pl event-store-service -am
-# ... repeat for other services
+# ... repeat for other services (including audit-writer/query with refreshed env vars)
 ```
 
 ---

@@ -339,9 +339,9 @@ CREATE TABLE audit.events (
 - `docs/TESTING_SCENARIOS.md` - live demo сценарии
 
 **Subtasks:**
-- [x] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art) ✅ 189 lines
-- [x] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами ✅ 364 lines
-- [x] #12.3 - DEPLOYMENT.md - quickstart guide ✅ 348 lines
+- [x] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art)
+- [x] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами
+- [x] #12.3 - DEPLOYMENT.md - quickstart guide
 - [x] #12.4 - TESTING_SCENARIOS.md - curl команды и скриншоты ✅ screenshot pack added
 
 **Expected PR:** PR-12 (Architecture documentation) ✅ Implemented via PR #124

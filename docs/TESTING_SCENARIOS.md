@@ -70,7 +70,10 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com" | jq .
 ### 1.4 Query Single Event by ID
 
 ```bash
-curl http://localhost:8084/api/audit-logs/1 | jq .
+# Resolve DB id by eventId first (works on non-empty databases)
+AUDIT_ID=$(curl "http://localhost:8084/api/audit-logs?userId=alice@example.com&limit=50" | jq -r --arg eid "$EVENT_ID" '.[] | select(.eventId==$eid) | .id' | head -n 1)
+
+curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}" | jq .
 
 # Same structure as above, but single object (not array)
 ```
@@ -172,8 +175,11 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com&eventType=US
 ### 3.1 Check Integrity Status
 
 ```bash
-# Check event ID 1
-curl http://localhost:8084/api/audit-logs/1/integrity-check | jq .
+# Resolve audit ID for EVENT_ID captured in Scenario 1
+AUDIT_ID=$(curl "http://localhost:8084/api/audit-logs?userId=alice@example.com&limit=50" | jq -r --arg eid "$EVENT_ID" '.[] | select(.eventId==$eid) | .id' | head -n 1)
+
+# Check integrity for resolved ID
+curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq .
 
 # Expected response (if blockchain anchoring succeeded):
 # {
@@ -207,7 +213,7 @@ If status is `MISMATCH` right after ingestion, anchoring may still be in progres
 sleep 3
 
 # Retry integrity check
-curl http://localhost:8084/api/audit-logs/1/integrity-check | jq '.status'
+curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq '.status'
 
 # Can change from MISMATCH to ON_CHAIN once hash is observed on-chain
 ```
@@ -221,9 +227,12 @@ To test the `MISMATCH` scenario, manually modify the database:
 psql -h localhost -U postgres -d audit_ledger
 
 # In psql:
+SELECT event_hash FROM audit.events WHERE id = <AUDIT_ID>;
+-- Save this value as ORIGINAL_HASH for rollback.
+
 UPDATE audit.events 
 SET event_hash = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' 
-WHERE id = 1;
+WHERE id = <AUDIT_ID>;
 
 \q
 ```
@@ -231,15 +240,16 @@ WHERE id = 1;
 Then check integrity again:
 
 ```bash
-curl http://localhost:8084/api/audit-logs/1/integrity-check | jq '.status'
+curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq '.status'
 
 # Now returns: MISMATCH
 ```
 
 **Revert tampering:**
 ```bash
-# Re-run the event through event-store-service by republishing to Kafka
-# Or delete the row and reingest the event
+# In psql restore original hash:
+# UPDATE audit.events SET event_hash = '<ORIGINAL_HASH>' WHERE id = <AUDIT_ID>;
+# Republish alone will not overwrite because duplicate event_id is skipped as idempotent.
 ```
 
 ---
@@ -539,8 +549,10 @@ watch -n 1 'docker stats --no-stream'
 
 # Terminal 2: Monitor database
 psql -h localhost -U postgres -d audit_ledger \
-  -c "SELECT COUNT(*) FROM audit.events;
-      SELECT * FROM audit.events ORDER BY id DESC LIMIT 1 \gx"
+  -c "SELECT COUNT(*) FROM audit.events"
+
+psql -h localhost -U postgres -d audit_ledger \
+  -c "SELECT * FROM audit.events ORDER BY id DESC LIMIT 1"
 ```
 
 ### 8.3 Measure Latency
