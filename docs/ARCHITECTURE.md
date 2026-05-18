@@ -24,7 +24,7 @@ This document describes the **Distributed Audit Ledger** system architecture usi
                │    ▼                  ▼            │                │
          ┌─────────────┐        ┌──────────────┐   │ /api/audit-logs│
          │   Event     │        │   Audit      │   │ /api/audit-logs│
-         │   Store     │        │   Writer     │   │ /{id}/integrity│
+         │   Store     │        │   Writer     │   │ /{id}/integrity-check│
          │  Service    │        │  Service     │   └────────────────┘
          │ (PORT 8082) │        │ (PORT 8083)  │
          │ WebFlux +   │        │ Web3j Client │

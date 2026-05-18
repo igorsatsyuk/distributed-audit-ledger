@@ -88,15 +88,20 @@ mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
 # Terminal 1:
 mvn spring-boot:run -pl event-store-service -am
 
-# Terminal 2:
+# Terminal 2 (requires AUDIT_LEDGER_CONTRACT_ADDRESS + GANACHE_PRIVATE_KEY):
 mvn spring-boot:run -pl audit-writer-service -am
 
-# Terminal 3 (requires AUDIT_LEDGER_CONTRACT_ADDRESS + GANACHE_PRIVATE_KEY):
+# Terminal 3:
 mvn spring-boot:run -pl command-service -am
 
 # Terminal 4 (requires AUDIT_LEDGER_CONTRACT_ADDRESS):
 mvn spring-boot:run -pl query-service -am
 ```
+
+Notes:
+- `audit-writer-service` requires both `AUDIT_LEDGER_CONTRACT_ADDRESS` and `GANACHE_PRIVATE_KEY`.
+- `query-service` requires `AUDIT_LEDGER_CONTRACT_ADDRESS`.
+- `command-service` does not require blockchain env vars.
 
 Expected startup messages:
 ```
@@ -304,7 +309,7 @@ Ganache details:
 ```bash
 cd frontend/audit-ui
 npm install
-ng serve
+npm start
 # Runs on http://localhost:4200
 # Proxies API calls to query-service:8084
 ```
@@ -394,7 +399,7 @@ done
    - `curl http://localhost:8084/api/audit-logs`
 
 5. **Frontend (Optional)**
-   - `ng serve` from `frontend/audit-ui/`
+   - `npm start` from `frontend/audit-ui/`
    - Navigate to http://localhost:4200
 
 ---

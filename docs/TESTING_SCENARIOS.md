@@ -490,7 +490,8 @@ GROUP BY event_type;
 ```sql
 SELECT id, event_id, event_type, event_hash 
 FROM audit.events 
-WHERE event_hash IS NULL;
+WHERE event_hash IS NULL
+   OR btrim(event_hash) = '';
 
 -- In normal flow this should be empty because event-store computes hash before insert.
 -- If rows exist, they indicate write/data issues (not normal anchor delay).
