@@ -370,14 +370,14 @@ CREATE TABLE audit.events (
 - Требования и subtasks синхронизированы между `GITHUB_ISSUES_PLAN.md`, GitHub Issue #13 и GitHub Project
 
 **Subtasks:**
-- [ ] #13.1 - Backend tests workflow (maven)
-- [ ] #13.2 - Frontend tests/build workflow (npm)
-- [ ] #13.3 - Blockchain tests workflow (hardhat)
-- [ ] #13.4 - SonarQube phase for backend sources
-- [ ] #13.5 - SonarQube phase for frontend sources
-- [ ] #13.6 - SonarQube phase for blockchain sources
-- [ ] #13.7 - Telegram notification job for full pipeline status
-- [ ] #13.8 - Synchronize subtasks in GitHub Issue #13 and GitHub Project board
+- [x] #13.1 - Backend tests workflow (maven)
+- [x] #13.2 - Frontend tests/build workflow (npm)
+- [x] #13.3 - Blockchain tests workflow (hardhat)
+- [x] #13.4 - SonarQube phase for backend sources
+- [x] #13.5 - SonarQube phase for frontend sources
+- [x] #13.6 - SonarQube phase for blockchain sources
+- [x] #13.7 - Telegram notification job for full pipeline status
+- [x] #13.8 - Synchronize subtasks in GitHub Issue #13 and GitHub Project board
 
 **Expected PR:** PR-13 (CI/CD setup)
 
