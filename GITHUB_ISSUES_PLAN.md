@@ -344,7 +344,7 @@ CREATE TABLE audit.events (
 - [x] #12.3 - DEPLOYMENT.md - quickstart guide ✅ 348 lines
 - [x] #12.4 - TESTING_SCENARIOS.md - curl команды и тестовые сценарии ✅ 495 lines
 
-**Expected PR:** PR-124 (Architecture documentation) ✅ Created
+**Expected PR:** PR-12 (Architecture documentation) ✅ Implemented via PR #124
 
 ---
 

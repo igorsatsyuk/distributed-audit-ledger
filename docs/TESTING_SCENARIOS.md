@@ -27,8 +27,9 @@ RESPONSE=$(curl -X POST http://localhost:8081/commands/user/login \
 echo $RESPONSE | jq .
 # Expected:
 # {
-#   "eventId": "550e8400-e29b-41d4-a716-446655440000",
-#   "status": "accepted"
+#   "success": true,
+#   "message": "Command accepted",
+#   "eventId": "550e8400-e29b-41d4-a716-446655440000"
 # }
 
 # Capture eventId for later use
@@ -54,19 +55,12 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com" | jq .
 #   {
 #     "id": 1,
 #     "eventId": "550e8400-e29b-41d4-a716-446655440000",
-#     "aggregateId": "alice@example.com",
 #     "eventType": "USER_LOGGED_IN",
 #     "userId": "alice@example.com",
-#     "payload": {
-#       "eventId": "550e8400-e29b-41d4-a716-446655440000",
-#       "aggregateId": "alice@example.com",
-#       "eventType": "USER_LOGGED_IN",
-#       "userId": "alice@example.com",
-#       "ipAddress": "192.0.2.1",
-#       "userAgent": "curl/7.81.0",
-#       "timestamp": "2026-05-18T12:00:00Z"
-#     },
-#     "eventHash": "abc123def456789..."
+#     "occurredAt": "2026-05-18T12:00:00Z",
+#     "eventDataJson": "{...}",
+#     "eventHash": "abc123def456789...",
+#     "integrityStatus": "ON_CHAIN"
 #   }
 # ]
 ```
@@ -136,12 +130,12 @@ curl "http://localhost:8084/api/audit-logs?eventType=USER_LOGGED_IN" | jq '.[] |
 # First 2 events
 curl "http://localhost:8084/api/audit-logs?limit=2&offset=0" | jq '.[].id'
 
-# Expected: 1, 2
+# Expected (newest first): 3, 2
 
 # Next 1 event (offset by 2)
 curl "http://localhost:8084/api/audit-logs?limit=1&offset=2" | jq '.[].id'
 
-# Expected: 3
+# Expected: 1
 ```
 
 ### 2.5 Date Range (ISO-8601 Timestamps)
@@ -198,13 +192,13 @@ curl http://localhost:8084/api/audit-logs/1/integrity-check | jq .
 
 ```bash
 # ON_CHAIN: Hash found in smart contract (✓ Anchor successful)
-# PENDING: Hash not yet computed (event_hash column is NULL in DB)
-# MISMATCH: Hash in DB but NOT found in contract (✗ Data tampering suspected)
+# MISMATCH: Hash exists in DB but NOT found in contract (covers delayed/failed anchoring and true mismatch)
+# PENDING: event_hash is blank in DB row
 ```
 
 ### 3.3 Wait for Blockchain Confirmation
 
-If status is `PENDING`, blockchain anchoring is in progress:
+If status is `MISMATCH` right after ingestion, anchoring may still be in progress:
 
 ```bash
 # Wait 3 seconds for Ganache to mine block
@@ -213,7 +207,7 @@ sleep 3
 # Retry integrity check
 curl http://localhost:8084/api/audit-logs/1/integrity-check | jq '.status'
 
-# Should change from PENDING to ON_CHAIN
+# Can change from MISMATCH to ON_CHAIN once hash is observed on-chain
 ```
 
 ### 3.4 Simulate Tampering (Advanced)
@@ -226,7 +220,7 @@ psql -h localhost -U postgres -d audit_ledger
 
 # In psql:
 UPDATE audit.events 
-SET event_hash = 'deadbeef0000...' 
+SET event_hash = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' 
 WHERE id = 1;
 
 \q
@@ -262,7 +256,9 @@ curl -X POST http://localhost:8081/commands/user/login \
 
 # Expected: HTTP 400 Bad Request
 # {
-#   "error": "userId must not be blank"
+#   "success": false,
+#   "message": "userId must not be blank",
+#   "eventId": null
 # }
 ```
 
@@ -301,8 +297,7 @@ curl -X POST http://localhost:8081/commands/user/login \
   -H "Content-Type: application/json" \
   -d '{"userId": "test@example.com"}'
 
-# Expected: HTTP 500 Internal Server Error
-# (or HTTP 503 If using retries)
+# Expected: HTTP 503 Service Unavailable
 
 docker start dal-kafka
 ```
@@ -335,13 +330,13 @@ curl -X POST http://localhost:8081/commands/user/login \
 ### 5.2 Query All Events (Sorted by Time)
 
 ```bash
-curl "http://localhost:8084/api/audit-logs?userId=audit_test@example.com&limit=10" | jq '.[] | {id, eventId, createdAt}'
+curl "http://localhost:8084/api/audit-logs?userId=audit_test@example.com&limit=10" | jq '.[] | {id, eventId, occurredAt}'
 
-# Expected: 3 rows, ascending order by creation time
+# Expected: 3 rows, newest first (ORDER BY created_at DESC, id DESC)
 # [
-#   { "id": 10, "eventId": "...", "createdAt": "2026-05-18T12:00:00Z" },
-#   { "id": 11, "eventId": "...", "createdAt": "2026-05-18T12:00:01Z" },
-#   { "id": 12, "eventId": "...", "createdAt": "2026-05-18T12:00:02Z" }
+#   { "id": 12, "eventId": "...", "occurredAt": "2026-05-18T12:00:02Z" },
+#   { "id": 11, "eventId": "...", "occurredAt": "2026-05-18T12:00:01Z" },
+#   { "id": 10, "eventId": "...", "occurredAt": "2026-05-18T12:00:00Z" }
 # ]
 ```
 
@@ -477,14 +472,15 @@ GROUP BY event_type;
 -- USER_LOGGED_IN  | N
 ```
 
-### 7.5 Find Events Without Hash (Not Yet Anchored)
+### 7.5 Find Events Without Hash (Data Quality Check)
 
 ```sql
 SELECT id, event_id, event_type, event_hash 
 FROM audit.events 
 WHERE event_hash IS NULL;
 
--- Returns PENDING events (blockchain anchoring not yet complete)
+-- In normal flow this should be empty because event-store computes hash before insert.
+-- If rows exist, they indicate write/data issues (not normal anchor delay).
 ```
 
 ### 7.6 Verify Uniqueness Constraint
@@ -608,12 +604,14 @@ psql -h localhost -U postgres -d audit_ledger \
 ### 10.2 Reset Docker Compose (Full Clean)
 
 ```bash
+cd deploy
 docker compose down -v  # Remove volumes
 
 docker compose up -d    # Reinitialize with clean DB
 
 # Blockchain contract address will change on Ganache restart
-npm run deploy:ganache from blockchain/
+cd ../blockchain
+npm run deploy:ganache
 
 export AUDIT_LEDGER_CONTRACT_ADDRESS="<new_address>"
 

@@ -16,7 +16,7 @@ This document describes the **Distributed Audit Ledger** system architecture usi
       │ command-service │   Publishes to Kafka      │  query-service │
       │    (PORT 8081)  │──────────────────────────▶│   (PORT 8084)  │
       │   WebFlux API   │   user.login.events       │   WebFlux API  │
-      └────────┬────────┘  (audit.events topic)    │                │
+      └────────┬────────┘  (Kafka topic)           │                │
                │                                    │ ┌─────────────┐│
                │    Kafka Message Flow              │ │  Read Views ││
                │                                    │ │(PostgreSQL) ││
@@ -109,8 +109,12 @@ Topic: user.login.events
 │   └── audit-writer-service (group: audit-writer-consumer)
 │       ├─ Computes SHA-256 hash (using CanonicalObjectMapperFactory)
 │       ├─ Writes to blockchain via AuditLedger.appendAuditRecord()
-│       └─ Dead-letter topic on failure: user.login.events.dlt
-└── DLT: user.login.events.dlt (audit-writer failures)
+│       ├─ Retries via DefaultErrorHandler backoff
+│       └─ DLT only for recoverable/terminal failures
+└── DLT: user.login.events.dlt
+    - Not all failures go to DLT:
+      - BlockchainNotConfiguredException -> rethrown, offset remains uncommitted
+      - ReceiptTimeoutException -> rethrown, offset remains uncommitted
 ```
 
 ### Database Schema
@@ -119,7 +123,7 @@ Topic: user.login.events
 CREATE TABLE audit.events (
     id           BIGSERIAL    PRIMARY KEY,
     event_id     VARCHAR(36)  NOT NULL UNIQUE,     -- Stable UUID
-    aggregate_id VARCHAR(128) NOT NULL,            -- e.g., userId
+    aggregate_id VARCHAR(128) NOT NULL,            -- derived key (for login: user:<userId>)
     event_type   VARCHAR(128) NOT NULL,            -- e.g., USER_LOGGED_IN
     user_id      VARCHAR(255),                     -- Denormalized for filtering
     payload      JSONB        NOT NULL,            -- Full event data
@@ -184,7 +188,7 @@ function isHashExists(bytes32 _hash) public view returns (bool) {
 
 ## Reactive Architecture
 
-All backend services use **Spring WebFlux + Project Reactor** for non-blocking, backpressure-aware async I/O:
+All backend services are **reactive-first** with Spring WebFlux + Project Reactor, with controlled blocking in Kafka listeners where offset semantics require completion guarantees:
 
 ```
 Client Request
@@ -201,8 +205,9 @@ PostgreSQL
 ```
 
 - **R2DBC** (Reactive Relational Database Connectivity) replaces JPA
-- No blocking I/O; thread pools sized for core count
-- Backpressure handling via Flux operators
+- `event-store-service` Kafka consumer blocks on `persist(...).block()` so Kafka offset commit is aligned with DB write outcome
+- `audit-writer-service` uses Web3j (blocking RPC) behind Kafka error-handler retries/backoff
+- Backpressure handling via Flux operators on read APIs
 - Database queries use dynamic SQL (not ORM) for performance
 
 ## Documentation Map
@@ -225,5 +230,5 @@ PostgreSQL
 4. **Async Consumers**: Two independent Kafka consumers (event-store, audit-writer) allow independent failure handling
 5. **Reactive Stack**: WebFlux + R2DBC minimize thread context switches and connection pool pressure
 6. **Canonical JSON**: Deterministic serialization (sorted fields) ensures DB and blockchain hashes match
-7. **Dead-Letter Topic**: Failed blockchain writes don't block event persistence; manual intervention via DLT
+7. **Dead-Letter Topic**: DLT is used for recoverable/terminal errors; configuration/receipt-timeout failures are rethrown to keep source offsets uncommitted
 

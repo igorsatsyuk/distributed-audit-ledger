@@ -39,7 +39,7 @@ Expected output:
 NAME          STATUS      PORTS
 dal-postgres  healthy     5432->5432/tcp
 dal-zookeeper running     2181->2181/tcp
-dal-kafka     healthy     9092->9092/tcp
+dal-kafka     healthy     9092->29092/tcp
 dal-ganache   healthy     8545->8545/tcp
 dal-pgadmin   running     5050->5050/tcp
 dal-kafka-ui  running     8080->8080/tcp
@@ -64,10 +64,14 @@ Set this in your terminal:
 ```bash
 # Linux / macOS
 export AUDIT_LEDGER_CONTRACT_ADDRESS="0x1234567890abcdef..."
+export GANACHE_PRIVATE_KEY="0x<64-hex-private-key>"
 
 # PowerShell
 $env:AUDIT_LEDGER_CONTRACT_ADDRESS = "0x1234567890abcdef..."
+$env:GANACHE_PRIVATE_KEY = "0x<64-hex-private-key>"
 ```
+
+If you run services in separate terminals, export the same variables in each terminal where you start `audit-writer-service` and `query-service`.
 
 ### 5. Start Backend Services
 
@@ -84,10 +88,10 @@ mvn spring-boot:run -pl command-service -am
 # Terminal 2:
 mvn spring-boot:run -pl event-store-service -am
 
-# Terminal 3 (requires AUDIT_LEDGER_CONTRACT_ADDRESS):
+# Terminal 3 (requires AUDIT_LEDGER_CONTRACT_ADDRESS + GANACHE_PRIVATE_KEY):
 mvn spring-boot:run -pl audit-writer-service -am
 
-# Terminal 4:
+# Terminal 4 (requires AUDIT_LEDGER_CONTRACT_ADDRESS):
 mvn spring-boot:run -pl query-service -am
 ```
 
@@ -130,7 +134,7 @@ curl -X POST http://localhost:8081/commands/user/login \
   }'
 
 # Expected response (HTTP 202 Accepted):
-# {"eventId":"<uuid>","status":"accepted"}
+# {"success":true,"message":"Command accepted","eventId":"<uuid>"}
 ```
 
 ### 8. Query Audit Logs
@@ -149,7 +153,7 @@ curl http://localhost:8084/api/audit-logs/1/integrity-check | jq .
 #   "auditLogId": 1,
 #   "eventId": "<uuid>",
 #   "eventHash": "abc123...",
-#   "status": "ON_CHAIN",  # or "PENDING", "MISMATCH"
+#   "status": "ON_CHAIN",  # or "MISMATCH", "PENDING"
 #   "blockchainRecord": { ... }
 # }
 ```
@@ -371,6 +375,7 @@ done
    - `npm run deploy:ganache` from `blockchain/`
    - Capture contract address
    - Set env var `AUDIT_LEDGER_CONTRACT_ADDRESS`
+   - Set env var `GANACHE_PRIVATE_KEY` for `audit-writer-service`
 
 3. **Backend Services**
    - Start **event-store-service** (owns database schema via Flyway)
@@ -467,7 +472,10 @@ cd ../backend
 mvn clean
 
 # Restart
+cd ../deploy
 docker compose up -d
+
+cd ../backend
 mvn spring-boot:run -pl event-store-service -am
 # ... repeat for other services
 ```
