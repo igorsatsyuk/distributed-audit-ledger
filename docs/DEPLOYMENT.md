@@ -416,7 +416,7 @@ done
 
 - Service can still start, but blockchain anchoring fails at runtime when events are processed
 - Set via environment: `export GANACHE_PRIVATE_KEY=0x...` (Linux/macOS) or `$env:...` (PowerShell)
-- Or edit `audit-writer-service/src/main/resources/application.yml`
+- Or use a local, ignored override file / IDE run configuration; do **not** commit the private key into tracked `application.yml`
 
 ### Events not appearing in database after curl command
 

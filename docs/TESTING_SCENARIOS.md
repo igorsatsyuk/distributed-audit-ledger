@@ -7,6 +7,7 @@ This document provides practical curl commands and test scenarios to verify the 
 - All services running (see `docs/DEPLOYMENT.md`)
 - Docker Compose stack healthy
 - PostgreSQL, Kafka, Ganache accessible
+- `psql` installed (used for database inspection, tampering, and cleanup; Docker-based alternatives are fine if you prefer)
 - `jq` installed (used for parsing `eventId` / `AUDIT_ID` and formatting responses)
 
 ## Scenario 1: Basic Event Ingestion (No Blockchain)
@@ -123,7 +124,12 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com" | jq '.[] |
 ### 2.3 Query by Event Type
 
 ```bash
+# Linux (GNU date)
 FROM=$(date -u -d '10 minutes ago' +'%Y-%m-%dT%H:%M:%SZ')
+
+# macOS (BSD date)
+# FROM=$(date -u -v-10M +'%Y-%m-%dT%H:%M:%SZ')
+
 curl "http://localhost:8084/api/audit-logs?eventType=USER_LOGGED_IN&userId=alice@example.com&from=${FROM}" | jq '.[] | .eventType'
 
 # Expected output:
