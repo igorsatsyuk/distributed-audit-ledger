@@ -95,6 +95,8 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+    outputs:
+      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -109,12 +111,22 @@ jobs:
         id: sonar-check
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
+            echo "skipped=true" >> $GITHUB_OUTPUT
             echo "SONAR_TOKEN not set; skipping backend analysis"
+            exit 0
+          fi
+          # For SonarCloud (default), organization is required
+          host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
+          if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
+            echo "skipped=true" >> $GITHUB_OUTPUT
+            echo "SONAR_ORGANIZATION not set for SonarCloud; skipping backend analysis"
             exit 0
           fi
           echo "sonar_enabled=true" >> $GITHUB_OUTPUT
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
       - name: Set up JDK 25
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
@@ -154,6 +166,8 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+    outputs:
+      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -164,16 +178,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check Sonar configuration
-        id: sonar-check
-        run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "SONAR_TOKEN not set; skipping frontend analysis"
-            exit 0
-          fi
-          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+       - name: Check Sonar configuration
+         id: sonar-check
+         run: |
+           if [ -z "$SONAR_TOKEN" ]; then
+             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_TOKEN not set; skipping frontend analysis"
+             exit 0
+           fi
+           # For SonarCloud (default), organization is required
+           host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
+           if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
+             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_ORGANIZATION not set for SonarCloud; skipping frontend analysis"
+             exit 0
+           fi
+           echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+         env:
+           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
       - name: Download frontend coverage report
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
@@ -220,6 +244,8 @@ jobs:
     if: >
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+    outputs:
+      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
@@ -230,16 +256,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check Sonar configuration
-        id: sonar-check
-        run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "SONAR_TOKEN not set; skipping blockchain analysis"
-            exit 0
-          fi
-          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+       - name: Check Sonar configuration
+         id: sonar-check
+         run: |
+           if [ -z "$SONAR_TOKEN" ]; then
+             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_TOKEN not set; skipping blockchain analysis"
+             exit 0
+           fi
+           # For SonarCloud (default), organization is required
+           host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
+           if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
+             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_ORGANIZATION not set for SonarCloud; skipping blockchain analysis"
+             exit 0
+           fi
+           echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+         env:
+           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
       - name: Run SonarQube analysis (blockchain)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
@@ -269,16 +305,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compose Telegram message
-        id: compose
-        run: python3 .github/scripts/compose_telegram_message.py
-        env:
-          BACKEND_RESULT: ${{ needs.backend.result }}
-          FRONTEND_RESULT: ${{ needs.frontend.result }}
-          BLOCKCHAIN_RESULT: ${{ needs.blockchain.result }}
-          SONAR_BACKEND_RESULT: ${{ needs.sonar-backend.result }}
-          SONAR_FRONTEND_RESULT: ${{ needs.sonar-frontend.result }}
-          SONAR_BLOCKCHAIN_RESULT: ${{ needs.sonar-blockchain.result }}
+       - name: Compose Telegram message
+         id: compose
+         run: python3 .github/scripts/compose_telegram_message.py
+         env:
+           BACKEND_RESULT: ${{ needs.backend.result }}
+           FRONTEND_RESULT: ${{ needs.frontend.result }}
+           BLOCKCHAIN_RESULT: ${{ needs.blockchain.result }}
+           SONAR_BACKEND_RESULT: ${{ needs.sonar-backend.result }}
+           SONAR_FRONTEND_RESULT: ${{ needs.sonar-frontend.result }}
+           SONAR_BLOCKCHAIN_RESULT: ${{ needs.sonar-blockchain.result }}
+           SONAR_BACKEND_SKIPPED: ${{ needs.sonar-backend.outputs.sonar_skipped }}
+           SONAR_FRONTEND_SKIPPED: ${{ needs.sonar-frontend.outputs.sonar_skipped }}
+           SONAR_BLOCKCHAIN_SKIPPED: ${{ needs.sonar-blockchain.outputs.sonar_skipped }}
 
       - name: Notify Telegram
         if: ${{ env.TELEGRAM_TO != '' && env.TELEGRAM_TOKEN != '' }}

@@ -13,6 +13,12 @@ JOB_RESULT_FIELDS = (
 	("sonarqube-blockchain", "SONAR_BLOCKCHAIN_RESULT"),
 )
 
+SONAR_SKIP_FLAGS = {
+	"SONAR_BACKEND_RESULT": "SONAR_BACKEND_SKIPPED",
+	"SONAR_FRONTEND_RESULT": "SONAR_FRONTEND_SKIPPED",
+	"SONAR_BLOCKCHAIN_RESULT": "SONAR_BLOCKCHAIN_SKIPPED",
+}
+
 
 def normalize(value: str) -> str:
 	return (value or "unknown").lower()
@@ -28,8 +34,21 @@ def status_icon(status: str) -> str:
 	return "❓"
 
 
+def get_actual_status(env_name: str, result: str) -> str:
+	"""Get actual status, accounting for Sonar jobs that are skipped due to missing credentials."""
+	skip_flag = SONAR_SKIP_FLAGS.get(env_name)
+	if skip_flag and normalize(os.environ.get(skip_flag, "")) == "true":
+		return "skipped"
+	return result
+
+
 def overall_status() -> str:
-	statuses = [normalize(os.environ.get(env_name, "unknown")) for _, env_name in JOB_RESULT_FIELDS]
+	statuses = []
+	for _, env_name in JOB_RESULT_FIELDS:
+		result = normalize(os.environ.get(env_name, "unknown"))
+		actual = get_actual_status(env_name, result)
+		statuses.append(actual)
+
 	if any(status in FAILURE_STATES for status in statuses):
 		return "failure"
 	if all(status in SUCCESS_STATES for status in statuses):
@@ -56,8 +75,9 @@ def compose_message() -> str:
 	]
 
 	for job_name, env_name in JOB_RESULT_FIELDS:
-		status = normalize(os.environ.get(env_name, "unknown"))
-		lines.append(f"- {status_icon(status)} {esc(job_name)}: {esc(status)}")
+		result = normalize(os.environ.get(env_name, "unknown"))
+		actual = get_actual_status(env_name, result)
+		lines.append(f"- {status_icon(actual)} {esc(job_name)}: {esc(actual)}")
 
 	lines.append("")
 	lines.append(
