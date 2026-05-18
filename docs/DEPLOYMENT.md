@@ -12,6 +12,7 @@ This guide describes how to deploy and run the Distributed Audit Ledger system. 
 - **Docker** ≥ 24.x and **Docker Compose** ≥ 2.x
 - **Java** ≥ 25 and **Maven** ≥ 3.9
 - **Node.js** ≥ 18 (for blockchain module, optional for initial startup)
+- **jq** (used in health/API verification commands)
 - **Git**
 
 ### 2. Clone Repository
@@ -73,6 +74,8 @@ $env:GANACHE_PRIVATE_KEY = "0x<64-hex-private-key>"
 
 If you run services in separate terminals, export the same variables in each terminal where you start `audit-writer-service` and `query-service`.
 
+Important: `GANACHE_PRIVATE_KEY` for `audit-writer-service` must belong to the contract owner (or ownership must be transferred), because `appendAuditRecord` is `onlyOwner`.
+
 ### 5. Start Backend Services
 
 ```bash
@@ -83,13 +86,13 @@ mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
 
 # Step 5b: In separate terminals, start each service:
 # Terminal 1:
-mvn spring-boot:run -pl command-service -am
-
-# Terminal 2:
 mvn spring-boot:run -pl event-store-service -am
 
-# Terminal 3 (requires AUDIT_LEDGER_CONTRACT_ADDRESS + GANACHE_PRIVATE_KEY):
+# Terminal 2:
 mvn spring-boot:run -pl audit-writer-service -am
+
+# Terminal 3 (requires AUDIT_LEDGER_CONTRACT_ADDRESS + GANACHE_PRIVATE_KEY):
+mvn spring-boot:run -pl command-service -am
 
 # Terminal 4 (requires AUDIT_LEDGER_CONTRACT_ADDRESS):
 mvn spring-boot:run -pl query-service -am
@@ -248,6 +251,7 @@ mvn spring-boot:run -pl query-service -am        # Port 8084
 |----------|---------|---------|-------|
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | All | Kafka broker address |
 | `R2DBC_URL` | `r2dbc:postgresql://localhost:5432/audit_ledger` | event-store, query | Reactive DB URL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/audit_ledger` | event-store | JDBC URL for Flyway migrations |
 | `DB_USERNAME` | `postgres` | Services using DB | — |
 | `DB_PASSWORD` | `postgres` | Services using DB | — |
 | `GANACHE_RPC_URL` | `http://localhost:8545` | audit-writer, query | Blockchain RPC endpoint |
@@ -348,7 +352,7 @@ curl -X POST http://localhost:8545 \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 
-# Expected response: {"jsonrpc":"2.0","result":"0x0","id":1}
+# Expected response: {"jsonrpc":"2.0","result":"0x...","id":1}  (hex block number, may be 0x0/0x1+)
 
 # List accounts
 curl -X POST http://localhost:8545 \
@@ -405,7 +409,7 @@ done
 
 ### Audit Writer Service fails: "GANACHE_PRIVATE_KEY not set"
 
-- Required for signing blockchain transactions
+- Service can still start, but blockchain anchoring fails at runtime when events are processed
 - Set via environment: `export GANACHE_PRIVATE_KEY=0x...` (Linux/macOS) or `$env:...` (PowerShell)
 - Or edit `audit-writer-service/src/main/resources/application.yml`
 

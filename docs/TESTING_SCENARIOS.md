@@ -7,7 +7,7 @@ This document provides practical curl commands and test scenarios to verify the 
 - All services running (see `docs/DEPLOYMENT.md`)
 - Docker Compose stack healthy
 - PostgreSQL, Kafka, Ganache accessible
-- Optional: `jq` installed for JSON formatting
+- `jq` installed (used for parsing `eventId` / `AUDIT_ID` and formatting responses)
 
 ## Scenario 1: Basic Event Ingestion (No Blockchain)
 
@@ -123,10 +123,11 @@ curl "http://localhost:8084/api/audit-logs?userId=alice@example.com" | jq '.[] |
 ### 2.3 Query by Event Type
 
 ```bash
-curl "http://localhost:8084/api/audit-logs?eventType=USER_LOGGED_IN" | jq '.[] | .eventType'
+FROM=$(date -u -d '10 minutes ago' +'%Y-%m-%dT%H:%M:%SZ')
+curl "http://localhost:8084/api/audit-logs?eventType=USER_LOGGED_IN&userId=alice@example.com&from=${FROM}" | jq '.[] | .eventType'
 
 # Expected output:
-# "USER_LOGGED_IN"  (for all 3 events)
+# "USER_LOGGED_IN"  (for returned rows in this filtered window)
 ```
 
 ### 2.4 Pagination (Limit & Offset)
@@ -135,12 +136,12 @@ curl "http://localhost:8084/api/audit-logs?eventType=USER_LOGGED_IN" | jq '.[] |
 # First 2 events
 curl "http://localhost:8084/api/audit-logs?limit=2&offset=0" | jq '.[].id'
 
-# Expected (newest first): 3, 2
+# Expected: two ids in descending order (newest first)
 
 # Next 1 event (offset by 2)
 curl "http://localhost:8084/api/audit-logs?limit=1&offset=2" | jq '.[].id'
 
-# Expected: 1
+# Expected: the next older id after the first two
 ```
 
 ### 2.5 Date Range (ISO-8601 Timestamps)
@@ -262,7 +263,7 @@ curl "http://localhost:8084/api/audit-logs/${AUDIT_ID}/integrity-check" | jq '.s
 
 ```bash
 # userId is required
-curl -X POST http://localhost:8081/commands/user/login \
+curl -i -X POST http://localhost:8081/commands/user/login \
   -H "Content-Type: application/json" \
   -d '{"ipAddress": "192.0.2.1"}'
 
@@ -277,7 +278,7 @@ curl -X POST http://localhost:8081/commands/user/login \
 ### 4.2 Query Non-Existent Event
 
 ```bash
-curl http://localhost:8084/api/audit-logs/99999
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8084/api/audit-logs/99999
 
 # Expected: HTTP 404 Not Found
 ```
@@ -285,7 +286,7 @@ curl http://localhost:8084/api/audit-logs/99999
 ### 4.3 Integrity Check for Non-Existent Event
 
 ```bash
-curl http://localhost:8084/api/audit-logs/99999/integrity-check
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8084/api/audit-logs/99999/integrity-check
 
 # Expected: HTTP 404 Not Found
 ```
@@ -293,7 +294,7 @@ curl http://localhost:8084/api/audit-logs/99999/integrity-check
 ### 4.4 Invalid Date Format
 
 ```bash
-curl "http://localhost:8084/api/audit-logs?from=invalid-date"
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:8084/api/audit-logs?from=invalid-date"
 
 # Expected: HTTP 400 Bad Request
 ```
@@ -305,7 +306,7 @@ Stop Kafka and try to send a command:
 ```bash
 docker stop dal-kafka
 
-curl -X POST http://localhost:8081/commands/user/login \
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8081/commands/user/login \
   -H "Content-Type: application/json" \
   -d '{"userId": "test@example.com"}'
 
