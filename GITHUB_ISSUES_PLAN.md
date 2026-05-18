@@ -9,7 +9,7 @@
 
 ---
 
-## MVP Phase (Phase 1)
+## MVP Phase (Phase 1) — ✅ COMPLETE (Issues #1–#12)
 
 ### 1. [SETUP] Инициализация репозитория
 **ID:** #1  
@@ -339,12 +339,12 @@ CREATE TABLE audit.events (
 - `docs/TESTING_SCENARIOS.md` - live demo сценарии
 
 **Subtasks:**
-- [ ] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art или ссылки на drawio)
-- [ ] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами
-- [ ] #12.3 - DEPLOYMENT.md - quickstart guide
-- [ ] #12.4 - TESTING_SCENARIOS.md - curl команды и скриншоты
+- [x] #12.1 - ARCHITECTURE.md с диаграммами (ASCII art) ✅ 189 lines
+- [x] #12.2 - CQRS_FLOW.md - пошаговый flow с примерами ✅ 364 lines
+- [x] #12.3 - DEPLOYMENT.md - quickstart guide ✅ 348 lines
+- [x] #12.4 - TESTING_SCENARIOS.md - curl команды и тестовые сценарии ✅ 495 lines
 
-**Expected PR:** PR-12 (Architecture documentation)
+**Expected PR:** PR-124 (Architecture documentation) ✅ Created
 
 ---
 
