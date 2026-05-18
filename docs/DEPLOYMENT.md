@@ -262,6 +262,7 @@ mvn spring-boot:run -pl query-service -am        # Port 8084
 | `GANACHE_RPC_URL` | `http://localhost:8545` | audit-writer, query | Blockchain RPC endpoint |
 | `AUDIT_LEDGER_CONTRACT_ADDRESS` | — (required) | audit-writer, query | Deployed contract address |
 | `GANACHE_PRIVATE_KEY` | — (required) | audit-writer | Ethereum private key |
+| `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` | `0` | query | Contract deployment block for on-chain integrity checks on non-local RPC endpoints |
 
 Set via environment or edit `application.yml` per service.
 

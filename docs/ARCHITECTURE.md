@@ -148,11 +148,13 @@ CREATE INDEX idx_events_created_at ON audit.events (created_at);
 // ✅ CORRECT (ensures byte-identical JSON serialization)
 ObjectMapper mapper = CanonicalObjectMapperFactory.create();
 byte[] eventBytes = mapper.writeValueAsBytes(event);
-String eventHash = DigestUtils.sha256Hex(eventBytes);
+MessageDigest digest = MessageDigest.getInstance("SHA-256");
+String eventHash = HexFormat.of().formatHex(digest.digest(eventBytes));
 
 // ❌ WRONG (silent hash mismatch)
 ObjectMapper mapper = new ObjectMapper();  // Default ordering differs
-String eventHash = DigestUtils.sha256Hex(mapper.writeValueAsBytes(event));
+byte[] wrongBytes = mapper.writeValueAsBytes(event);
+String eventHash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(wrongBytes));
 ```
 
 Features of `CanonicalObjectMapperFactory`:
