@@ -88,45 +88,46 @@ jobs:
         working-directory: blockchain
         run: npm test
 
-  sonar-backend:
-    name: SonarQube - backend
-    runs-on: ubuntu-latest
-    needs: [backend]
-    if: >
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
-    outputs:
-      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+   sonar-backend:
+     name: SonarQube - backend
+     runs-on: ubuntu-latest
+     needs: [backend]
+     if: >
+       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+     outputs:
+       sonar_skipped: ${{ steps.sonar-check.outputs.sonar_skipped }}
+     env:
+       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+     steps:
+       - uses: actions/checkout@v4
+         with:
+           fetch-depth: 0
 
-      - name: Check Sonar configuration
-        id: sonar-check
-        run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "skipped=true" >> $GITHUB_OUTPUT
-            echo "SONAR_TOKEN not set; skipping backend analysis"
-            exit 0
-          fi
-          # For SonarCloud (default), organization is required
-          host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
-          if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
-            echo "skipped=true" >> $GITHUB_OUTPUT
-            echo "SONAR_ORGANIZATION not set for SonarCloud; skipping backend analysis"
-            exit 0
-          fi
-          echo "sonar_enabled=true" >> $GITHUB_OUTPUT
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+       - name: Check Sonar configuration
+         id: sonar-check
+         run: |
+           if [ -z "$SONAR_TOKEN" ]; then
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_TOKEN not set; skipping backend analysis"
+             exit 0
+           fi
+           # For SonarCloud (default), organization is required
+           host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
+           if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
+             echo "SONAR_ORGANIZATION not set for SonarCloud; skipping backend analysis"
+             exit 0
+           fi
+           echo "sonar_skipped=false" >> $GITHUB_OUTPUT
+           echo "sonar_enabled=true" >> $GITHUB_OUTPUT
+         env:
+           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
       - name: Set up JDK 25
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
@@ -159,53 +160,54 @@ jobs:
 
           "${cmd[@]}"
 
-  sonar-frontend:
-    name: SonarQube - frontend
-    runs-on: ubuntu-latest
-    needs: [frontend]
-    if: >
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
-    outputs:
-      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+   sonar-frontend:
+     name: SonarQube - frontend
+     runs-on: ubuntu-latest
+     needs: [frontend]
+     if: >
+       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+     outputs:
+       sonar_skipped: ${{ steps.sonar-check.outputs.sonar_skipped }}
+     env:
+       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+       - uses: actions/checkout@v4
+         with:
+           fetch-depth: 0
 
        - name: Check Sonar configuration
          id: sonar-check
          run: |
            if [ -z "$SONAR_TOKEN" ]; then
-             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
              echo "SONAR_TOKEN not set; skipping frontend analysis"
              exit 0
            fi
            # For SonarCloud (default), organization is required
            host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
            if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
-             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
              echo "SONAR_ORGANIZATION not set for SonarCloud; skipping frontend analysis"
              exit 0
            fi
+           echo "sonar_skipped=false" >> $GITHUB_OUTPUT
            echo "sonar_enabled=true" >> $GITHUB_OUTPUT
          env:
            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
            SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
            SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
-      - name: Download frontend coverage report
-        if: steps.sonar-check.outputs.sonar_enabled == 'true'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-coverage
-          path: frontend/audit-ui/coverage
+       - name: Download frontend coverage report
+         if: steps.sonar-check.outputs.sonar_enabled == 'true'
+         continue-on-error: true
+         uses: actions/download-artifact@v4
+         with:
+           name: frontend-coverage
+           path: frontend/audit-ui/coverage
 
       - name: Normalize frontend lcov path for Sonar
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
@@ -237,47 +239,48 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/audit-ui/lcov.info
             ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
-  sonar-blockchain:
-    name: SonarQube - blockchain
-    runs-on: ubuntu-latest
-    needs: [blockchain]
-    if: >
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
-    outputs:
-      sonar_skipped: ${{ steps.sonar-check.outputs.skipped }}
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+   sonar-blockchain:
+     name: SonarQube - blockchain
+     runs-on: ubuntu-latest
+     needs: [blockchain]
+     if: >
+       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'))
+     outputs:
+       sonar_skipped: ${{ steps.sonar-check.outputs.sonar_skipped }}
+     env:
+       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+       - uses: actions/checkout@v4
+         with:
+           fetch-depth: 0
 
        - name: Check Sonar configuration
          id: sonar-check
          run: |
            if [ -z "$SONAR_TOKEN" ]; then
-             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
              echo "SONAR_TOKEN not set; skipping blockchain analysis"
              exit 0
            fi
            # For SonarCloud (default), organization is required
            host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
            if [ "$host_url" = "https://sonarcloud.io" ] && [ -z "$SONAR_ORGANIZATION" ]; then
-             echo "skipped=true" >> $GITHUB_OUTPUT
+             echo "sonar_skipped=true" >> $GITHUB_OUTPUT
              echo "SONAR_ORGANIZATION not set for SonarCloud; skipping blockchain analysis"
              exit 0
            fi
+           echo "sonar_skipped=false" >> $GITHUB_OUTPUT
            echo "sonar_enabled=true" >> $GITHUB_OUTPUT
          env:
            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
            SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
            SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
-      - name: Run SonarQube analysis (blockchain)
+       - name: Run SonarQube analysis (blockchain)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
@@ -302,8 +305,8 @@ jobs:
       TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
 
-    steps:
-      - uses: actions/checkout@v4
+     steps:
+       - uses: actions/checkout@v4
 
        - name: Compose Telegram message
          id: compose
