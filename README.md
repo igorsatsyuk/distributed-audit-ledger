@@ -31,6 +31,7 @@ graph LR
     Kafka -->|Consumer: audit-writer-consumer| AuditWriter["⛓️ Audit Writer Service (8083)<br/>- Canonical hash<br/>- Web3j AuditLedger<br/>- DLT: user.login.events.dlt"]
     
     EventStore -->|Persisted events| Postgres["🐘 PostgreSQL<br/>audit.events"]
+    Blockchain["🔐 Smart Contract<br/>AuditLedger (Ganache)"]
     AuditWriter -->|appendAuditRecord()| Blockchain
     
     QueryService["📖 Query Service (8084)<br/>- GET /api/audit-logs<br/>- GET /api/audit-logs/{id}<br/>- GET /api/audit-logs/{id}/integrity-check"]
@@ -79,10 +80,10 @@ Verify infrastructure is ready:
 ### 3) Deploy Smart Contract
 
 ```bash
-cd blockchain
+cd ../blockchain
 npm install
 cp .env.example .env
-# Set GANACHE_PRIVATE_KEY in .env
+# Set GANACHE_PRIVATE_KEY in .env (0x-prefixed 32-byte hex string, e.g. 0x...64 hex chars)
 npm run deploy:ganache
 ```
 
@@ -92,7 +93,7 @@ After `npm run deploy:ganache`, copy the deployed contract address and set backe
 
 ```bash
 export AUDIT_LEDGER_CONTRACT_ADDRESS=<deployed_contract_address>
-export GANACHE_PRIVATE_KEY=<ganache_private_key>
+export GANACHE_PRIVATE_KEY=0x<64_hex_chars>
 export AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK=0
 ```
 
@@ -100,14 +101,14 @@ For PowerShell:
 
 ```pwsh
 $env:AUDIT_LEDGER_CONTRACT_ADDRESS = "<deployed_contract_address>"
-$env:GANACHE_PRIVATE_KEY = "<ganache_private_key>"
+$env:GANACHE_PRIVATE_KEY = "0x<64_hex_chars>"
 $env:AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK = "0"
 ```
 
 ### 5) Build and run backend services
 
 ```bash
-cd backend
+cd ../backend
 # Build and run tests
 mvn clean verify
 ```
@@ -121,6 +122,7 @@ mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
 Start services in separate terminals (from `backend/`):
 
 ```bash
+cd ../backend
 mvn spring-boot:run -pl command-service -am
 mvn spring-boot:run -pl event-store-service -am
 mvn spring-boot:run -pl audit-writer-service -am
