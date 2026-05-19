@@ -90,10 +90,14 @@ npm run deploy:ganache
 
 ```bash
 cd backend
-# Install shared modules once (required on clean checkout)
-mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
 # Build and run tests
 mvn clean verify
+```
+
+Optional troubleshooting on clean environments (if local Maven cache is missing shared modules):
+
+```bash
+mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
 ```
 
 Start services in separate terminals (from `backend/`):

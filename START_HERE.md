@@ -25,8 +25,8 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 4) Current status
 
-- Repository bootstrap structure is created
-- Ready to start implementation from Issue #2 (infrastructure)
+- MVP Phase 1 is complete (Issues #1–#13)
+- Next open implementation item is Issue #14 (additional event types)
 
 ## 5) Next action
 
