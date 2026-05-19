@@ -204,7 +204,7 @@ jobs:
       - name: Download frontend coverage report
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-coverage
           path: frontend/audit-ui/coverage
