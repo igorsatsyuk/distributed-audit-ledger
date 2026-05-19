@@ -106,5 +106,5 @@ Angular UI
 
 ## Issue tracker
 
-This module implements **Issue #4** in the GitHub Issues Plan.
-See `GITHUB_ISSUES_PLAN.md` for the full roadmap.
+This module implements **Issue #4** in the roadmap / GitHub issue plan.
+See [`docs/ROADMAP.md`](../docs/ROADMAP.md) for the full roadmap.

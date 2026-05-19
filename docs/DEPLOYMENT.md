@@ -508,5 +508,5 @@ mvn spring-boot:run -pl event-store-service -am
 - See `docs/TESTING_SCENARIOS.md` for end-to-end test scripts
 - See `docs/CQRS_FLOW.md` for architecture flow details
 - See `backend/README.md` for Maven structure
-- See Issue #13 in `GITHUB_ISSUES_PLAN.md` for CI/CD pipeline setup
+- See Issue #13 in [`docs/ROADMAP.md`](ROADMAP.md) for CI/CD pipeline setup
 

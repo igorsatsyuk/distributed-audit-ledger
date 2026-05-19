@@ -9,7 +9,7 @@
 
 ---
 
-## MVP Phase (Phase 1) — ✅ COMPLETE (Issues #1–#12)
+## MVP Phase (Phase 1) — ✅ COMPLETE (Issues #1–#13)
 
 ### 1. [SETUP] Инициализация репозитория
 **ID:** #1  
@@ -367,7 +367,7 @@ CREATE TABLE audit.events (
 - SonarQube job запускается при наличии настроенных `SONAR_TOKEN` и variables проекта
 - Telegram notification отправляется в конце pipeline и содержит статусы ключевых jobs
 - При отсутствии Telegram secrets и/или Sonar token pipeline не падает (шаги помечаются как skipped)
-- Требования и subtasks синхронизированы между `GITHUB_ISSUES_PLAN.md`, GitHub Issue #13 и GitHub Project
+- Требования и subtasks синхронизированы между `docs/ROADMAP.md`, GitHub Issue #13 и GitHub Project
 
 **Subtasks:**
 - [x] #13.1 - Backend tests workflow (maven)
@@ -639,3 +639,4 @@ curl -X POST http://localhost:8081/commands/user/login ...
 3. **PR reviews:** Minimum 1 approval перед merge
 4. **Commit messages:** `[#XX] Brief description` (с номером issue)
 5. **Project board:** Используем GitHub Project для визуализации статуса
+

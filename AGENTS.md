@@ -1,8 +1,8 @@
 # AGENTS.md
 
 ## Project snapshot
-- **MVP Phase 1 (issues #1–#10) is complete**; issue #11 (frontend API integration) is the next open item.
-- Start context in `README.md`, `START_HERE.md`, `GITHUB_ISSUES_PLAN.md`, and `docs/ARCHITECTURE.md`.
+- **MVP Phase 1 (issues #1–#13) is complete**; issue #14 (additional event types) is the next open item.
+- Start context in `README.md`, `START_HERE.md`, `docs/ROADMAP.md`, and `docs/ARCHITECTURE.md`.
 - Main folders: `backend/` (multi-module Maven), `blockchain/` (Hardhat), `deploy/` (local stack), `docs/` (CQRS/event-sourcing intent), `frontend/audit-ui/` (Angular 17+).
 
 ## Architecture and service boundaries
@@ -30,7 +30,7 @@
 - **`query-service` (port 8084)**: WebFlux read API — `GET /api/audit-logs` (filters: `userId`, `eventType`, `from`, `to`, `limit`, `offset`) and `GET /api/audit-logs/{id}`; also exposes `GET /api/audit-logs/{id}/integrity-check` (status: `ON_CHAIN` / `MISMATCH` / `PENDING`).
 - **`common/event-model`**: `AuditEvent`, `UserLoggedInEvent`, `EventType`.
 - **`common/shared-contracts`**: `UserLoginCommand`, `AuditEventDto`, `CommandResponse`, `CanonicalObjectMapperFactory`.
-- **Frontend** (`frontend/audit-ui/`): Angular 17 + Material, `audit-dashboard` feature component, `AuditLogService` calling `query-service`; issue #11 (live data integration) is still open.
+- **Frontend** (`frontend/audit-ui/`): Angular 17 + Material, `audit-dashboard` feature component, `AuditLogService` calling `query-service`; issue #11 (live data integration) is complete.
 
 ## Critical workflows (use these first)
 - Infra startup (from `deploy/`): copy `deploy/.env.example` to `.env`, then `docker compose up -d`.
@@ -77,7 +77,7 @@
 
 ## Practical guidance for coding agents
 - Do not assume existing Spring/Angular app code; create minimal skeletons first when implementing new backend/frontend issues.
-- Align new code with the issue-driven plan in `GITHUB_ISSUES_PLAN.md` because this repo is organized around those milestones.
+- Align new code with the issue-driven plan in `docs/ROADMAP.md` because this repo is organized around those milestones.
 - When changing blockchain write paths, update tests in `blockchain/test/AuditLedger.test.js` in the same change.
 - **Schema migrations belong only in `event-store-service`** (`src/main/resources/db/migration`). Never add Flyway config to other services.
 - **Any code that computes `event_hash` must use `CanonicalObjectMapperFactory.create()`** from `common/shared-contracts`. Deviating from the canonical mapper silently breaks DB↔on-chain hash consistency; see runbook `docs/EVENT_HASH_CANONICAL_MIGRATION.md` for historical data recovery.

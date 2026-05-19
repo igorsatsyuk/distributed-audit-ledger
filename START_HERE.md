@@ -11,10 +11,10 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 2) Read planning documents
 
-1. `GITHUB_ISSUES_PLAN.md`
-2. `CONTRIBUTING.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/CQRS_FLOW.md`
+1. [`docs/ROADMAP.md`](docs/ROADMAP.md) — GitHub Issues plan (phases 1–4)
+2. [`CONTRIBUTING.md`](CONTRIBUTING.md) — Contribution guidelines
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — System architecture
+4. [`docs/CQRS_FLOW.md`](docs/CQRS_FLOW.md) — CQRS event flow
 
 ## 3) Work mode
 
@@ -25,10 +25,10 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 4) Current status
 
-- Repository bootstrap structure is created
-- Ready to start implementation from Issue #2 (infrastructure)
+- MVP Phase 1 is complete (Issues #1–#13)
+- Next open implementation item is Issue #14 (additional event types)
 
 ## 5) Next action
 
-Confirm local prerequisites from section 1, then start with the next open issue in `GITHUB_ISSUES_PLAN.md`.
+Confirm local prerequisites from section 1, then start with the next open issue in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
