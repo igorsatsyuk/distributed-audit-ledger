@@ -9,7 +9,7 @@
 
 ---
 
-## MVP Phase (Phase 1) — ✅ COMPLETE (Issues #1–#12)
+## MVP Phase (Phase 1) — ✅ COMPLETE (Issues #1–#13)
 
 ### 1. [SETUP] Инициализация репозитория
 **ID:** #1  

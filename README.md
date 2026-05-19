@@ -30,13 +30,13 @@ graph LR
     Kafka -->|Consumer: event-store-consumer| EventStore["📊 Event Store Service (8082)<br/>- Canonical hash<br/>- PostgreSQL audit.events<br/>- Flyway migrations"]
     Kafka -->|Consumer: audit-writer-consumer| AuditWriter["⛓️ Audit Writer Service (8083)<br/>- Canonical hash<br/>- Web3j AuditLedger<br/>- DLT: user.login.events.dlt"]
     
-    EventStore -->|Event Hash| Blockchain["🔐 Smart Contract<br/>AuditLedger (Ganache)"]
+    EventStore -->|Persisted events| Postgres["🐘 PostgreSQL<br/>audit.events"]
     AuditWriter -->|appendAuditRecord()| Blockchain
     
     QueryService["📖 Query Service (8084)<br/>- GET /api/audit-logs<br/>- GET /api/audit-logs/{id}<br/>- GET /api/audit-logs/{id}/integrity-check"]
     
     AuditWriter -.->|"Read for integrity"| Blockchain
-    EventStore -->|Read Models| QueryService
+    Postgres -->|Read Models| QueryService
     Blockchain -->|Hash Verification| QueryService
     
     Client -->|"GET /api/audit-logs"| QueryService
@@ -47,6 +47,7 @@ graph LR
     style AuditWriter fill:#fce4ec
     style QueryService fill:#e8f5e9
     style Blockchain fill:#ffe0b2
+    style Postgres fill:#e3f2fd
     style Kafka fill:#f0f4c3
 ```
 
@@ -85,19 +86,26 @@ cp .env.example .env
 npm run deploy:ganache
 ```
 
-### 4) Start backend services
+### 4) Build and run backend services
 
 ```bash
 cd backend
 # Install shared modules once (required on clean checkout)
 mvn clean install -pl common/event-model,common/shared-contracts -DskipTests
-# Run all services
+# Build and run tests
 mvn clean verify
-# Or run a single service
-mvn spring-boot:run -pl command-service -am
 ```
 
-**Services will start on ports:**
+Start services in separate terminals (from `backend/`):
+
+```bash
+mvn spring-boot:run -pl command-service -am
+mvn spring-boot:run -pl event-store-service -am
+mvn spring-boot:run -pl audit-writer-service -am
+mvn spring-boot:run -pl query-service -am
+```
+
+Service ports:
 - Command Service: `8081`
 - Event Store Service: `8082`
 - Audit Writer Service: `8083`
@@ -108,7 +116,7 @@ mvn spring-boot:run -pl command-service -am
 ```bash
 cd frontend/audit-ui
 npm install
-ng serve
+npm start
 ```
 
 Open [http://localhost:4200](http://localhost:4200) — proxies to query-service on `8084`
@@ -122,7 +130,7 @@ Open [http://localhost:4200](http://localhost:4200) — proxies to query-service
 1. Client sends a command to Command Service (`POST /commands/user/login`)
 2. Command Service publishes an event to Kafka topic
 3. **Event Store Service** (consumer) persists the event to PostgreSQL with SHA-256 hash
-4. **Audit Writer Service** (consumer) anchors the event hash on-chain via `AuditLedger.appendRecord()`
+4. **Audit Writer Service** (consumer) anchors the event hash on-chain via `AuditLedger.appendAuditRecord()`
 5. **Query Service** exposes read models with integrity check status
    - `ON_CHAIN` — event hash verified on blockchain
    - `MISMATCH` — event exists in DB but not on-chain (indicates a failure)

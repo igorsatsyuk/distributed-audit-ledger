@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project snapshot
-- **MVP Phase 1 (issues #1–#10) is complete**; issue #11 (frontend API integration) is the next open item.
+- **MVP Phase 1 (issues #1–#13) is complete**; issue #14 (additional event types) is the next open item.
 - Start context in `README.md`, `START_HERE.md`, `docs/ROADMAP.md`, and `docs/ARCHITECTURE.md`.
 - Main folders: `backend/` (multi-module Maven), `blockchain/` (Hardhat), `deploy/` (local stack), `docs/` (CQRS/event-sourcing intent), `frontend/audit-ui/` (Angular 17+).
 
@@ -30,7 +30,7 @@
 - **`query-service` (port 8084)**: WebFlux read API — `GET /api/audit-logs` (filters: `userId`, `eventType`, `from`, `to`, `limit`, `offset`) and `GET /api/audit-logs/{id}`; also exposes `GET /api/audit-logs/{id}/integrity-check` (status: `ON_CHAIN` / `MISMATCH` / `PENDING`).
 - **`common/event-model`**: `AuditEvent`, `UserLoggedInEvent`, `EventType`.
 - **`common/shared-contracts`**: `UserLoginCommand`, `AuditEventDto`, `CommandResponse`, `CanonicalObjectMapperFactory`.
-- **Frontend** (`frontend/audit-ui/`): Angular 17 + Material, `audit-dashboard` feature component, `AuditLogService` calling `query-service`; issue #11 (live data integration) is still open.
+- **Frontend** (`frontend/audit-ui/`): Angular 17 + Material, `audit-dashboard` feature component, `AuditLogService` calling `query-service`; issue #11 (live data integration) is complete.
 
 ## Critical workflows (use these first)
 - Infra startup (from `deploy/`): copy `deploy/.env.example` to `.env`, then `docker compose up -d`.
