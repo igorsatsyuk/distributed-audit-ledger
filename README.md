@@ -32,7 +32,7 @@ graph LR
     
     EventStore -->|Persisted events| Postgres["🐘 PostgreSQL<br/>audit.events"]
     Blockchain["🔐 Smart Contract<br/>AuditLedger (Ganache)"]
-    AuditWriter -->|appendAuditRecord()| Blockchain
+    AuditWriter -->|appendAuditRecord| Blockchain
     
     QueryService["📖 Query Service (8084)<br/>- GET /api/audit-logs<br/>- GET /api/audit-logs/{id}<br/>- GET /api/audit-logs/{id}/integrity-check"]
     
