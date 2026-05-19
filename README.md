@@ -23,7 +23,7 @@ A distributed, event‑sourced audit platform built on CQRS, Event Sourcing, Rea
 graph LR
     Client["🌐 Client (Angular UI)"]
     
-    Client -->|"POST /commands"| CmdService["📤 Command Service (8081)"]
+    Client -->|"POST /commands/user/login"| CmdService["📤 Command Service (8081)"]
     
     CmdService -->|"Kafka: user.login.events"| Kafka["🔄 Kafka"]
     
@@ -86,7 +86,25 @@ cp .env.example .env
 npm run deploy:ganache
 ```
 
-### 4) Build and run backend services
+### 4) Configure blockchain env vars for backend
+
+After `npm run deploy:ganache`, copy the deployed contract address and set backend env vars.
+
+```bash
+export AUDIT_LEDGER_CONTRACT_ADDRESS=<deployed_contract_address>
+export GANACHE_PRIVATE_KEY=<ganache_private_key>
+export AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK=0
+```
+
+For PowerShell:
+
+```pwsh
+$env:AUDIT_LEDGER_CONTRACT_ADDRESS = "<deployed_contract_address>"
+$env:GANACHE_PRIVATE_KEY = "<ganache_private_key>"
+$env:AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK = "0"
+```
+
+### 5) Build and run backend services
 
 ```bash
 cd backend
@@ -115,7 +133,7 @@ Service ports:
 - Audit Writer Service: `8083`
 - Query Service: `8084`
 
-### 5) Start frontend
+### 6) Start frontend
 
 ```bash
 cd frontend/audit-ui
