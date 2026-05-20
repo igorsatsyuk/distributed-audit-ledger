@@ -101,7 +101,7 @@ public class KafkaListenerConfig {
             @Value("${spring.kafka.consumer.auto-offset-reset:earliest}") String autoOffsetReset,
             ConfigurableEnvironment environment,
             @Value("${spring.kafka.consumer.properties.spring.json.value.default.type:"
-                    + "lt.satsyuk.distributed.audit.event.UserLoggedInEvent}") String valueDefaultType
+                    + "lt.satsyuk.distributed.audit.event.AuditEvent}") String valueDefaultType
     ) {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);

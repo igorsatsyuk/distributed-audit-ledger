@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.eventstore.consumer;
 
 import lt.satsyuk.distributed.audit.event.AuditEvent;
+import lt.satsyuk.distributed.audit.event.UserProfileChangedEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
@@ -11,7 +12,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,11 +35,22 @@ class UserLoginEventConsumerTest {
     }
 
     @Test
-    void consumeSkipsUnsupportedEventTypes() {
-        UserLoginEventConsumer consumer = new UserLoginEventConsumer(persistenceService, TOPICS);
-        AuditEvent unsupported = mock(AuditEvent.class);
+    void consumeDelegatesToPersistenceServiceForAnotherSupportedSubtype() {
+        when(persistenceService.persist(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        consumer.consume(unsupported, "event-key");
+        UserLoginEventConsumer consumer = new UserLoginEventConsumer(persistenceService, TOPICS);
+        AuditEvent profileChanged = UserProfileChangedEvent.of("user-9", java.util.Map.of("email", "u@example.com"));
+
+        consumer.consume(profileChanged, "event-key");
+
+        verify(persistenceService).persist(profileChanged);
+    }
+
+    @Test
+    void consumeSkipsNullEvent() {
+        UserLoginEventConsumer consumer = new UserLoginEventConsumer(persistenceService, TOPICS);
+
+        consumer.consume(null, "event-key");
 
         verify(persistenceService, never()).persist(any(AuditEvent.class));
     }

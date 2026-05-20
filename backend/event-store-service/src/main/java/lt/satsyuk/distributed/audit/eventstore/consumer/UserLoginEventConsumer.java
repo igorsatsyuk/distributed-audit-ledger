@@ -1,7 +1,6 @@
 package lt.satsyuk.distributed.audit.eventstore.consumer;
 
 import lt.satsyuk.distributed.audit.event.AuditEvent;
-import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
 import org.slf4j.Logger;
@@ -30,14 +29,14 @@ public class UserLoginEventConsumer {
 
     @KafkaListener(topics = "${kafka.topics.user-login-events}")
     public void consume(AuditEvent event, @Header(value = RECEIVED_KEY, required = false) String key) {
-        if (!(event instanceof UserLoggedInEvent userLoggedInEvent)) {
-            log.warn("Skipping unsupported event type from topic [{}], key=[{}]", kafkaTopicsProperties.getUserLoginEvents(), key);
+        if (event == null) {
+            log.warn("Skipping null event from topic [{}], key=[{}]", kafkaTopicsProperties.getUserLoginEvents(), key);
             return;
         }
 
         try {
             // Keep Kafka offset handling aligned with DB write result.
-            eventPersistenceService.persist(userLoggedInEvent).block();
+            eventPersistenceService.persist(event).block();
         } catch (RuntimeException ex) {
             log.error("Failed to persist event key=[{}]", key, ex);
             throw new IllegalStateException("Failed to persist event key=[" + key + "]", ex);

@@ -397,10 +397,10 @@ CREATE TABLE audit.events (
 - `DataDeleted`
 
 **Subtasks:**
-- [ ] #14.1 - Event DTO классы для новых типов
-- [ ] #14.2 - Command endpoints
-- [ ] #14.3 - Database schema updates
-- [ ] #14.4 - Tests
+- [x] #14.1 - Event DTO классы для новых типов
+- [x] #14.2 - Command endpoints
+- [x] #14.3 - Database schema updates
+- [x] #14.4 - Tests
 
 **Expected PR:** PR-14 (Event types expansion)
 

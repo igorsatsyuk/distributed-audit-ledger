@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.command.api;
 
 import lt.satsyuk.distributed.audit.command.service.CommandPublishException;
+import lt.satsyuk.distributed.audit.command.service.AdditionalCommandService;
 import lt.satsyuk.distributed.audit.command.service.UserLoginCommandService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class CommandControllerWebFluxValidationTest {
 
     @MockitoBean
     private UserLoginCommandService userLoginCommandService;
+
+    @MockitoBean
+    private AdditionalCommandService additionalCommandService;
 
     @Test
     void blankUserIdReturnsCommandResponseEnvelope() {

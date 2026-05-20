@@ -28,7 +28,11 @@ import java.util.UUID;
         visible = true
 )
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = UserLoggedInEvent.class, name = "USER_LOGGED_IN")
+        @JsonSubTypes.Type(value = UserLoggedInEvent.class, name = "USER_LOGGED_IN"),
+        @JsonSubTypes.Type(value = UserProfileChangedEvent.class, name = "USER_PROFILE_CHANGED"),
+        @JsonSubTypes.Type(value = EntityCreatedEvent.class, name = "ENTITY_CREATED"),
+        @JsonSubTypes.Type(value = EntityUpdatedEvent.class, name = "ENTITY_UPDATED"),
+        @JsonSubTypes.Type(value = DataDeletedEvent.class, name = "DATA_DELETED")
 })
 public abstract class AuditEvent {
 

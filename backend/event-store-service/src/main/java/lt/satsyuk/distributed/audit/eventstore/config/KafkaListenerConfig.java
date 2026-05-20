@@ -1,7 +1,6 @@
 package lt.satsyuk.distributed.audit.eventstore.config;
 
 import lt.satsyuk.distributed.audit.event.AuditEvent;
-import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +30,7 @@ public class KafkaListenerConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, UserLoggedInEvent.class.getName());
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, AuditEvent.class.getName());
 
         return new DefaultKafkaConsumerFactory<>(props);
     }
