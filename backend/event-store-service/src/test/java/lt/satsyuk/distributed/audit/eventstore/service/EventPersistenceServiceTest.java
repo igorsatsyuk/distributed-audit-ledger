@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -110,6 +111,20 @@ class EventPersistenceServiceTest {
         assertEquals("entity:invoice:inv-7", saved.getAggregateId());
         assertEquals("auditor-1", saved.getUserId());
         assertEquals("ENTITY_UPDATED", saved.getEventType());
+    }
+
+    @Test
+    void persistRejectsNullEventTypeWithClearError() {
+        UserLoggedInEvent event = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000099")
+                .occurredAt(Instant.parse("2026-05-15T12:15:30Z"))
+                .sourceService("command-service")
+                .userId("user-99")
+                .build();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.persist(event).block());
+
+        assertEquals("AuditEvent.eventType must not be null", exception.getMessage());
     }
 }
 
