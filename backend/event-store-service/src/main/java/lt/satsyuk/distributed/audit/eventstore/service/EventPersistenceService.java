@@ -2,8 +2,10 @@ package lt.satsyuk.distributed.audit.eventstore.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.r2dbc.postgresql.codec.Json;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
+import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.eventstore.model.StoredAuditEvent;
 import lt.satsyuk.distributed.audit.eventstore.repository.StoredAuditEventRepository;
 import org.slf4j.Logger;
@@ -55,38 +57,34 @@ public class EventPersistenceService {
     }
 
     private StoredAuditEvent toEntity(AuditEvent event) throws JsonProcessingException {
+        EventType eventType = requireEventType(event);
         String payloadJson = objectMapper.writeValueAsString(event);
-        String aggregateId = resolveAggregateId(event, payloadJson);
+        JsonNode payloadRoot = objectMapper.readTree(payloadJson);
+        String aggregateId = resolveAggregateId(eventType, payloadRoot, event.getEventId());
 
         StoredAuditEvent entity = new StoredAuditEvent();
         entity.setEventId(event.getEventId());
         entity.setAggregateId(aggregateId);
-        entity.setEventType(event.getEventType().name());
-        entity.setUserId(resolveUserId(payloadJson));
+        entity.setEventType(eventType.name());
+        entity.setUserId(extractStringField(payloadRoot, "userId"));
         entity.setPayload(Json.of(payloadJson));
         entity.setEventHash(eventHashService.sha256Hex(payloadJson));
         entity.setCreatedAt(LocalDateTime.ofInstant(resolveTimestamp(event), ZoneOffset.UTC));
         return entity;
     }
 
-    private String resolveAggregateId(AuditEvent event, String payloadJson) {
-        String eventType = event.getEventType() != null ? event.getEventType().name() : null;
-        if ("USER_LOGGED_IN".equals(eventType) || "USER_PROFILE_CHANGED".equals(eventType)) {
-            String userId = resolveUserId(payloadJson);
-            return userId != null ? "user:" + userId : event.getEventId();
-        }
-        if ("ENTITY_CREATED".equals(eventType) || "ENTITY_UPDATED".equals(eventType) || "DATA_DELETED".equals(eventType)) {
-            return entityAggregateId(
-                    extractStringField(payloadJson, "entityType"),
-                    extractStringField(payloadJson, "entityId"),
-                    event.getEventId()
+    private String resolveAggregateId(EventType eventType, JsonNode payloadRoot, String fallbackEventId) {
+        return switch (eventType) {
+            case USER_LOGGED_IN, USER_PROFILE_CHANGED -> {
+                String userId = extractStringField(payloadRoot, "userId");
+                yield userId != null ? "user:" + userId : fallbackEventId;
+            }
+            case ENTITY_CREATED, ENTITY_UPDATED, DATA_DELETED -> entityAggregateId(
+                    extractStringField(payloadRoot, "entityType"),
+                    extractStringField(payloadRoot, "entityId"),
+                    fallbackEventId
             );
-        }
-        return event.getEventId();
-    }
-
-    private String resolveUserId(String payloadJson) {
-        return extractStringField(payloadJson, "userId");
+        };
     }
 
     private String entityAggregateId(String entityType, String entityId, String fallbackEventId) {
@@ -96,13 +94,16 @@ public class EventPersistenceService {
         return "entity:" + entityType + ":" + entityId;
     }
 
-    private String extractStringField(String payloadJson, String fieldName) {
-        try {
-            String value = objectMapper.readTree(payloadJson).path(fieldName).asText(null);
-            return value == null || value.isBlank() ? null : value;
-        } catch (JsonProcessingException ex) {
-            return null;
+    private String extractStringField(JsonNode payloadRoot, String fieldName) {
+        String value = payloadRoot.path(fieldName).asText(null);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private EventType requireEventType(AuditEvent event) {
+        if (event.getEventType() == null) {
+            throw new IllegalArgumentException("AuditEvent.eventType must not be null");
         }
+        return event.getEventType();
     }
 
     private Instant resolveTimestamp(AuditEvent event) {
