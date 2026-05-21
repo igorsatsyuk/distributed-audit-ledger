@@ -9,22 +9,31 @@ import lombok.NoArgsConstructor;
 
 import java.util.Map;
 
+/**
+ * Command DTO sent by clients to record an entity update.
+ *
+ * <p>Consumed by {@code POST /commands/entity/update} in the command-service.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class EntityUpdatedCommand {
 
-	@NotBlank(message = "userId must not be blank")
-	private String userId;
+    /** Identifier of the user who initiated the update. */
+    @NotBlank(message = "userId must not be blank")
+    private String userId;
 
-	@NotBlank(message = "entityType must not be blank")
-	private String entityType;
+    /** Logical type of the updated entity. */
+    @NotBlank(message = "entityType must not be blank")
+    private String entityType;
 
-	@NotBlank(message = "entityId must not be blank")
-	private String entityId;
+    /** Stable identifier of the updated entity. */
+    @NotBlank(message = "entityId must not be blank")
+    private String entityId;
 
-	@NotNull(message = "changedFields must not be null")
-	private Map<String, Object> changedFields;
+    /** Map of updated fields and their new values. */
+    @NotNull(message = "changedFields must not be null")
+    private Map<String, Object> changedFields;
 }
 

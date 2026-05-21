@@ -4,7 +4,7 @@
 
 ## Что внутри
 
-- Kafka consumer (`UserLoginEventConsumer`)
+- Kafka consumer (`AuditEventConsumer`)
 - Преобразование `AuditEvent` -> `StoredAuditEvent`
 - Расчет `SHA-256` хэша payload (`event_hash`)
 - Сохранение через Spring Data R2DBC

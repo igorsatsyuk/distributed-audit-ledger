@@ -40,12 +40,14 @@ class UserLoginCommandServiceTest {
     private KafkaTopicsProperties kafkaTopicsProperties;
 
     private InMemoryEventStorage inMemoryEventStorage;
+    private AuditCommandPublisher auditCommandPublisher;
     private UserLoginCommandService userLoginCommandService;
 
     @BeforeEach
     void setUp() {
         inMemoryEventStorage = new InMemoryEventStorage();
-        userLoginCommandService = new UserLoginCommandService(kafkaTemplate, kafkaTopicsProperties, inMemoryEventStorage);
+        auditCommandPublisher = new AuditCommandPublisher(kafkaTemplate, kafkaTopicsProperties, inMemoryEventStorage);
+        userLoginCommandService = new UserLoginCommandService(auditCommandPublisher);
     }
 
     @Test

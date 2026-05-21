@@ -6,21 +6,30 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Command DTO sent by clients to record a data deletion.
+ *
+ * <p>Consumed by {@code POST /commands/data/delete} in the command-service.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataDeletedCommand {
 
-	@NotBlank(message = "userId must not be blank")
-	private String userId;
+    /** Identifier of the user who initiated the deletion. */
+    @NotBlank(message = "userId must not be blank")
+    private String userId;
 
-	@NotBlank(message = "entityType must not be blank")
-	private String entityType;
+    /** Logical type of the deleted entity. */
+    @NotBlank(message = "entityType must not be blank")
+    private String entityType;
 
-	@NotBlank(message = "entityId must not be blank")
-	private String entityId;
+    /** Stable identifier of the deleted entity. */
+    @NotBlank(message = "entityId must not be blank")
+    private String entityId;
 
-	private String reason;
+    /** Optional human-readable reason for deletion. */
+    private String reason;
 }
 

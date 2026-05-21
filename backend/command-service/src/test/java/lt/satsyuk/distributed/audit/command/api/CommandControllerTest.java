@@ -2,6 +2,9 @@ package lt.satsyuk.distributed.audit.command.api;
 
 import lt.satsyuk.distributed.audit.command.service.AdditionalCommandService;
 import lt.satsyuk.distributed.audit.command.service.UserLoginCommandService;
+import lt.satsyuk.distributed.audit.contracts.command.DataDeletedCommand;
+import lt.satsyuk.distributed.audit.contracts.command.EntityCreatedCommand;
+import lt.satsyuk.distributed.audit.contracts.command.EntityUpdatedCommand;
 import lt.satsyuk.distributed.audit.contracts.command.UserProfileChangeCommand;
 import lt.satsyuk.distributed.audit.contracts.command.UserLoginCommand;
 import lt.satsyuk.distributed.audit.contracts.dto.CommandResponse;
@@ -68,6 +71,75 @@ class CommandControllerTest {
         Assertions.assertEquals(202, response.getStatusCode().value());
         Assertions.assertNotNull(response.getBody());
         Assertions.assertEquals("event-999", response.getBody().getEventId());
+    }
+
+    @Test
+    void entityCreatedReturnsAcceptedResponse() {
+        UserLoginCommandService userLoginCommandService = mock(UserLoginCommandService.class);
+        AdditionalCommandService additionalCommandService = mock(AdditionalCommandService.class);
+        CommandController controller = new CommandController(userLoginCommandService, additionalCommandService);
+
+        when(additionalCommandService.handleEntityCreated(any(EntityCreatedCommand.class)))
+                .thenReturn(Mono.just(CommandResponse.accepted("event-entity-created")));
+
+        ResponseEntity<CommandResponse> response = controller.entityCreated(
+                EntityCreatedCommand.builder()
+                        .userId("admin")
+                        .entityType("invoice")
+                        .entityId("inv-42")
+                        .entityData(java.util.Map.of("status", "NEW"))
+                        .build()).block();
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(202, response.getStatusCode().value());
+        Assertions.assertNotNull(response.getBody());
+        Assertions.assertEquals("event-entity-created", response.getBody().getEventId());
+    }
+
+    @Test
+    void entityUpdatedReturnsAcceptedResponse() {
+        UserLoginCommandService userLoginCommandService = mock(UserLoginCommandService.class);
+        AdditionalCommandService additionalCommandService = mock(AdditionalCommandService.class);
+        CommandController controller = new CommandController(userLoginCommandService, additionalCommandService);
+
+        when(additionalCommandService.handleEntityUpdated(any(EntityUpdatedCommand.class)))
+                .thenReturn(Mono.just(CommandResponse.accepted("event-entity-updated")));
+
+        ResponseEntity<CommandResponse> response = controller.entityUpdated(
+                EntityUpdatedCommand.builder()
+                        .userId("auditor")
+                        .entityType("invoice")
+                        .entityId("inv-42")
+                        .changedFields(java.util.Map.of("status", "PAID"))
+                        .build()).block();
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(202, response.getStatusCode().value());
+        Assertions.assertNotNull(response.getBody());
+        Assertions.assertEquals("event-entity-updated", response.getBody().getEventId());
+    }
+
+    @Test
+    void dataDeletedReturnsAcceptedResponse() {
+        UserLoginCommandService userLoginCommandService = mock(UserLoginCommandService.class);
+        AdditionalCommandService additionalCommandService = mock(AdditionalCommandService.class);
+        CommandController controller = new CommandController(userLoginCommandService, additionalCommandService);
+
+        when(additionalCommandService.handleDataDeleted(any(DataDeletedCommand.class)))
+                .thenReturn(Mono.just(CommandResponse.accepted("event-data-deleted")));
+
+        ResponseEntity<CommandResponse> response = controller.dataDeleted(
+                DataDeletedCommand.builder()
+                        .userId("auditor")
+                        .entityType("invoice")
+                        .entityId("inv-42")
+                        .reason("cleanup")
+                        .build()).block();
+
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(202, response.getStatusCode().value());
+        Assertions.assertNotNull(response.getBody());
+        Assertions.assertEquals("event-data-deleted", response.getBody().getEventId());
     }
 }
 
