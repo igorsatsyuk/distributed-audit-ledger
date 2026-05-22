@@ -40,8 +40,11 @@ public class AuditEventConsumer {
 
         try {
             // block() is intentional: this runs on a Kafka thread (not a Reactor scheduler),
-            // so blocking is safe here. A timeout prevents indefinite stall.
-            eventPersistenceService.persist(event).block(PERSIST_TIMEOUT);
+            // so blocking is safe here. timeout(...) ensures slow writes fail loudly
+            // instead of returning null and being treated as success.
+            eventPersistenceService.persist(event)
+                    .timeout(PERSIST_TIMEOUT)
+                    .block();
         } catch (RuntimeException ex) {
             log.error("Failed to persist event key=[{}]", key, ex);
             throw new IllegalStateException("Failed to persist event key=[" + key + "]", ex);

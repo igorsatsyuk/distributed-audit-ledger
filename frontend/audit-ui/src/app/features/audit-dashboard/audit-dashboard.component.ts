@@ -133,7 +133,9 @@ export class AuditDashboardComponent implements OnDestroy {
 
   openDetails(item: AuditLog): void {
     this.selectedAuditLog.set(item);
-    this.detailsDrawer?.open()?.catch(() => { /* drawer open failure is non-critical */ });
+    this.detailsDrawer?.open()?.catch((error: unknown) => {
+      console.debug('Failed to open details drawer (non-critical):', error);
+    });
     this.integrityTrigger$.next(item.id);
   }
 
@@ -141,7 +143,9 @@ export class AuditDashboardComponent implements OnDestroy {
     this.selectedAuditLog.set(null);
     this.integrityCheckResult.set(null);
     this.integrityCheckError.set(null);
-    this.detailsDrawer?.close()?.catch(() => { /* drawer close failure is non-critical */ });
+    this.detailsDrawer?.close()?.catch((error: unknown) => {
+      console.debug('Failed to close details drawer (non-critical):', error);
+    });
   }
 
   integrityClass(status: string): string {
@@ -161,9 +165,7 @@ export class AuditDashboardComponent implements OnDestroy {
       return JSON.parse(item.eventDataJson);
     } catch (error: unknown) {
       // eventDataJson is not valid JSON — return the raw string as-is
-      if (error instanceof Error) {
-        console.debug('Failed to parse event data:', error.message);
-      }
+      console.debug('Failed to parse event data:', error);
       return item.eventDataJson;
     }
   }
