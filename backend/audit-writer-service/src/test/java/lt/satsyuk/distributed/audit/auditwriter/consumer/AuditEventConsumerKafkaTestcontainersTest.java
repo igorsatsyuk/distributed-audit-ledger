@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -169,7 +170,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
         long deadlineNanos = System.nanoTime() + Duration.ofSeconds(20).toNanos();
 
         while (System.nanoTime() < deadlineNanos) {
-            Thread.sleep(200L);
+            pauseWithoutThreadSleep(200L);
             Long current = committedSourceOffset();
             if (Objects.equals(current, baseline)) {
                 unchangedReads++;
@@ -183,6 +184,14 @@ class AuditEventConsumerKafkaTestcontainersTest {
         }
 
         throw new IllegalStateException("Source committed offset did not settle within timeout");
+    }
+
+    private static void pauseWithoutThreadSleep(long millis) {
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(millis));
+        if (Thread.currentThread().isInterrupted()) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Test wait was interrupted");
+        }
     }
 
     private KafkaConsumer<byte[], byte[]> buildDltByteArrayConsumer(String groupId) {

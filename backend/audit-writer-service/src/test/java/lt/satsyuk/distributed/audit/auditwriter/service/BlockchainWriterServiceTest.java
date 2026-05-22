@@ -8,12 +8,14 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.invocation.InvocationOnMock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
@@ -23,6 +25,7 @@ import java.time.Instant;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -52,9 +55,10 @@ class BlockchainWriterServiceTest {
     private HashCalculationService hashService;
     private BlockchainWriterService service;
     private static final String SECP256K1_ORDER_HEX = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141";
+    private static final String IN_FLIGHT_WRITE_CLASS_NAME_SUFFIX = "$InFlightWrite";
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         props = new Web3jProperties();
         props.setClientAddress("http://localhost:8545");
         props.setContractAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
@@ -105,7 +109,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_successOnFirstAttempt() throws Exception {
+    void anchorEvent_successOnFirstAttempt() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", "1.2.3.4", null);
         TransactionReceipt receipt = new TransactionReceipt();
         receipt.setStatus("0x1");
@@ -127,7 +131,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_treatsExistingHashAsSuccess() throws Exception {
+    void anchorEvent_treatsExistingHashAsSuccess() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenReturn(true);
@@ -143,7 +147,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_skipsOwnerLookupWhenHashAlreadyExists() throws Exception {
+    void anchorEvent_skipsOwnerLookupWhenHashAlreadyExists() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenReturn(true);
@@ -160,7 +164,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_treatsDuplicateHashContractRevertAsSuccess() throws Exception {
+    void anchorEvent_treatsDuplicateHashContractRevertAsSuccess() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenReturn(false);
@@ -176,7 +180,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_detectsDuplicateViaPostFailureIsHashExistsCheck() throws Exception {
+    void anchorEvent_detectsDuplicateViaPostFailureIsHashExistsCheck() {
         // Simulates the race-condition path where the DuplicateHash error is NOT surfaced
         // as literal text (custom Solidity error → ABI-encoded revert data only).
         // The post-failure isHashExists re-check must detect the duplicate deterministically.
@@ -200,7 +204,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_throwsBlockchainWriteExceptionAfterAllRetriesExhausted() throws Exception {
+    void anchorEvent_throwsBlockchainWriteExceptionAfterAllRetriesExhausted() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenReturn(false);
@@ -221,7 +225,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_respectsCustomRetryCount_retriesInAdditionToInitialAttempt() throws Exception {
+    void anchorEvent_respectsCustomRetryCount_retriesInAdditionToInitialAttempt() {
         props.setBlockchainWriteRetries(1);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
@@ -318,7 +322,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_allowsNullOccurredAtUsingFallbackTimestamp() throws Exception {
+    void anchorEvent_allowsNullOccurredAtUsingFallbackTimestamp() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(null);
 
@@ -342,7 +346,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_allowsNullUserIdToStayAlignedWithEventStoreFallbacks() throws Exception {
+    void anchorEvent_allowsNullUserIdToStayAlignedWithEventStoreFallbacks() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setUserId(null);
 
@@ -364,7 +368,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_allowsFutureTimestampBeyondDefaultToleranceToStayAlignedWithEventStore() throws Exception {
+    void anchorEvent_allowsFutureTimestampBeyondDefaultToleranceToStayAlignedWithEventStore() {
         // Even when beyond tolerance, audit-writer should not DLT the record only due to clock skew.
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.now().plusSeconds(360));
@@ -387,7 +391,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_allowsNonUuidEventIdToStayAlignedWithEventStore() throws Exception {
+    void anchorEvent_allowsNonUuidEventIdToStayAlignedWithEventStore() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setEventId("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
 
@@ -419,7 +423,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_acceptsFutureTimestampWithinDefaultTolerance() throws Exception {
+    void anchorEvent_acceptsFutureTimestampWithinDefaultTolerance() {
         // Default tolerance is 300 seconds; use 299 seconds in future
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.now().plusSeconds(299));
@@ -442,7 +446,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_allowsFutureTimestampBeyondCustomToleranceToStayAlignedWithEventStore() throws Exception {
+    void anchorEvent_allowsFutureTimestampBeyondCustomToleranceToStayAlignedWithEventStore() {
         props.setFutureTimestampToleranceSeconds(60);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.now().plusSeconds(120));
@@ -485,7 +489,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_normalizesPreEpochTimestampForOnChainWrite() throws Exception {
+    void anchorEvent_normalizesPreEpochTimestampForOnChainWrite() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         event.setOccurredAt(Instant.ofEpochSecond(-1));
 
@@ -520,7 +524,7 @@ class BlockchainWriterServiceTest {
 
 
     @Test
-    void anchorEvent_treatsMissingReceiptStatusAsWriteFailure() throws Exception {
+    void anchorEvent_treatsMissingReceiptStatusAsWriteFailure() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         TransactionReceipt receiptWithoutStatus = new TransactionReceipt();
@@ -541,7 +545,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() throws Exception {
+    void anchorEvent_treatsFailedReceiptStatusAsWriteFailure() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         TransactionReceipt failedReceipt = new TransactionReceipt();
@@ -566,20 +570,14 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_doesNotRetryInsideServiceWhenReceiptWaitTimesOut() throws Exception {
+    void anchorEvent_doesNotRetryInsideServiceWhenReceiptWaitTimesOut() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         props.setReceiptWaitTimeoutSeconds(1);
         props.setBlockchainWriteRetries(3);
 
         when(contract.isHashExists(any())).thenReturn(false);
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
-                .thenAnswer(invocation -> {
-                    Thread.sleep(2_000L);
-                    TransactionReceipt receipt = new TransactionReceipt();
-                    receipt.setStatus("0x1");
-                    receipt.setTransactionHash("0xlate");
-                    return receipt;
-                });
+                .thenAnswer(delayedReceiptAnswer(2_000L, successfulReceipt("0xlate")));
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
@@ -594,7 +592,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_treatsReceiptExecutorSaturationAsReceiptTimeout() throws Exception {
+    void anchorEvent_treatsReceiptExecutorSaturationAsReceiptTimeout() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         ExecutorService rejectingExecutor = mock(ExecutorService.class);
 
@@ -618,7 +616,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_mapsUnauthorizedFailedReceiptToNotConfigured() throws Exception {
+    void anchorEvent_mapsUnauthorizedFailedReceiptToNotConfigured() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         TransactionReceipt failedReceipt = new TransactionReceipt();
@@ -641,7 +639,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_failsFastWhenSignerIsNotContractOwner() throws Exception {
+    void anchorEvent_failsFastWhenSignerIsNotContractOwner() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.owner()).thenReturn("0x0000000000000000000000000000000000000001");
@@ -659,7 +657,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_failsWhenContractOwnerCannotBeResolved() throws Exception {
+    void anchorEvent_failsWhenContractOwnerCannotBeResolved() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.owner()).thenReturn(null);
@@ -677,7 +675,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_wrapsHashExistsProbeFailureAsNotConfigured() throws Exception {
+    void anchorEvent_wrapsHashExistsProbeFailureAsNotConfigured() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.isHashExists(any())).thenThrow(new RuntimeException("no contract at address"));
@@ -695,7 +693,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_retriesWhenHashExistsProbeFailsTransiently() throws Exception {
+    void anchorEvent_retriesWhenHashExistsProbeFailsTransiently() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         props.setBlockchainWriteRetries(1);
 
@@ -722,7 +720,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_wrapsOwnerProbeFailureAsNotConfigured() throws Exception {
+    void anchorEvent_wrapsOwnerProbeFailureAsNotConfigured() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         when(contract.owner()).thenThrow(new RuntimeException("no contract owner"));
@@ -741,7 +739,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_retriesWhenOwnerProbeFailsTransiently() throws Exception {
+    void anchorEvent_retriesWhenOwnerProbeFailsTransiently() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         props.setBlockchainWriteRetries(1);
 
@@ -769,7 +767,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_revalidatesOwnerOnEachWrite() throws Exception {
+    void anchorEvent_revalidatesOwnerOnEachWrite() {
         UserLoggedInEvent event1 = UserLoggedInEvent.of("u1", null, null);
         UserLoggedInEvent event2 = UserLoggedInEvent.of("u2", null, null);
 
@@ -795,20 +793,13 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_redeliveryDoesNotSubmitSecondTxWhileFirstIsInFlight() throws Exception {
+    void anchorEvent_redeliveryDoesNotSubmitSecondTxWhileFirstIsInFlight() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         props.setReceiptWaitTimeoutSeconds(1);
 
         when(contract.isHashExists(any())).thenReturn(false);
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
-                .thenAnswer(invocation -> {
-                    Thread.sleep(1_500L);
-                    TransactionReceipt receipt = new TransactionReceipt();
-                    receipt.setStatus("0x1");
-                    receipt.setTransactionHash("0xpending");
-                    receipt.setBlockNumber("0x1");
-                    return receipt;
-                });
+                .thenAnswer(delayedReceiptAnswer(1_500L, successfulReceipt("0xpending")));
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
@@ -868,10 +859,7 @@ class BlockchainWriterServiceTest {
         java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
                 (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
 
-        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
-                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
-                .findFirst()
-                .orElseThrow();
+        Class<?> inFlightWriteClass = findInFlightWriteClass();
         java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
         ctor.setAccessible(true);
         Object staleEntry = ctor.newInstance(staleFuture, System.nanoTime() - TimeUnit.SECONDS.toNanos(3));
@@ -893,7 +881,7 @@ class BlockchainWriterServiceTest {
     }
 
     @Test
-    void anchorEvent_redeliveryClassifiesCompletedInFlightUnauthorizedAsNotConfigured() throws Exception {
+    void anchorEvent_redeliveryClassifiesCompletedInFlightUnauthorizedAsNotConfigured() {
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
         props.setReceiptWaitTimeoutSeconds(1);
 
@@ -904,10 +892,7 @@ class BlockchainWriterServiceTest {
 
         when(contract.isHashExists(any())).thenReturn(false);
         when(contract.appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString()))
-                .thenAnswer(invocation -> {
-                    Thread.sleep(1_200L);
-                    return failedReceipt;
-                });
+                .thenAnswer(delayedReceiptAnswer(1_200L, failedReceipt));
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))
@@ -916,7 +901,7 @@ class BlockchainWriterServiceTest {
             assertThatThrownBy(() -> service.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.ReceiptTimeoutException.class);
 
-            Thread.sleep(400L);
+            pauseWithoutThreadSleep(400L);
 
             assertThatThrownBy(() -> service.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainNotConfiguredException.class)
@@ -967,10 +952,7 @@ class BlockchainWriterServiceTest {
         java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
                 (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
 
-        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
-                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
-                .findFirst()
-                .orElseThrow();
+        Class<?> inFlightWriteClass = findInFlightWriteClass();
         java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
         ctor.setAccessible(true);
         Object staleEntry = ctor.newInstance(staleFuture, System.nanoTime() - TimeUnit.SECONDS.toNanos(3));
@@ -1032,10 +1014,7 @@ class BlockchainWriterServiceTest {
         java.util.concurrent.ConcurrentHashMap<String, Object> inFlightWritesByHash =
                 (java.util.concurrent.ConcurrentHashMap<String, Object>) field.get(service);
 
-        Class<?> inFlightWriteClass = java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
-                .filter(candidate -> candidate.getSimpleName().equals("InFlightWrite"))
-                .findFirst()
-                .orElseThrow();
+        Class<?> inFlightWriteClass = findInFlightWriteClass();
         java.lang.reflect.Constructor<?> ctor = inFlightWriteClass.getDeclaredConstructor(Future.class, long.class);
         ctor.setAccessible(true);
         Object inFlightEntry = ctor.newInstance(interruptedFuture, System.nanoTime());
@@ -1051,8 +1030,46 @@ class BlockchainWriterServiceTest {
         }
 
         // Reset interrupt flag for subsequent tests in the same JVM.
-        Thread.interrupted();
+        assertThat(Thread.interrupted()).isTrue();
         verify(contract, never()).appendAuditRecord(any(), any(BigInteger.class), anyString(), anyString());
+    }
+
+    private static TransactionReceipt successfulReceipt(String transactionHash) {
+        TransactionReceipt receipt = new TransactionReceipt();
+        receipt.setStatus("0x1");
+        receipt.setTransactionHash(transactionHash);
+        receipt.setBlockNumber("0x1");
+        return receipt;
+    }
+
+    private static Answer<TransactionReceipt> delayedReceiptAnswer(long delayMillis, TransactionReceipt receipt) {
+        return new Answer<>() {
+            @Override
+            public TransactionReceipt answer(InvocationOnMock invocation) {
+                invocation.getMock();
+                pauseWithoutThreadSleep(delayMillis);
+                return receipt;
+            }
+        };
+    }
+
+    private static void pauseWithoutThreadSleep(long millis) {
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(millis));
+        if (Thread.currentThread().isInterrupted()) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Test wait was interrupted");
+        }
+    }
+
+    private static Class<?> findInFlightWriteClass() {
+        return java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())
+                .filter(BlockchainWriterServiceTest::isInFlightWriteClass)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static boolean isInFlightWriteClass(Class<?> candidate) {
+        return candidate.getName().endsWith(IN_FLIGHT_WRITE_CLASS_NAME_SUFFIX);
     }
 }
 
