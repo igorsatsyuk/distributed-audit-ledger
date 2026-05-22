@@ -228,6 +228,7 @@ public class KafkaListenerConfig {
         private final ObjectMapper objectMapper = CanonicalObjectMapperFactory.create();
 
         @Override
+        @SuppressWarnings("java:S1168") // Kafka tombstones must remain null on the DLT.
         public byte[] serialize(String topic, Object data) {
             if (data == null) {
                 return null;

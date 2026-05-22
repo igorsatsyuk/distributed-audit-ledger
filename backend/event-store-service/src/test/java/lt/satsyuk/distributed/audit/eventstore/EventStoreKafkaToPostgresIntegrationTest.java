@@ -161,7 +161,7 @@ class EventStoreKafkaToPostgresIntegrationTest {
                         rs.getString("event_hash")
                 ));
             }
-        } catch (SQLException sqlException) {
+        } catch (SQLException _) {
             return Optional.empty();
         }
     }
