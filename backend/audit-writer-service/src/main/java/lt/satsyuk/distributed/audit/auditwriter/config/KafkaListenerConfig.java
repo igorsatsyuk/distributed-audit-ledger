@@ -1,10 +1,15 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
 import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
@@ -26,7 +31,6 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -220,14 +224,22 @@ public class KafkaListenerConfig {
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
      */
-    @SuppressWarnings("deprecation")
-    public static class DltValueSerializer extends JsonSerializer<Object> {
+    public static class DltValueSerializer implements Serializer<Object> {
+        private final ObjectMapper objectMapper = CanonicalObjectMapperFactory.create();
+
         @Override
         public byte[] serialize(String topic, Object data) {
+            if (data == null) {
+                return null;
+            }
             if (data instanceof byte[] raw) {
                 return raw;
             }
-            return super.serialize(topic, data);
+            try {
+                return objectMapper.writeValueAsBytes(data);
+            } catch (JsonProcessingException ex) {
+                throw new SerializationException("Failed to serialize DLT payload for topic " + topic, ex);
+            }
         }
     }
 
