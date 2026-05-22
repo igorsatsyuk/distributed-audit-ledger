@@ -7,7 +7,6 @@ import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Shared Kafka publisher for accepted audit commands.
@@ -35,8 +34,6 @@ public class AuditCommandPublisher {
                                 event.getEventId(),
                                 event
                         )))
-                .subscribeOn(Schedulers.boundedElastic())
-                .publishOn(Schedulers.boundedElastic())
                 .doOnNext(ignored -> inMemoryEventStorage.save(event))
                 .map(ignored -> CommandResponse.accepted(event.getEventId()))
                 .onErrorMap(error -> new CommandPublishException("Failed to publish event to Kafka", error));

@@ -59,7 +59,7 @@ public class EventPersistenceService {
     private StoredAuditEvent toEntity(AuditEvent event) throws JsonProcessingException {
         EventType eventType = requireEventType(event);
         String payloadJson = objectMapper.writeValueAsString(event);
-        JsonNode payloadRoot = objectMapper.readTree(payloadJson);
+        JsonNode payloadRoot = objectMapper.valueToTree(event);
         String aggregateId = resolveAggregateId(eventType, payloadRoot, event.getEventId());
 
         StoredAuditEvent entity = new StoredAuditEvent();
