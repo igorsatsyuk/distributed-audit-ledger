@@ -170,7 +170,10 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
           host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
-          report_paths=$(find backend-coverage -name "jacoco.xml" -print 2>/dev/null | paste -sd, -)
+          report_paths=""
+          if [ -d "backend-coverage" ]; then
+            report_paths=$(find "$(pwd)/backend-coverage" -type f -name "jacoco.xml" -print 2>/dev/null | paste -sd, - || true)
+          fi
           cmd=(
             mvn -B -ntp
             -f backend/pom.xml
