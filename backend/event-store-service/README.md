@@ -8,6 +8,7 @@
 - Преобразование `AuditEvent` -> `StoredAuditEvent`
 - Расчет `SHA-256` хэша payload (`event_hash`)
 - Сохранение через Spring Data R2DBC
+- Обработка poison records: 3 ретрая и skip (без публикации в DLT)
 - Flyway миграции в `src/main/resources/db/migration`
 
 ## Совместимость `event_hash`

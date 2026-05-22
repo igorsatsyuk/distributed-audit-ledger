@@ -38,127 +38,126 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AdditionalCommandServiceTest {
 
-	@Mock
-	private KafkaTemplate<String, AuditEvent> kafkaTemplate;
+    @Mock
+    private KafkaTemplate<String, AuditEvent> kafkaTemplate;
 
-	@Mock
-	private KafkaTopicsProperties kafkaTopicsProperties;
+    @Mock
+    private KafkaTopicsProperties kafkaTopicsProperties;
 
-	private InMemoryEventStorage inMemoryEventStorage;
-	private AuditCommandPublisher auditCommandPublisher;
-	private AdditionalCommandService additionalCommandService;
+    private InMemoryEventStorage inMemoryEventStorage;
+    private AuditCommandPublisher auditCommandPublisher;
+    private AdditionalCommandService additionalCommandService;
 
-	@BeforeEach
-	void setUp() {
-		inMemoryEventStorage = new InMemoryEventStorage();
-		auditCommandPublisher = new AuditCommandPublisher(kafkaTemplate, kafkaTopicsProperties, inMemoryEventStorage);
-		additionalCommandService = new AdditionalCommandService(auditCommandPublisher);
-	}
+    @BeforeEach
+    void setUp() {
+        inMemoryEventStorage = new InMemoryEventStorage();
+        auditCommandPublisher = new AuditCommandPublisher(kafkaTemplate, kafkaTopicsProperties, inMemoryEventStorage);
+        additionalCommandService = new AdditionalCommandService(auditCommandPublisher);
+    }
 
-	@Test
-	void handleUserProfileChangePublishesUserProfileChangedEvent() {
-		when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
-		when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
-				.thenReturn(CompletableFuture.completedFuture(mockSendResult()));
+    @Test
+    void handleUserProfileChangePublishesUserProfileChangedEvent() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
-		UserProfileChangeCommand command = UserProfileChangeCommand.builder()
-				.userId("user-14")
-				.changedFields(Map.of("email", "new@example.com"))
-				.build();
+        UserProfileChangeCommand command = UserProfileChangeCommand.builder()
+                .userId("user-14")
+                .changedFields(Map.of("email", "new@example.com"))
+                .build();
 
-		CommandResponse response = additionalCommandService.handleUserProfileChange(command).block();
+        CommandResponse response = additionalCommandService.handleUserProfileChange(command).block();
 
-		assertNotNull(response);
-		assertTrue(response.isSuccess());
-		assertEquals(1, inMemoryEventStorage.count());
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertEquals(1, inMemoryEventStorage.count());
 
-		ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
-		verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
-		assertInstanceOf(UserProfileChangedEvent.class, eventCaptor.getValue());
-	}
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
+        assertInstanceOf(UserProfileChangedEvent.class, eventCaptor.getValue());
+    }
 
-	@Test
-	void handleEntityCreatedPublishesEntityCreatedEvent() {
-		when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
-		when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
-				.thenReturn(CompletableFuture.completedFuture(mockSendResult()));
+    @Test
+    void handleEntityCreatedPublishesEntityCreatedEvent() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
-		EntityCreatedCommand command = EntityCreatedCommand.builder()
-				.userId("admin")
-				.entityType("order")
-				.entityId("ord-42")
-				.entityData(Map.of("status", "NEW"))
-				.build();
+        EntityCreatedCommand command = EntityCreatedCommand.builder()
+                .userId("admin")
+                .entityType("order")
+                .entityId("ord-42")
+                .entityData(Map.of("status", "NEW"))
+                .build();
 
-		CommandResponse response = additionalCommandService.handleEntityCreated(command).block();
+        CommandResponse response = additionalCommandService.handleEntityCreated(command).block();
 
-		assertNotNull(response);
-		ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
-		verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
-		assertInstanceOf(EntityCreatedEvent.class, eventCaptor.getValue());
+        assertNotNull(response);
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
+        assertInstanceOf(EntityCreatedEvent.class, eventCaptor.getValue());
 
-		EntityCreatedEvent event = (EntityCreatedEvent) eventCaptor.getValue();
-		assertEquals("order", event.getEntityType());
-		assertEquals("ord-42", event.getEntityId());
-		assertEquals("admin", event.getUserId());
-	}
+        EntityCreatedEvent event = (EntityCreatedEvent) eventCaptor.getValue();
+        assertEquals("order", event.getEntityType());
+        assertEquals("ord-42", event.getEntityId());
+        assertEquals("admin", event.getUserId());
+    }
 
-	@Test
-	void handleEntityUpdatedPublishesEntityUpdatedEvent() {
-		when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
-		when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
-				.thenReturn(CompletableFuture.completedFuture(mockSendResult()));
+    @Test
+    void handleEntityUpdatedPublishesEntityUpdatedEvent() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
-		EntityUpdatedCommand command = EntityUpdatedCommand.builder()
-				.userId("auditor")
-				.entityType("invoice")
-				.entityId("inv-42")
-				.changedFields(Map.of("status", "PAID"))
-				.build();
+        EntityUpdatedCommand command = EntityUpdatedCommand.builder()
+                .userId("auditor")
+                .entityType("invoice")
+                .entityId("inv-42")
+                .changedFields(Map.of("status", "PAID"))
+                .build();
 
-		CommandResponse response = additionalCommandService.handleEntityUpdated(command).block();
+        CommandResponse response = additionalCommandService.handleEntityUpdated(command).block();
 
-		assertNotNull(response);
-		ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
-		verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
-		assertInstanceOf(EntityUpdatedEvent.class, eventCaptor.getValue());
+        assertNotNull(response);
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
+        assertInstanceOf(EntityUpdatedEvent.class, eventCaptor.getValue());
 
-		EntityUpdatedEvent event = (EntityUpdatedEvent) eventCaptor.getValue();
-		assertEquals("invoice", event.getEntityType());
-		assertEquals("inv-42", event.getEntityId());
-		assertEquals("auditor", event.getUserId());
-	}
+        EntityUpdatedEvent event = (EntityUpdatedEvent) eventCaptor.getValue();
+        assertEquals("invoice", event.getEntityType());
+        assertEquals("inv-42", event.getEntityId());
+        assertEquals("auditor", event.getUserId());
+    }
 
-	@Test
-	void handleDataDeletedPublishesDataDeletedEvent() {
-		when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
-		when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
-				.thenReturn(CompletableFuture.completedFuture(mockSendResult()));
+    @Test
+    void handleDataDeletedPublishesDataDeletedEvent() {
+        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
-		DataDeletedCommand command = DataDeletedCommand.builder()
-				.userId("auditor")
-				.entityType("invoice")
-				.entityId("inv-42")
-				.reason("cleanup")
-				.build();
+        DataDeletedCommand command = DataDeletedCommand.builder()
+                .userId("auditor")
+                .entityType("invoice")
+                .entityId("inv-42")
+                .reason("cleanup")
+                .build();
 
-		CommandResponse response = additionalCommandService.handleDataDeleted(command).block();
+        CommandResponse response = additionalCommandService.handleDataDeleted(command).block();
 
-		assertNotNull(response);
-		ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
-		verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
-		assertInstanceOf(DataDeletedEvent.class, eventCaptor.getValue());
+        assertNotNull(response);
+        ArgumentCaptor<AuditEvent> eventCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(kafkaTemplate).send(eq("user.login.events"), eq(response.getEventId()), eventCaptor.capture());
+        assertInstanceOf(DataDeletedEvent.class, eventCaptor.getValue());
 
-		DataDeletedEvent event = (DataDeletedEvent) eventCaptor.getValue();
-		assertEquals("invoice", event.getEntityType());
-		assertEquals("inv-42", event.getEntityId());
-		assertEquals("auditor", event.getUserId());
-		assertEquals("cleanup", event.getReason());
-	}
+        DataDeletedEvent event = (DataDeletedEvent) eventCaptor.getValue();
+        assertEquals("invoice", event.getEntityType());
+        assertEquals("inv-42", event.getEntityId());
+        assertEquals("auditor", event.getUserId());
+        assertEquals("cleanup", event.getReason());
+    }
 
-	@SuppressWarnings("unchecked")
-	private SendResult<String, AuditEvent> mockSendResult() {
-		return (SendResult<String, AuditEvent>) Mockito.mock(SendResult.class);
-	}
+    @SuppressWarnings("unchecked")
+    private SendResult<String, AuditEvent> mockSendResult() {
+        return (SendResult<String, AuditEvent>) Mockito.mock(SendResult.class);
+    }
 }
-
