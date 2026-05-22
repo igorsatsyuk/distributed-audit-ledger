@@ -8,9 +8,12 @@ import org.web3j.abi.datatypes.generated.Bytes32;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
+import org.web3j.protocol.exceptions.TransactionException;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 import org.web3j.tx.gas.ContractGasProvider;
+
+import java.io.IOException;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -72,13 +75,18 @@ public class AuditLedgerContract extends Contract {
      * @param source    Ethereum address of the sending service account
      * @return the mined {@link TransactionReceipt}
      */
+    @SuppressWarnings("java:S112")
     public TransactionReceipt appendAuditRecord(byte[] hash,
                                                  BigInteger timestamp,
                                                  String eventType,
-                                                 String source) throws Exception {
-        return executeRemoteCallTransaction(
-                buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
-        ).send();
+                                                 String source) {
+        try {
+            return executeRemoteCallTransaction(
+                    buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
+            ).send();
+        } catch (Exception ex) {
+            throw new ContractOperationException("Failed to append AuditLedger record", ex);
+        }
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code appendAuditRecord}. */
@@ -107,17 +115,27 @@ public class AuditLedgerContract extends Contract {
      * @param hash 32-byte hash to check
      * @return {@code true} if the hash has already been recorded on-chain
      */
-    public boolean isHashExists(byte[] hash) throws Exception {
-        return executeRemoteCallSingleValueReturn(
-                buildIsHashExistsFunction(hash), Boolean.class
-        ).send();
+    @SuppressWarnings("java:S112")
+    public boolean isHashExists(byte[] hash) {
+        try {
+            return executeRemoteCallSingleValueReturn(
+                    buildIsHashExistsFunction(hash), Boolean.class
+            ).send();
+        } catch (Exception ex) {
+            throw new ContractOperationException("Failed to query AuditLedger isHashExists", ex);
+        }
     }
 
     /** Calls Ownable {@code owner()} and returns the current contract owner address. */
-    public String owner() throws Exception {
-        return executeRemoteCallSingleValueReturn(
-                buildOwnerFunction(), String.class
-        ).send();
+    @SuppressWarnings("java:S112")
+    public String owner() {
+        try {
+            return executeRemoteCallSingleValueReturn(
+                    buildOwnerFunction(), String.class
+            ).send();
+        } catch (Exception ex) {
+            throw new ContractOperationException("Failed to query AuditLedger owner", ex);
+        }
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code isHashExists}. */
@@ -135,6 +153,12 @@ public class AuditLedgerContract extends Contract {
                 Collections.emptyList(),
                 Collections.singletonList(new TypeReference<Address>() {})
         );
+    }
+
+    public static final class ContractOperationException extends RuntimeException {
+        public ContractOperationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }
 

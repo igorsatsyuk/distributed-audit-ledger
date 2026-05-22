@@ -2,6 +2,7 @@ package lt.satsyuk.distributed.audit.auditwriter.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -48,7 +49,7 @@ public class HashCalculationService {
             return digest.digest(json.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
-        } catch (Exception e) {
+        } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to compute hash for event " + event.getEventId(), e);
         }
     }
