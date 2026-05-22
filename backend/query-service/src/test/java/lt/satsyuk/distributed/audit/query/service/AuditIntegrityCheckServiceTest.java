@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -47,6 +48,7 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(10L).block();
 
+        assertNotNull(result);
         assertEquals(10L, result.auditLogId());
         assertEquals("event-10", result.eventId());
         assertEquals(HASH_64, result.eventHash());
@@ -65,6 +67,7 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(11L).block();
 
+        assertNotNull(result);
         assertEquals("MISMATCH", result.status());
         assertEquals(blockchainRecord, result.blockchainRecord());
     }
@@ -77,6 +80,7 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(12L).block();
 
+        assertNotNull(result);
         assertEquals(12L, result.auditLogId());
         assertEquals("event-12", result.eventId());
         assertNull(result.eventHash());
@@ -93,6 +97,7 @@ class AuditIntegrityCheckServiceTest {
 
         AuditIntegrityCheckResponse result = service.checkIntegrity(13L).block();
 
+        assertNotNull(result);
         assertEquals(13L, result.auditLogId());
         assertNull(result.eventHash());
         assertEquals("PENDING", result.status());
@@ -103,7 +108,7 @@ class AuditIntegrityCheckServiceTest {
     void checkIntegrityThrowsNotFoundWhenRecordMissing() {
         when(auditLogQueryRepository.findById(404L)).thenReturn(Mono.empty());
 
-        assertThrows(AuditLogNotFoundException.class, () -> service.checkIntegrity(404L).block());
+        assertThrows(AuditLogNotFoundException.class, this::blockMissingIntegrityCheck);
     }
 
     private AuditEventRecord sampleRecord(Long id, String eventHash) {
@@ -114,6 +119,10 @@ class AuditIntegrityCheckServiceTest {
         eventRecord.setUserId("user-" + id);
         eventRecord.setEventHash(eventHash);
         return eventRecord;
+    }
+
+    private void blockMissingIntegrityCheck() {
+        service.checkIntegrity(404L).block();
     }
 }
 

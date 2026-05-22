@@ -50,7 +50,7 @@ public class HashCalculationService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to compute hash for event " + event.getEventId(), e);
+            throw new IllegalStateException("Failed to compute hash for event " + event.getEventId(), e);
         }
     }
 

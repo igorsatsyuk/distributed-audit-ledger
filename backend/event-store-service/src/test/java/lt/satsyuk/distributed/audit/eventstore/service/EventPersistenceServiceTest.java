@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
@@ -47,7 +48,7 @@ class EventPersistenceServiceTest {
 
     @Test
     void persistMapsUserLoginEventToEntityAndStoresHash() {
-        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(EventPersistenceServiceTest::echoSavedEntity);
 
         UserLoggedInEvent event = UserLoggedInEvent.builder()
                 .eventId("00000000-0000-0000-0000-000000000042")
@@ -92,7 +93,7 @@ class EventPersistenceServiceTest {
 
     @Test
     void persistMapsEntityUpdatedEventToEntityAggregate() {
-        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(EventPersistenceServiceTest::echoSavedEntity);
 
         EntityUpdatedEvent event = EntityUpdatedEvent.builder()
                 .eventId("00000000-0000-0000-0000-000000000077")
@@ -122,9 +123,15 @@ class EventPersistenceServiceTest {
                 .userId("user-99")
                 .build();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.persist(event).block());
+        Mono<StoredAuditEvent> persisted = service.persist(event);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, persisted::block);
 
         assertEquals("AuditEvent.eventType must not be null", exception.getMessage());
+    }
+
+    private static Mono<StoredAuditEvent> echoSavedEntity(InvocationOnMock invocation) {
+        return Mono.just(invocation.getArgument(0));
     }
 }
 
