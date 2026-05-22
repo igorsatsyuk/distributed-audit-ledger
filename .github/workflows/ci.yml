@@ -189,6 +189,8 @@ jobs:
             sonar:sonar
             "-Dsonar.host.url=${host_url}"
             "-Dsonar.projectKey=${REPO_NAME}-backend"
+            "-Dsonar.token=${SONAR_TOKEN}"
+            "-Dsonar.login=${SONAR_TOKEN}"
           )
 
           if [ -n "${report_paths}" ]; then
@@ -224,7 +226,8 @@ jobs:
           python3 .github/scripts/sonar_quality_gate_report.py \
             --component-name "backend" \
             --project-key "${REPO_NAME}-backend" \
-            --report-task-file "${{ steps.report-task.outputs.path }}"
+            --report-task-file "${{ steps.report-task.outputs.path }}" \
+            --timeout-seconds 900
 
   sonar-frontend:
     name: SonarQube - frontend
@@ -319,7 +322,8 @@ jobs:
           python3 .github/scripts/sonar_quality_gate_report.py \
             --component-name "frontend" \
             --project-key "${REPO_NAME}-frontend" \
-            --report-task-file "$report_task"
+            --report-task-file "$report_task" \
+            --timeout-seconds 900
 
   sonar-blockchain:
     name: SonarQube - blockchain
@@ -426,7 +430,8 @@ jobs:
           python3 .github/scripts/sonar_quality_gate_report.py \
             --component-name "blockchain" \
             --project-key "${REPO_NAME}-blockchain" \
-            --report-task-file "$report_task"
+            --report-task-file "$report_task" \
+            --timeout-seconds 900
 
   notify-telegram:
     name: Notify Telegram

@@ -112,6 +112,30 @@ def to_measure_map(payload: dict) -> dict[str, str]:
     return result
 
 
+def fetch_measures(host_url: str, project_key: str, token: str) -> dict[str, str]:
+    pull_request, branch = detect_analysis_scope()
+    scoped_url = build_measures_url(host_url, project_key, pull_request, branch)
+
+    # Some Sonar editions reject branch/pullRequest params; retry without scope.
+    try:
+        return to_measure_map(api_get_json(scoped_url, token))
+    except RuntimeError as scoped_error:
+        base_url = build_measures_url(host_url, project_key, None, None)
+        if base_url != scoped_url:
+            try:
+                print(
+                    "Scoped measures query failed; retrying without branch/pullRequest context",
+                    file=sys.stderr,
+                )
+                return to_measure_map(api_get_json(base_url, token))
+            except RuntimeError as base_error:
+                print(f"Unable to load Sonar measures: {base_error}", file=sys.stderr)
+                return {}
+
+        print(f"Unable to load Sonar measures: {scoped_error}", file=sys.stderr)
+        return {}
+
+
 def append_summary(text: str) -> None:
     summary_file = os.getenv("GITHUB_STEP_SUMMARY")
     if not summary_file:
@@ -164,9 +188,7 @@ def main() -> int:
         gate_status = project_status.get("status", "NONE")
         conditions = project_status.get("conditions", [])
 
-        pull_request, branch = detect_analysis_scope()
-        measures_url = build_measures_url(host_url, args.project_key, pull_request, branch)
-        measures = to_measure_map(api_get_json(measures_url, token))
+        measures = fetch_measures(host_url, args.project_key, token)
     except RuntimeError as error:
         print(str(error), file=sys.stderr)
         return 1
