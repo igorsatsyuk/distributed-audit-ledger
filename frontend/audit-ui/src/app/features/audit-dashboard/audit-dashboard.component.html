@@ -144,12 +144,13 @@
                   </span>
                 </th>
                 <td mat-cell *matCellDef="let element">
-                  <span
+                  <button
+                    type="button"
                     class="status-chip hash-chip"
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
                     [attr.aria-label]="'Integrity status: ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash: ' + element.eventHash : 'Event hash not available')"
-                  >{{ effectiveIntegrityStatus(element) }}</span>
+                  >{{ effectiveIntegrityStatus(element) }}</button>
                 </td>
               </ng-container>
 
