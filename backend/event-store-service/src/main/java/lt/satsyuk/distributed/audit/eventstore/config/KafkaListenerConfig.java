@@ -16,7 +16,6 @@ import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -26,6 +25,10 @@ import java.util.Map;
 public class KafkaListenerConfig {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaListenerConfig.class);
+    private static final String JSON_DESERIALIZER_CLASS = "org.springframework.kafka.support.serializer.JsonDeserializer";
+    private static final String JSON_TRUSTED_PACKAGES_CONFIG = "spring.json.trusted.packages";
+    private static final String JSON_USE_TYPE_INFO_HEADERS_CONFIG = "spring.json.use.type.headers";
+    private static final String JSON_VALUE_DEFAULT_TYPE_CONFIG = "spring.json.value.default.type";
 
     @Bean
     public ConsumerFactory<String, AuditEvent> consumerFactory(
@@ -39,10 +42,10 @@ public class KafkaListenerConfig {
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, AuditEvent.class.getName());
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JSON_DESERIALIZER_CLASS);
+        props.put(JSON_TRUSTED_PACKAGES_CONFIG, "lt.satsyuk.distributed.audit.event");
+        props.put(JSON_USE_TYPE_INFO_HEADERS_CONFIG, false);
+        props.put(JSON_VALUE_DEFAULT_TYPE_CONFIG, AuditEvent.class.getName());
 
         return new DefaultKafkaConsumerFactory<>(props);
     }

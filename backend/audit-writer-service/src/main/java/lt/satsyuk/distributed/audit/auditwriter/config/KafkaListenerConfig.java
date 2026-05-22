@@ -26,7 +26,6 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -70,6 +69,11 @@ import java.util.Map;
 public class KafkaListenerConfig {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaListenerConfig.class);
+    private static final String JSON_DESERIALIZER_CLASS = "org.springframework.kafka.support.serializer.JsonDeserializer";
+    private static final String JSON_TRUSTED_PACKAGES_CONFIG = "spring.json.trusted.packages";
+    private static final String JSON_USE_TYPE_INFO_HEADERS_CONFIG = "spring.json.use.type.headers";
+    private static final String JSON_VALUE_DEFAULT_TYPE_CONFIG = "spring.json.value.default.type";
+    private static final String JSON_ADD_TYPE_INFO_HEADERS_CONFIG = "spring.json.add.type.headers";
 
     static final long RETRY_ATTEMPTS = 2L;
     static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
@@ -84,7 +88,7 @@ public class KafkaListenerConfig {
         mergeKafkaOverrides(props, environment, "spring.kafka.producer");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
-        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        props.put(JSON_ADD_TYPE_INFO_HEADERS_CONFIG, false);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -116,10 +120,10 @@ public class KafkaListenerConfig {
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on
         // the same partition offset.
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JSON_DESERIALIZER_CLASS);
+        props.put(JSON_TRUSTED_PACKAGES_CONFIG, "lt.satsyuk.distributed.audit.event");
+        props.put(JSON_USE_TYPE_INFO_HEADERS_CONFIG, false);
+        props.put(JSON_VALUE_DEFAULT_TYPE_CONFIG, valueDefaultType);
 
         return new DefaultKafkaConsumerFactory<>(props);
     }
