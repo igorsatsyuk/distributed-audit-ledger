@@ -53,7 +53,7 @@ public class KafkaListenerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
 
-        // Configure error handler with dead-letter topic strategy
+        // Configure error handler to skip poison records after retries.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(
                 recoverer(),
                 new FixedBackOff(100, 3)
