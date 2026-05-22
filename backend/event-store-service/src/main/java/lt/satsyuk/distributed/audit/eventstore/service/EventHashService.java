@@ -9,9 +9,12 @@ import java.security.NoSuchAlgorithmException;
 @Component
 public class EventHashService {
 
+    private static final String SHA_256 = "SHA-256";
+    private static final int HEX_CHARS_PER_BYTE = 2;
+
     public String sha256Hex(String payload) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(SHA_256);
             byte[] hash = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
             return bytesToHex(hash);
         } catch (NoSuchAlgorithmException ex) {
@@ -20,7 +23,7 @@ public class EventHashService {
     }
 
     private String bytesToHex(byte[] bytes) {
-        StringBuilder result = new StringBuilder(bytes.length * 2);
+        StringBuilder result = new StringBuilder(bytes.length * HEX_CHARS_PER_BYTE);
         for (byte value : bytes) {
             result.append(String.format("%02x", value));
         }

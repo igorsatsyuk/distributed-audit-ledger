@@ -37,11 +37,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.net.URI;
+import java.util.regex.Pattern;
 
 @Service
 public class AuditLedgerBlockchainClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AuditLedgerBlockchainClient.class);
+
+    private static final int HEX_HASH_CHARS = 64;
+    private static final Pattern HEX_HASH_PATTERN = Pattern.compile("[0-9a-fA-F]{" + HEX_HASH_CHARS + "}");
 
     private static final Event RECORD_APPENDED_EVENT = new Event(
             "RecordAppended",
@@ -114,7 +118,7 @@ public class AuditLedgerBlockchainClient {
                     BlockchainIntegrityException.ErrorType.CONFIGURATION);
         }
 
-        return Boolean.TRUE.equals(((Bool) decoded.get(0)).getValue());
+        return Boolean.TRUE.equals(((Bool) decoded.getFirst()).getValue());
     }
 
     private Optional<AuditIntegrityCheckResponse.BlockchainRecord> locateBlockchainRecord(String contractAddress,
@@ -177,8 +181,8 @@ public class AuditLedgerBlockchainClient {
                     timestampFunction.getOutputParameters()
             );
 
-            if (decoded != null && !decoded.isEmpty() && decoded.get(0) instanceof Uint256) {
-                return ((Uint256) decoded.get(0)).getValue().longValue();
+            if (decoded != null && !decoded.isEmpty() && decoded.getFirst() instanceof Uint256 uint256) {
+                return uint256.getValue().longValue();
             }
         } catch (Exception e) {
             LOGGER.debug("Failed to decode RecordAppended timestamp from event log; falling back to null", e);
@@ -193,7 +197,7 @@ public class AuditLedgerBlockchainClient {
         if (normalized.startsWith("0x") || normalized.startsWith("0X")) {
             normalized = normalized.substring(2);
         }
-        if (normalized.length() != 64 || !normalized.matches("[0-9a-fA-F]{64}")) {
+        if (normalized.length() != HEX_HASH_CHARS || !HEX_HASH_PATTERN.matcher(normalized).matches()) {
             throw new BlockchainIntegrityException("event hash must be a 32-byte hex value",
                     BlockchainIntegrityException.ErrorType.CONFIGURATION);
         }
@@ -238,6 +242,7 @@ public class AuditLedgerBlockchainClient {
                     || "::1".equals(host)
                     || "host.docker.internal".equalsIgnoreCase(host);
         } catch (Exception ignored) {
+            // URI.create() may throw if the address is not parseable — treat as non-local
             return false;
         }
     }

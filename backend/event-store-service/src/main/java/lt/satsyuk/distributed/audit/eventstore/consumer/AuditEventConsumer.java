@@ -12,6 +12,7 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.SerializationUtils;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Locale;
 
 @Component
@@ -19,6 +20,8 @@ public class AuditEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AuditEventConsumer.class);
     private static final LogAccessor logAccessor = new LogAccessor(AuditEventConsumer.class);
+    /** Maximum time to wait for the DB write to complete before aborting the Kafka poll. */
+    private static final Duration PERSIST_TIMEOUT = Duration.ofSeconds(30);
 
     private final EventPersistenceService eventPersistenceService;
 
@@ -36,8 +39,12 @@ public class AuditEventConsumer {
         }
 
         try {
-            // Keep Kafka offset handling aligned with DB write result.
-            eventPersistenceService.persist(event).block();
+            // block() is intentional: this runs on a Kafka thread (not a Reactor scheduler),
+            // so blocking is safe here. timeout(...) adds fail-fast behavior for slow DB writes
+            // and prevents indefinite blocking of the Kafka consumer thread.
+            eventPersistenceService.persist(event)
+                    .timeout(PERSIST_TIMEOUT)
+                    .block();
         } catch (RuntimeException ex) {
             log.error("Failed to persist event key=[{}]", key, ex);
             throw new IllegalStateException("Failed to persist event key=[" + key + "]", ex);
