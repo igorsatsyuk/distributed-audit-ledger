@@ -30,12 +30,12 @@ public class AuditEventConsumer {
     }
 
     @KafkaListener(topics = "${kafka.topics.audit-events:${kafka.topics.user-login-events}}")
-    public void consume(ConsumerRecord<String, AuditEvent> record) {
-        AuditEvent event = record.value();
-        String key = record.key();
+    public void consume(ConsumerRecord<String, AuditEvent> consumerRecord) {
+        AuditEvent event = consumerRecord.value();
+        String key = consumerRecord.key();
 
         if (event == null) {
-            throw new SkippableDeserializationException(buildNullEventMessage(record));
+            throw new SkippableDeserializationException(buildNullEventMessage(consumerRecord));
         }
 
         try {
@@ -51,14 +51,14 @@ public class AuditEventConsumer {
         }
     }
 
-    private String buildNullEventMessage(ConsumerRecord<String, AuditEvent> record) {
+    private String buildNullEventMessage(ConsumerRecord<String, AuditEvent> consumerRecord) {
         StringBuilder message = new StringBuilder("Received null event")
-                .append(" topic=[").append(record.topic()).append(']')
-                .append(" partition=[").append(record.partition()).append(']')
-                .append(" offset=[").append(record.offset()).append(']')
-                .append(" key=[").append(record.key()).append(']');
+                .append(" topic=[").append(consumerRecord.topic()).append(']')
+                .append(" partition=[").append(consumerRecord.partition()).append(']')
+                .append(" offset=[").append(consumerRecord.offset()).append(']')
+                .append(" key=[").append(consumerRecord.key()).append(']');
 
-        Header deserializationHeader = findDeserializationHeader(record);
+        Header deserializationHeader = findDeserializationHeader(consumerRecord);
         if (deserializationHeader != null) {
             message.append(" deserializationError=[").append(deserializeHeaderMessage(deserializationHeader)).append(']');
         }
@@ -79,8 +79,8 @@ public class AuditEventConsumer {
         }
     }
 
-    private Header findDeserializationHeader(ConsumerRecord<String, AuditEvent> record) {
-        for (Header header : record.headers()) {
+    private Header findDeserializationHeader(ConsumerRecord<String, AuditEvent> consumerRecord) {
+        for (Header header : consumerRecord.headers()) {
             String key = header.key().toLowerCase(Locale.ROOT);
             if (key.contains("deserializer") && key.contains("exception")) {
                 return header;

@@ -72,14 +72,14 @@ public class KafkaListenerConfig {
 
     @Bean
     public ConsumerRecordRecoverer recoverer() {
-        return (record, ex) -> {
+        return (recoverableRecord, ex) -> {
             if (isSkippablePoisonRecord(ex)) {
                 log.error(
                         "Poison pill detected; record will be skipped. topic=[{}], partition=[{}], offset=[{}], key=[{}]",
-                        record.topic(),
-                        record.partition(),
-                        record.offset(),
-                        record.key(),
+                        recoverableRecord.topic(),
+                        recoverableRecord.partition(),
+                        recoverableRecord.offset(),
+                        recoverableRecord.key(),
                         ex
                 );
                 return;
@@ -87,7 +87,7 @@ public class KafkaListenerConfig {
 
             throw new IllegalStateException(
                     "Non-poison processing error must not be skipped. topic=["
-                            + record.topic() + "], partition=[" + record.partition() + "], offset=[" + record.offset() + "]",
+                            + recoverableRecord.topic() + "], partition=[" + recoverableRecord.partition() + "], offset=[" + recoverableRecord.offset() + "]",
                     ex
             );
         };

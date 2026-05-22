@@ -85,11 +85,11 @@ class UserLoginCommandServiceKafkaIntegrationTest {
         Assertions.assertTrue(response.isSuccess());
         Assertions.assertNotNull(response.getEventId());
 
-        var record = KafkaTestUtils.getSingleRecord(consumer, TOPIC, Duration.ofSeconds(10));
-        Assertions.assertEquals(response.getEventId(), record.key());
-        Assertions.assertNotNull(record.value());
-        Assertions.assertTrue(record.value().contains("\"eventType\":\"USER_LOGGED_IN\""));
-        Assertions.assertTrue(record.value().contains("\"userId\":\"user-integration\""));
+        var kafkaRecord = KafkaTestUtils.getSingleRecord(consumer, TOPIC, Duration.ofSeconds(10));
+        Assertions.assertEquals(response.getEventId(), kafkaRecord.key());
+        Assertions.assertNotNull(kafkaRecord.value());
+        Assertions.assertTrue(kafkaRecord.value().contains("\"eventType\":\"USER_LOGGED_IN\""));
+        Assertions.assertTrue(kafkaRecord.value().contains("\"userId\":\"user-integration\""));
     }
 
     @TestConfiguration

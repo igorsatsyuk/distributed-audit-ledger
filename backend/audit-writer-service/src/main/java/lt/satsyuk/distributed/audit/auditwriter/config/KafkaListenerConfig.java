@@ -150,21 +150,21 @@ public class KafkaListenerConfig {
         // partitions as the source topic; with auto-creation that is not guaranteed.
         DeadLetterPublishingRecoverer dltRecoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, ex) -> new TopicPartition(deadLetterTopic, 0)
+                (failedRecord, ex) -> new TopicPartition(deadLetterTopic, 0)
         );
 
         // Custom recoverer: skip DLT for infrastructure-misconfiguration failures so
         // the offset remains uncommitted and the record is redelivered once config is present.
         // For all other exceptions, fall through to the standard DLT recoverer.
         var safeRecoverer = (org.springframework.kafka.listener.ConsumerRecordRecoverer)
-                (record, exception) -> {
+                (failedRecord, exception) -> {
                     BlockchainWriterService.BlockchainNotConfiguredException notCfg =
                             findCause(exception, BlockchainWriterService.BlockchainNotConfiguredException.class);
                     if (notCfg != null) {
                         log.error("[audit-writer] Blockchain not configured ({}) — offset will NOT be advanced "
                                 + "to DLT; restart/redeploy with corrected settings from the error message before redelivery can succeed. "
                                 + "topic={} partition={} offset={}",
-                                notCfg.getMessage(), record.topic(), record.partition(), record.offset());
+                                notCfg.getMessage(), failedRecord.topic(), failedRecord.partition(), failedRecord.offset());
                         throw notCfg; // rethrow to keep the partition offset uncommitted
                     }
 
@@ -174,10 +174,10 @@ public class KafkaListenerConfig {
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
                                         + "transaction outcome is unknown and will be re-checked on redelivery. "
                                         + "topic={} partition={} offset={}",
-                                timeout.getMessage(), record.topic(), record.partition(), record.offset());
+                                timeout.getMessage(), failedRecord.topic(), failedRecord.partition(), failedRecord.offset());
                         throw timeout;
                     }
-                    dltRecoverer.accept(record, exception);
+                    dltRecoverer.accept(failedRecord, exception);
                 };
 
         // Use standard backoff for all errors; for ReceiptTimeoutException specifically,
