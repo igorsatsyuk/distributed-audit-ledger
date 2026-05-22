@@ -186,8 +186,6 @@ public class AuditLedgerBlockchainClient {
             }
         } catch (Exception e) {
             LOGGER.debug("Failed to decode RecordAppended timestamp from event log; falling back to null", e);
-            // Intentionally returning null: timestamp is supplementary data;
-            // a decode failure must not prevent the integrity-check response from being returned.
             return null;
         }
 
