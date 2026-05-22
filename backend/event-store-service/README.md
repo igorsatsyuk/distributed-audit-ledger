@@ -1,39 +1,43 @@
 # Event Store Service
 
-`event-store-service` реализует Issue #6: читает события из Kafka (`user.login.events`) и сохраняет их в PostgreSQL (`audit.events`).
+`event-store-service` implements Issue #6: it reads events from Kafka (`user.login.events`) and stores them in PostgreSQL (`audit.events`).
 
-## Что внутри
+## What's inside
 
-- Kafka consumer (`UserLoginEventConsumer`)
-- Преобразование `AuditEvent` -> `StoredAuditEvent`
-- Расчет `SHA-256` хэша payload (`event_hash`)
-- Сохранение через Spring Data R2DBC
-- Flyway миграции в `src/main/resources/db/migration`
+- Kafka consumer (`AuditEventConsumer`)
+- Mapping `AuditEvent` -> `StoredAuditEvent`
+- Calculating the `SHA-256` payload hash (`event_hash`)
+- Persistence via Spring Data R2DBC
+- Poison record handling: 3 retries and then skip (without DLT publishing); persistence errors are not skipped by the recoverer
+- Retry/backoff tuning via properties:
+  `spring.kafka.listener.error-handler.backoff-interval-ms` and
+  `spring.kafka.listener.error-handler.max-retries`
+- Flyway migrations in `src/main/resources/db/migration`
 
-## Совместимость `event_hash`
+## `event_hash` compatibility
 
-- Для новых записей сериализация payload выполняется canonical `ObjectMapper`, общий с `audit-writer-service`.
-- Исторические записи, созданные до canonical-схемы, могут иметь другой `event_hash` при том же payload.
-- Перед включением строгой сверки `audit.events.event_hash` с on-chain хэшами выполните runbook:
+- For new records, payload serialization uses the canonical `ObjectMapper` shared with `audit-writer-service`.
+- Historical records created before the canonical scheme may have a different `event_hash` for the same payload.
+- Before enabling strict matching of `audit.events.event_hash` with on-chain hashes, follow this runbook:
   `../../docs/EVENT_HASH_CANONICAL_MIGRATION.md`.
 
-## Быстрый запуск
+## Quick start
 
-Из каталога `backend/`:
+From the `backend/` directory:
 
 ```bash
 mvn spring-boot:run -pl event-store-service -am
 ```
 
-## Тесты
+## Tests
 
-Из каталога `backend/`:
+From the `backend/` directory:
 
 ```bash
 mvn -pl event-store-service test
 ```
 
-Интеграционный сценарий Kafka -> PostgreSQL покрыт тестом
-`EventStoreKafkaToPostgresIntegrationTest` на Testcontainers.
-Если Docker недоступен, этот тест будет автоматически пропущен.
+The Kafka -> PostgreSQL integration flow is covered by
+`EventStoreKafkaToPostgresIntegrationTest` using Testcontainers.
+If Docker is unavailable, this test is skipped automatically.
 

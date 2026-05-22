@@ -2,9 +2,10 @@ package lt.satsyuk.distributed.audit.eventstore.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.r2dbc.postgresql.codec.Json;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
-import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
+import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.eventstore.model.StoredAuditEvent;
 import lt.satsyuk.distributed.audit.eventstore.repository.StoredAuditEventRepository;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import java.time.ZoneOffset;
 public class EventPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(EventPersistenceService.class);
+    private static final int MAX_AGGREGATE_ID_LENGTH = 128;
 
     private final ObjectMapper objectMapper;
     private final EventHashService eventHashService;
@@ -56,32 +58,69 @@ public class EventPersistenceService {
     }
 
     private StoredAuditEvent toEntity(AuditEvent event) throws JsonProcessingException {
-        String payloadJson = objectMapper.writeValueAsString(event);
-        String aggregateId = resolveAggregateId(event);
+        EventType eventType = requireEventType(event);
+        JsonNode payloadRoot = objectMapper.valueToTree(event);
+        String payloadJson = objectMapper.writeValueAsString(payloadRoot);
+        String aggregateId = resolveAggregateId(eventType, payloadRoot, event.getEventId());
 
         StoredAuditEvent entity = new StoredAuditEvent();
         entity.setEventId(event.getEventId());
-        entity.setAggregateId(aggregateId);
-        entity.setEventType(event.getEventType().name());
-        entity.setUserId(resolveUserId(event));
+        entity.setAggregateId(normalizeAggregateId(aggregateId, event.getEventId()));
+        entity.setEventType(eventType.name());
+        entity.setUserId(extractStringField(payloadRoot, "userId"));
         entity.setPayload(Json.of(payloadJson));
         entity.setEventHash(eventHashService.sha256Hex(payloadJson));
         entity.setCreatedAt(LocalDateTime.ofInstant(resolveTimestamp(event), ZoneOffset.UTC));
         return entity;
     }
 
-    private String resolveAggregateId(AuditEvent event) {
-        if (event instanceof UserLoggedInEvent userLoggedInEvent && userLoggedInEvent.getUserId() != null) {
-            return "user:" + userLoggedInEvent.getUserId();
-        }
-        return event.getEventId();
+    private String resolveAggregateId(EventType eventType, JsonNode payloadRoot, String fallbackEventId) {
+        return switch (eventType) {
+            case USER_LOGGED_IN, USER_PROFILE_CHANGED -> {
+                String userId = extractStringField(payloadRoot, "userId");
+                yield userId != null ? "user:" + userId : fallbackEventId;
+            }
+            case ENTITY_CREATED, ENTITY_UPDATED, DATA_DELETED -> entityAggregateId(
+                    extractStringField(payloadRoot, "entityType"),
+                    extractStringField(payloadRoot, "entityId"),
+                    fallbackEventId
+            );
+        };
     }
 
-    private String resolveUserId(AuditEvent event) {
-        if (event instanceof UserLoggedInEvent userLoggedInEvent) {
-            return userLoggedInEvent.getUserId();
+    private String entityAggregateId(String entityType, String entityId, String fallbackEventId) {
+        if (entityType == null || entityId == null) {
+            return fallbackEventId;
         }
-        return null;
+        return "entity:" + entityType + ":" + entityId;
+    }
+
+    private String normalizeAggregateId(String aggregateId, String fallbackEventId) {
+        if (aggregateId == null || aggregateId.isBlank()) {
+            return fallbackEventId;
+        }
+        if (aggregateId.length() <= MAX_AGGREGATE_ID_LENGTH) {
+            return aggregateId;
+        }
+        log.warn(
+                "aggregate_id exceeds {} chars (actual={}); using fallback eventId [{}]",
+                MAX_AGGREGATE_ID_LENGTH,
+                aggregateId.length(),
+                fallbackEventId
+        );
+        return fallbackEventId;
+    }
+
+    private String extractStringField(JsonNode payloadRoot, String fieldName) {
+        String value = payloadRoot.path(fieldName).asText(null);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private EventType requireEventType(AuditEvent event) {
+        if (event.getEventType() == null) {
+            throw new IllegalArgumentException("AuditEvent.eventType must not be null");
+        }
+        return event.getEventType();
     }
 
     private Instant resolveTimestamp(AuditEvent event) {

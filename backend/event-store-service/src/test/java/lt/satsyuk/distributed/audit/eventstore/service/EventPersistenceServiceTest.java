@@ -3,6 +3,7 @@ package lt.satsyuk.distributed.audit.eventstore.service;
 import io.r2dbc.postgresql.codec.Json;
 import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
 import lt.satsyuk.distributed.audit.event.EventType;
+import lt.satsyuk.distributed.audit.event.EntityUpdatedEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import lt.satsyuk.distributed.audit.eventstore.model.StoredAuditEvent;
 import lt.satsyuk.distributed.audit.eventstore.repository.StoredAuditEventRepository;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,6 +88,43 @@ class EventPersistenceServiceTest {
         boolean hasResult = Boolean.TRUE.equals(service.persist(event).hasElement().block());
 
         assertFalse(hasResult);
+    }
+
+    @Test
+    void persistMapsEntityUpdatedEventToEntityAggregate() {
+        when(repository.save(any(StoredAuditEvent.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        EntityUpdatedEvent event = EntityUpdatedEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000077")
+                .eventType(EventType.ENTITY_UPDATED)
+                .occurredAt(Instant.parse("2026-05-15T11:15:30Z"))
+                .sourceService("command-service")
+                .userId("auditor-1")
+                .entityType("invoice")
+                .entityId("inv-7")
+                .changedFields(java.util.Map.of("status", "PAID"))
+                .build();
+
+        StoredAuditEvent saved = service.persist(event).block();
+
+        assertNotNull(saved);
+        assertEquals("entity:invoice:inv-7", saved.getAggregateId());
+        assertEquals("auditor-1", saved.getUserId());
+        assertEquals("ENTITY_UPDATED", saved.getEventType());
+    }
+
+    @Test
+    void persistRejectsNullEventTypeWithClearError() {
+        UserLoggedInEvent event = UserLoggedInEvent.builder()
+                .eventId("00000000-0000-0000-0000-000000000099")
+                .occurredAt(Instant.parse("2026-05-15T12:15:30Z"))
+                .sourceService("command-service")
+                .userId("user-99")
+                .build();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.persist(event).block());
+
+        assertEquals("AuditEvent.eventType must not be null", exception.getMessage());
     }
 }
 
