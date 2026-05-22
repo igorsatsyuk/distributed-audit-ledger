@@ -52,7 +52,7 @@ class UserLoginCommandServiceTest {
 
     @Test
     void handleUserLoginPublishesEventAndStoresItInMemory() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
@@ -85,7 +85,7 @@ class UserLoginCommandServiceTest {
 
     @Test
     void handleUserLoginPropagatesPublishFailure() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(anyString(), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("kafka unavailable")));
 
@@ -102,7 +102,7 @@ class UserLoginCommandServiceTest {
 
     @Test
     void handleUserLoginMapsSynchronousSendException() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(anyString(), anyString(), any(AuditEvent.class)))
                 .thenThrow(new IllegalStateException("invalid producer state"));
 
@@ -129,7 +129,7 @@ class UserLoginCommandServiceTest {
 
     @Test
     void handleUserLoginUsesCommandMetadataWhenRequestMetadataMissing() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 

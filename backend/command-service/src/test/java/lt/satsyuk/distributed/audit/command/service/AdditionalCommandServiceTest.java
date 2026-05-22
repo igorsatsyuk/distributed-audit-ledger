@@ -57,7 +57,7 @@ class AdditionalCommandServiceTest {
 
     @Test
     void handleUserProfileChangePublishesUserProfileChangedEvent() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
@@ -79,7 +79,7 @@ class AdditionalCommandServiceTest {
 
     @Test
     void handleEntityCreatedPublishesEntityCreatedEvent() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
@@ -105,7 +105,7 @@ class AdditionalCommandServiceTest {
 
     @Test
     void handleEntityUpdatedPublishesEntityUpdatedEvent() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 
@@ -131,7 +131,7 @@ class AdditionalCommandServiceTest {
 
     @Test
     void handleDataDeletedPublishesDataDeletedEvent() {
-        when(kafkaTopicsProperties.getUserLoginEvents()).thenReturn("user.login.events");
+        when(kafkaTopicsProperties.getAuditEvents()).thenReturn("user.login.events");
         when(kafkaTemplate.send(eq("user.login.events"), anyString(), any(AuditEvent.class)))
                 .thenReturn(CompletableFuture.completedFuture(mockSendResult()));
 

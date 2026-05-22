@@ -26,6 +26,7 @@ spring:
 
 kafka:
   topics:
+    audit-events: user.login.events
     user-login-events: user.login.events
 
 management:

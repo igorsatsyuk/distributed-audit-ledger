@@ -3,7 +3,6 @@ package lt.satsyuk.distributed.audit.eventstore.consumer;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.event.UserProfileChangedEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
-import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
@@ -21,8 +20,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AuditEventConsumerTest {
 
-    private static final KafkaTopicsProperties TOPICS = new KafkaTopicsProperties();
-
     @Mock
     private EventPersistenceService persistenceService;
 
@@ -30,7 +27,7 @@ class AuditEventConsumerTest {
     void consumeDelegatesToPersistenceServiceForUserLoggedInEvent() {
         when(persistenceService.persist(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
+        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService);
         consumer.consume(recordOf(UserLoggedInEvent.of("user-9", "198.51.100.22", "JUnit")));
 
         verify(persistenceService).persist(any(UserLoggedInEvent.class));
@@ -40,7 +37,7 @@ class AuditEventConsumerTest {
     void consumeDelegatesToPersistenceServiceForAnotherSupportedSubtype() {
         when(persistenceService.persist(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
+        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService);
         AuditEvent profileChanged = UserProfileChangedEvent.of("user-9", java.util.Map.of("email", "u@example.com"));
 
         consumer.consume(recordOf(profileChanged));
@@ -50,7 +47,7 @@ class AuditEventConsumerTest {
 
     @Test
     void consumeThrowsOnNullEvent() {
-        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
+        AuditEventConsumer consumer = new AuditEventConsumer(persistenceService);
 
         assertThrows(IllegalStateException.class, () -> consumer.consume(recordOf(null)));
 

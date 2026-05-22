@@ -30,7 +30,7 @@ public class AuditCommandPublisher {
 
     public Mono<CommandResponse> publish(AuditEvent event) {
         return Mono.defer(() -> Mono.fromFuture(kafkaTemplate.send(
-                                kafkaTopicsProperties.getUserLoginEvents(),
+                                kafkaTopicsProperties.getAuditEvents(),
                                 event.getEventId(),
                                 event
                         )))
