@@ -60,10 +60,6 @@ public class KafkaListenerConfig {
                 recoverer(),
                 new FixedBackOff(100, 3)
         );
-        errorHandler.addNotRetryableExceptions(
-                AuditEventConsumer.SkippableDeserializationException.class,
-                DeserializationException.class
-        );
         factory.setCommonErrorHandler(errorHandler);
 
         return factory;
