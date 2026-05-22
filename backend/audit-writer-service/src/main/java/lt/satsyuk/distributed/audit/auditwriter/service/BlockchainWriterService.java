@@ -196,7 +196,7 @@ public class BlockchainWriterService {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
                 return Optional.empty();
-            } catch (DuplicateHashException _) {
+            } catch (DuplicateHashException ignored) {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
                 return Optional.empty();
             } catch (ReceiptTimeoutException | NonRecoverableEventException | BlockchainNotConfiguredException e) {

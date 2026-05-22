@@ -160,7 +160,7 @@ class EventStoreKafkaToPostgresIntegrationTest {
                         rs.getString("event_hash")
                 ));
             }
-        } catch (Exception _) {
+        } catch (Exception ignored) {
             return Optional.empty();
         }
     }
