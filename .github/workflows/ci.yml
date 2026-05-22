@@ -97,12 +97,18 @@ jobs:
         working-directory: blockchain
         run: npm run coverage
 
+      - name: Run JavaScript coverage for deploy scripts
+        working-directory: blockchain
+        run: npm run coverage:js
+
       - name: Upload blockchain coverage report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: blockchain-coverage
-          path: blockchain/coverage/lcov.info
+          path: |
+            blockchain/coverage/lcov.info
+            blockchain/coverage-js/lcov.info
           if-no-files-found: warn
           retention-days: 7
 
@@ -197,6 +203,29 @@ jobs:
 
           "${cmd[@]}"
 
+      - name: Locate backend Sonar report-task
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        id: report-task
+        shell: bash
+        run: |
+          report_task=$(find backend -type f \( -path "*/target/sonar/report-task.txt" -o -path "*/.scannerwork/report-task.txt" \) | head -1)
+          if [ -z "$report_task" ]; then
+            echo "Unable to find backend Sonar report-task.txt" >&2
+            exit 1
+          fi
+          echo "path=${report_task}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Quality Gate and publish backend Sonar summary
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        shell: bash
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          python3 .github/scripts/sonar_quality_gate_report.py \
+            --component-name "backend" \
+            --project-key "${REPO_NAME}-backend" \
+            --report-task-file "${{ steps.report-task.outputs.path }}"
+
   sonar-frontend:
     name: SonarQube - frontend
     runs-on: ubuntu-latest
@@ -276,6 +305,22 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/audit-ui/lcov.info
             ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
+      - name: Wait for Quality Gate and publish frontend Sonar summary
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        shell: bash
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          report_task="frontend/audit-ui/.scannerwork/report-task.txt"
+          if [ ! -f "$report_task" ]; then
+            echo "Unable to find frontend Sonar report-task.txt at $report_task" >&2
+            exit 1
+          fi
+          python3 .github/scripts/sonar_quality_gate_report.py \
+            --component-name "frontend" \
+            --project-key "${REPO_NAME}-frontend" \
+            --report-task-file "$report_task"
+
   sonar-blockchain:
     name: SonarQube - blockchain
     runs-on: ubuntu-latest
@@ -323,21 +368,30 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: blockchain-coverage
-          path: blockchain/coverage
+          path: .
 
       - name: Normalize blockchain lcov path for Sonar
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
         shell: bash
         run: |
-          expected="blockchain/coverage/lcov.info"
-          found=$(find blockchain/coverage -name "lcov.info" 2>/dev/null | head -1 || true)
-          if [ -n "$found" ] && [ "$found" != "$expected" ]; then
-            mkdir -p "$(dirname "$expected")"
-            cp "$found" "$expected"
-            echo "Reorganized lcov: $found -> $expected"
+          expected_sol="blockchain/coverage/lcov.info"
+          found_sol=$(find blockchain -path "*/coverage/lcov.info" 2>/dev/null | head -1 || true)
+          if [ -n "$found_sol" ] && [ "$found_sol" != "$expected_sol" ]; then
+            mkdir -p "$(dirname "$expected_sol")"
+            cp "$found_sol" "$expected_sol"
+            echo "Reorganized Solidity lcov: $found_sol -> $expected_sol"
           fi
-          if [ ! -f "$expected" ]; then
-            echo "lcov.info not found; Sonar will run without coverage input"
+
+          expected_js="blockchain/coverage-js/lcov.info"
+          found_js=$(find blockchain -path "*/coverage-js/lcov.info" 2>/dev/null | head -1 || true)
+          if [ -n "$found_js" ] && [ "$found_js" != "$expected_js" ]; then
+            mkdir -p "$(dirname "$expected_js")"
+            cp "$found_js" "$expected_js"
+            echo "Reorganized JS lcov: $found_js -> $expected_js"
+          fi
+
+          if [ ! -f "$expected_sol" ] && [ ! -f "$expected_js" ]; then
+            echo "No lcov.info reports found; Sonar will run without coverage input"
           fi
 
       - name: Run SonarQube analysis (blockchain)
@@ -350,10 +404,26 @@ jobs:
           args: >
             -Dsonar.projectKey=${{ github.event.repository.name }}-blockchain
             -Dsonar.sources=contracts,scripts
-            -Dsonar.tests=test
+            -Dsonar.tests=test,test-js
             -Dsonar.exclusions=node_modules/**,artifacts/**,cache/**
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.javascript.lcov.reportPaths=coverage-js/lcov.info,coverage/lcov.info
             ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
+
+      - name: Wait for Quality Gate and publish blockchain Sonar summary
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        shell: bash
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          report_task="blockchain/.scannerwork/report-task.txt"
+          if [ ! -f "$report_task" ]; then
+            echo "Unable to find blockchain Sonar report-task.txt at $report_task" >&2
+            exit 1
+          fi
+          python3 .github/scripts/sonar_quality_gate_report.py \
+            --component-name "blockchain" \
+            --project-key "${REPO_NAME}-blockchain" \
+            --report-task-file "$report_task"
 
   notify-telegram:
     name: Notify Telegram
