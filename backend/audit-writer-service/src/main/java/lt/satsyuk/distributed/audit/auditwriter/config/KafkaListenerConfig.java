@@ -216,6 +216,7 @@ public class KafkaListenerConfig {
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
      */
+    @SuppressWarnings("deprecation")
     public static class DltValueSerializer extends JsonSerializer<Object> {
         @Override
         public byte[] serialize(String topic, Object data) {

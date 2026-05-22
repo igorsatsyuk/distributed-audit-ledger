@@ -26,6 +26,8 @@ public class EventPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(EventPersistenceService.class);
     private static final int MAX_AGGREGATE_ID_LENGTH = 128;
+    private static final int RETRY_MAX_ATTEMPTS = 3;
+    private static final long RETRY_INITIAL_BACKOFF_MS = 200L;
 
     private final ObjectMapper objectMapper;
     private final EventHashService eventHashService;
@@ -49,7 +51,7 @@ public class EventPersistenceService {
                         log.debug("Saved event [{}] to audit.events", saved.getEventId());
                     }
                 })
-                .retryWhen(Retry.backoff(3, Duration.ofMillis(200))
+                .retryWhen(Retry.backoff(RETRY_MAX_ATTEMPTS, Duration.ofMillis(RETRY_INITIAL_BACKOFF_MS))
                         .filter(DataAccessResourceFailureException.class::isInstance))
                 .onErrorResume(DuplicateKeyException.class, ignored -> {
                     log.info("Event [{}] already persisted, skipping duplicate", event.getEventId());

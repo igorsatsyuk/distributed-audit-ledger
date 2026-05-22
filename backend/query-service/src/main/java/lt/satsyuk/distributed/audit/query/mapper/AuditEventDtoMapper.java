@@ -40,7 +40,6 @@ public interface AuditEventDtoMapper {
     }
 
     default String defaultIntegrityStatus() {
-        // Full blockchain verification arrives in issue #9.
         return "PENDING";
     }
 }

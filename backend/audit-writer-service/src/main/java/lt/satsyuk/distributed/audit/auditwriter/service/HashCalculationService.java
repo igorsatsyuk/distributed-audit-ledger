@@ -24,6 +24,9 @@ import java.security.NoSuchAlgorithmException;
 @Service
 public class HashCalculationService {
 
+    private static final int HEX_CHARS_PER_BYTE = 2;
+    private static final String SHA_256 = "SHA-256";
+
     private final ObjectMapper objectMapper;
 
     public HashCalculationService(ObjectMapper objectMapper) {
@@ -41,7 +44,7 @@ public class HashCalculationService {
     public byte[] computeHash(AuditEvent event) {
         try {
             String json = objectMapper.writeValueAsString(event);
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(SHA_256);
             return digest.digest(json.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
@@ -55,7 +58,7 @@ public class HashCalculationService {
      * e.g. for logging or DB storage.
      */
     public static String toHexString(byte[] hash) {
-        StringBuilder sb = new StringBuilder(hash.length * 2);
+        StringBuilder sb = new StringBuilder(hash.length * HEX_CHARS_PER_BYTE);
         for (byte b : hash) {
             sb.append(String.format("%02x", b));
         }

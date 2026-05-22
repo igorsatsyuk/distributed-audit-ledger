@@ -8,6 +8,15 @@ import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
+/**
+ * R2DBC read-only entity mapped to the {@code audit.events} table — owned by {@code query-service}.
+ *
+ * <p>The {@code payload} field is read as plain {@code String} via {@code payload::text} cast.
+ * {@code event-store-service} has a structurally similar write entity ({@code StoredAuditEvent}) that
+ * stores {@code payload} as {@link io.r2dbc.postgresql.codec.Json} for native JSONB writes.
+ * The two classes intentionally live in separate bounded contexts and cannot share a common base
+ * class without pulling {@code spring-data-relational} into the shared-contracts module.
+ */
 @Table(schema = "audit", name = "events")
 @Getter
 @Setter

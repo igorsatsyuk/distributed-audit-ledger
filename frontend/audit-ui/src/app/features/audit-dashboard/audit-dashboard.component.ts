@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe, JsonPipe, NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injectable, OnDestroy, ViewChild, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, ViewChild, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -14,30 +14,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, takeUntil } from 'rxjs';
 import { AuditLog, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
+import { ApproximatePaginatorIntl } from './approximate-paginator-intl';
 
 type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
 
-@Injectable()
-class ApproximatePaginatorIntl extends MatPaginatorIntl {
-  private hasMore = false;
-
-  setHasMore(hasMore: boolean): void {
-    this.hasMore = hasMore;
-    this.changes.next();
-  }
-
-  override getRangeLabel = (page: number, pageSize: number, length: number): string => {
-    if (length === 0 || pageSize === 0) {
-      return `0 of ${this.hasMore ? 'at least ' : ''}${length}`;
-    }
-
-    const startIndex = page * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, length);
-    return this.hasMore
-      ? `${startIndex + 1} – ${endIndex} of at least ${length}`
-      : `${startIndex + 1} – ${endIndex} of ${length}`;
-  };
-}
 
 @Component({
   selector: 'app-audit-dashboard',
@@ -65,8 +45,11 @@ class ApproximatePaginatorIntl extends MatPaginatorIntl {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditDashboardComponent implements OnDestroy {
-  readonly PAGE_SIZE_OPTIONS = [10, 20, 50];
-  readonly DEFAULT_PAGE_SIZE = 20;
+  static readonly PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+  static readonly DEFAULT_PAGE_SIZE = 20;
+
+  readonly PAGE_SIZE_OPTIONS = AuditDashboardComponent.PAGE_SIZE_OPTIONS;
+  readonly DEFAULT_PAGE_SIZE = AuditDashboardComponent.DEFAULT_PAGE_SIZE;
 
   readonly displayedColumns = ['id', 'eventType', 'userId', 'occurredAt', 'integrityStatus', 'details'];
   readonly logs$ = new BehaviorSubject<AuditLog[]>([]);
@@ -150,7 +133,7 @@ export class AuditDashboardComponent implements OnDestroy {
 
   openDetails(item: AuditLog): void {
     this.selectedAuditLog.set(item);
-    void this.detailsDrawer?.open();
+    this.detailsDrawer?.open().catch(() => { /* drawer open failure is non-critical */ });
     this.integrityTrigger$.next(item.id);
   }
 
@@ -158,7 +141,7 @@ export class AuditDashboardComponent implements OnDestroy {
     this.selectedAuditLog.set(null);
     this.integrityCheckResult.set(null);
     this.integrityCheckError.set(null);
-    void this.detailsDrawer?.close();
+    this.detailsDrawer?.close().catch(() => { /* drawer close failure is non-critical */ });
   }
 
   integrityClass(status: string): string {
@@ -176,7 +159,8 @@ export class AuditDashboardComponent implements OnDestroy {
   parseEventData(item: AuditLog): unknown {
     try {
       return JSON.parse(item.eventDataJson);
-    } catch {
+    } catch (_ignored: unknown) {
+      // eventDataJson is not valid JSON — return the raw string as-is
       return item.eventDataJson;
     }
   }

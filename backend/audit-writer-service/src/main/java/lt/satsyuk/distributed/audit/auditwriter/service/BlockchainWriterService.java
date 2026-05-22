@@ -75,12 +75,12 @@ public class BlockchainWriterService {
     private static final int USER_ID_MAX_LENGTH = 255;
     private static final String USER_AGGREGATE_PREFIX = "user:";
     private static final int MAX_STALE_IN_FLIGHT_OBSERVATIONS = 3;
-
-    static final long RETRY_DELAY_MS  = 1_000L;
-
-    private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
     private static final int RECEIPT_EXECUTOR_THREADS = 2;
     private static final int RECEIPT_EXECUTOR_QUEUE_CAPACITY = 16;
+
+    static final long RETRY_DELAY_MS = 1_000L;
+
+    private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
 
     private final Web3j web3j;
     private final Optional<Credentials> credentials;
@@ -194,6 +194,8 @@ public class BlockchainWriterService {
             } catch (BlockchainNotConfiguredException e) {
                 throw e; // propagate immediately without retry/DLT
             } catch (Exception e) {
+                // Transient network/RPC failure — eligible for retry.
+                // Error subclasses are intentionally NOT caught here and propagate up.
                 lastException = e;
                 log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, maxAttempts, event.getEventId(), e.getMessage());
                 if (attempt < maxAttempts) {
@@ -244,11 +246,10 @@ public class BlockchainWriterService {
         Instant occurredAt = resolveOccurredAt(event);
         BigInteger timestamp = toContractTimestamp(occurredAt);
         String eventType = event.getEventType().name();
-        String source    = signer;
 
         log.debug("[#7] Sending appendAuditRecord tx (attempt {}): hash={} eventType={}", attempt, hexHash, eventType);
         try {
-            TransactionReceipt receipt = waitForReceipt(contract, hash, hexHash, timestamp, eventType, source);
+            TransactionReceipt receipt = waitForReceipt(contract, hash, hexHash, timestamp, eventType, signer);
             if (receipt == null) {
                 throw new RuntimeException("appendAuditRecord returned null receipt");
             }
@@ -390,7 +391,7 @@ public class BlockchainWriterService {
 
         // Use computeIfAbsent to atomically check and submit for this hash,
         // ensuring only one concurrent transaction per hash is in-flight.
-        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, k ->
+        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, _ignored ->
                 new InFlightWrite(
                         submitAppendAuditRecord(contract, hash, timestamp, eventType, source),
                         System.nanoTime()
