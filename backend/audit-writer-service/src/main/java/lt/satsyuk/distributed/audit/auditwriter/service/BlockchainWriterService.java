@@ -176,40 +176,51 @@ public class BlockchainWriterService {
         String hexHash = HashCalculationService.toHexString(hash);
         log.debug("[#7] Anchoring event {} with hash {}", event.getEventId(), hexHash);
 
-        Exception lastException = null;
         int maxAttempts = Math.addExact(props.getBlockchainWriteRetries(), 1);
+        Optional<Exception> lastException = anchorWithRetries(event, hash, hexHash, maxAttempts);
+        if (lastException.isEmpty()) {
+            return;
+        }
+        log.error("[#7] All {} attempts exhausted for event {}", maxAttempts, event.getEventId(), lastException.get());
+        throw new BlockchainWriteException(
+                "Failed to anchor event " + event.getEventId() + " after " + maxAttempts + " attempts",
+                lastException.get());
+    }
+
+    private Optional<Exception> anchorWithRetries(AuditEvent event, byte[] hash, String hexHash, int maxAttempts) {
+        Exception lastException = null;
+
         // Service-side retries are explicit/configurable; Kafka's error handler applies the
         // outer redelivery/backoff layer around this loop, so keep this inner budget small.
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
-                return; // success
+                return Optional.empty();
             } catch (DuplicateHashException _) {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
-                return; // idempotent — treat as success
-            } catch (ReceiptTimeoutException e) {
-                throw e; // unknown outcome; let Kafka redelivery re-check later instead of retrying immediately
-            } catch (NonRecoverableEventException e) {
-                throw e; // propagate immediately without retry
-            } catch (BlockchainNotConfiguredException e) {
-                throw e; // propagate immediately without retry/DLT
+                return Optional.empty();
+            } catch (ReceiptTimeoutException | NonRecoverableEventException | BlockchainNotConfiguredException e) {
+                throw e;
             } catch (Exception e) {
-                // Transient network/RPC failure — eligible for retry.
-                // Error subclasses are intentionally NOT caught here and propagate up.
                 lastException = e;
                 log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, maxAttempts, event.getEventId(), e.getMessage());
-                if (attempt < maxAttempts) {
-                    try {
-                        sleep(retryDelayMs);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        throw new BlockchainWriteException("Retry interrupted while anchoring event " + event.getEventId(), interrupted);
-                    }
-                }
+                pauseBeforeNextAttemptIfNeeded(event.getEventId(), attempt, maxAttempts);
             }
         }
-        log.error("[#7] All {} attempts exhausted for event {}", maxAttempts, event.getEventId(), lastException);
-        throw new BlockchainWriteException("Failed to anchor event " + event.getEventId() + " after " + maxAttempts + " attempts", lastException);
+
+        return Optional.ofNullable(lastException);
+    }
+
+    private void pauseBeforeNextAttemptIfNeeded(String eventId, int attempt, int maxAttempts) {
+        if (attempt >= maxAttempts) {
+            return;
+        }
+        try {
+            sleep(retryDelayMs);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new BlockchainWriteException("Retry interrupted while anchoring event " + eventId, interrupted);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -297,6 +308,13 @@ public class BlockchainWriterService {
     }
 
     private void validateConfiguration() {
+        validateClientAddress();
+        validatePrivateKeyConfiguration();
+        validateContractAddressConfiguration();
+        validateRetryAndTimeoutBounds();
+    }
+
+    private void validateClientAddress() {
         String clientAddress = props.getClientAddress();
         if (clientAddress == null || clientAddress.isBlank()) {
             throw new BlockchainNotConfiguredException(
@@ -308,8 +326,11 @@ public class BlockchainWriterService {
                     "Blockchain writer has malformed web3j.client-address (expected http(s) URL): "
                             + redactedClientAddress);
         }
+    }
+
+    private void validatePrivateKeyConfiguration() {
+        String privateKey = props.getPrivateKey();
         if (credentials.isEmpty()) {
-            String privateKey = props.getPrivateKey();
             if (privateKey != null && !privateKey.isBlank()) {
                 throw new BlockchainNotConfiguredException(
                         "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
@@ -317,11 +338,13 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is missing");
         }
-        String privateKey = props.getPrivateKey();
         if (privateKey != null && !privateKey.isBlank() && !Web3jValidationUtils.isValidPrivateKey(privateKey)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
         }
+    }
+
+    private void validateContractAddressConfiguration() {
         String addr = props.getContractAddress();
         if (addr == null || addr.isBlank()) {
             throw new BlockchainNotConfiguredException(
@@ -335,18 +358,24 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has invalid contract address: zero-address is not allowed");
         }
-        if (props.getBlockchainWriteRetries() < 0) {
+    }
+
+    private void validateRetryAndTimeoutBounds() {
+        int retries = props.getBlockchainWriteRetries();
+        if (retries < 0) {
             throw new BlockchainNotConfiguredException(
-                    "web3j.blockchain-write-retries must be >= 0 but was " + props.getBlockchainWriteRetries());
+                    "web3j.blockchain-write-retries must be >= 0 but was " + retries);
         }
-        if (props.getBlockchainWriteRetries() > MAX_BLOCKCHAIN_WRITE_RETRIES) {
+        if (retries > MAX_BLOCKCHAIN_WRITE_RETRIES) {
             throw new BlockchainNotConfiguredException(
                     "web3j.blockchain-write-retries must be <= " + MAX_BLOCKCHAIN_WRITE_RETRIES
-                            + " but was " + props.getBlockchainWriteRetries());
+                            + " but was " + retries);
         }
-        if (props.getReceiptWaitTimeoutSeconds() <= 0) {
+
+        int receiptTimeoutSeconds = props.getReceiptWaitTimeoutSeconds();
+        if (receiptTimeoutSeconds <= 0) {
             throw new BlockchainNotConfiguredException(
-                    "web3j.receipt-wait-timeout-seconds must be > 0 but was " + props.getReceiptWaitTimeoutSeconds());
+                    "web3j.receipt-wait-timeout-seconds must be > 0 but was " + receiptTimeoutSeconds);
         }
     }
 

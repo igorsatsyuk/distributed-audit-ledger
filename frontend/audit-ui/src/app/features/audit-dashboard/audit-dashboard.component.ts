@@ -69,7 +69,7 @@ export class AuditDashboardComponent implements OnDestroy {
   readonly userIdControl = new FormControl('', { nonNullable: true });
   readonly eventTypeControl = new FormControl('', { nonNullable: true });
 
-  @ViewChild('detailsDrawer') private detailsDrawer?: MatSidenav;
+  @ViewChild('detailsDrawer') private readonly detailsDrawer?: MatSidenav;
 
   /**
    * Emitting here triggers a (possibly cancelling) list reload.
