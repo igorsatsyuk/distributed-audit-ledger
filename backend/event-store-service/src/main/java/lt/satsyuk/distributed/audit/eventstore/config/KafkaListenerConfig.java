@@ -12,7 +12,6 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -66,12 +65,14 @@ public class KafkaListenerConfig {
 
     @Bean
     public ConsumerRecordRecoverer recoverer() {
-        return (record, ex) -> {
-            log.error("Poison pill detected on topic: {}; key: {}, sending to DLT",
-                    record.topic(), record.key(), ex);
-            // DeadLetterPublishingRecoverer will be registered separately if needed
-            // For now, we just log the error and allow offset to advance
-        };
+        return (record, ex) -> log.error(
+                "Poison pill detected after retries; record will be skipped. topic=[{}], partition=[{}], offset=[{}], key=[{}]",
+                record.topic(),
+                record.partition(),
+                record.offset(),
+                record.key(),
+                ex
+        );
     }
 }
 

@@ -3,13 +3,11 @@ package lt.satsyuk.distributed.audit.eventstore.consumer;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-
-import static org.springframework.kafka.support.KafkaHeaders.RECEIVED_KEY;
 
 @Component
 public class AuditEventConsumer {
@@ -28,10 +26,14 @@ public class AuditEventConsumer {
     }
 
     @KafkaListener(topics = "${kafka.topics.user-login-events}")
-    public void consume(AuditEvent event, @Header(value = RECEIVED_KEY, required = false) String key) {
+    public void consume(ConsumerRecord<String, AuditEvent> record) {
+        AuditEvent event = record.value();
+        String key = record.key();
+
         if (event == null) {
-            log.warn("Skipping null event from topic [{}], key=[{}]", kafkaTopicsProperties.getUserLoginEvents(), key);
-            return;
+            throw new IllegalStateException(
+                    "Received null event for key=[" + key + "] from topic=[" + kafkaTopicsProperties.getUserLoginEvents() + "]"
+            );
         }
 
         try {
