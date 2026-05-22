@@ -1,10 +1,15 @@
 package lt.satsyuk.distributed.audit.auditwriter.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
 import lt.satsyuk.distributed.audit.auditwriter.service.BlockchainWriterService;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
@@ -26,8 +31,6 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
@@ -36,7 +39,8 @@ import java.util.Map;
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.
  *
- * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JsonDeserializer} so that
+ * <p>Uses {@link ErrorHandlingDeserializer} to wrap
+ * {@link org.springframework.kafka.support.serializer.JsonDeserializer} so that
  * poison records (malformed JSON, unknown payload type) are routed to the container
  * error handler rather than stalling the partition at the same offset indefinitely.
  *
@@ -70,6 +74,10 @@ import java.util.Map;
 public class KafkaListenerConfig {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaListenerConfig.class);
+    private static final String JSON_DESERIALIZER_CLASS = "org.springframework.kafka.support.serializer.JsonDeserializer";
+    private static final String JSON_TRUSTED_PACKAGES_CONFIG = "spring.json.trusted.packages";
+    private static final String JSON_USE_TYPE_INFO_HEADERS_CONFIG = "spring.json.use.type.headers";
+    private static final String JSON_VALUE_DEFAULT_TYPE_CONFIG = "spring.json.value.default.type";
 
     static final long RETRY_ATTEMPTS = 2L;
     static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
@@ -84,7 +92,6 @@ public class KafkaListenerConfig {
         mergeKafkaOverrides(props, environment, "spring.kafka.producer");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
-        props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -116,10 +123,10 @@ public class KafkaListenerConfig {
         // (bad JSON / unknown type) are forwarded to the error handler, not stuck on
         // the same partition offset.
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "lt.satsyuk.distributed.audit.event");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JSON_DESERIALIZER_CLASS);
+        props.put(JSON_TRUSTED_PACKAGES_CONFIG, "lt.satsyuk.distributed.audit.event");
+        props.put(JSON_USE_TYPE_INFO_HEADERS_CONFIG, false);
+        props.put(JSON_VALUE_DEFAULT_TYPE_CONFIG, valueDefaultType);
 
         return new DefaultKafkaConsumerFactory<>(props);
     }
@@ -142,21 +149,21 @@ public class KafkaListenerConfig {
         // partitions as the source topic; with auto-creation that is not guaranteed.
         DeadLetterPublishingRecoverer dltRecoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, ex) -> new TopicPartition(deadLetterTopic, 0)
+                (failedRecord, ex) -> new TopicPartition(deadLetterTopic, 0)
         );
 
         // Custom recoverer: skip DLT for infrastructure-misconfiguration failures so
         // the offset remains uncommitted and the record is redelivered once config is present.
         // For all other exceptions, fall through to the standard DLT recoverer.
         var safeRecoverer = (org.springframework.kafka.listener.ConsumerRecordRecoverer)
-                (record, exception) -> {
+                (failedRecord, exception) -> {
                     BlockchainWriterService.BlockchainNotConfiguredException notCfg =
                             findCause(exception, BlockchainWriterService.BlockchainNotConfiguredException.class);
                     if (notCfg != null) {
                         log.error("[audit-writer] Blockchain not configured ({}) — offset will NOT be advanced "
                                 + "to DLT; restart/redeploy with corrected settings from the error message before redelivery can succeed. "
                                 + "topic={} partition={} offset={}",
-                                notCfg.getMessage(), record.topic(), record.partition(), record.offset());
+                                notCfg.getMessage(), failedRecord.topic(), failedRecord.partition(), failedRecord.offset());
                         throw notCfg; // rethrow to keep the partition offset uncommitted
                     }
 
@@ -166,10 +173,10 @@ public class KafkaListenerConfig {
                         log.warn("[audit-writer] Receipt wait timed out ({}) — offset will NOT be advanced to DLT; "
                                         + "transaction outcome is unknown and will be re-checked on redelivery. "
                                         + "topic={} partition={} offset={}",
-                                timeout.getMessage(), record.topic(), record.partition(), record.offset());
+                                timeout.getMessage(), failedRecord.topic(), failedRecord.partition(), failedRecord.offset());
                         throw timeout;
                     }
-                    dltRecoverer.accept(record, exception);
+                    dltRecoverer.accept(failedRecord, exception);
                 };
 
         // Use standard backoff for all errors; for ReceiptTimeoutException specifically,
@@ -211,19 +218,29 @@ public class KafkaListenerConfig {
      * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
      * catches a deserialization failure it stores the original raw bytes in the Kafka
      * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
-     * the DLT record value.  Serializing {@code byte[]} with {@link JsonSerializer}
+     * the DLT record value.  Serializing {@code byte[]} with
+     * {@link org.springframework.kafka.support.serializer.JsonSerializer}
      * would encode the array as JSON (base64 or integer array) and corrupt the payload.
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
      */
-    @SuppressWarnings("deprecation")
-    public static class DltValueSerializer extends JsonSerializer<Object> {
+    public static class DltValueSerializer implements Serializer<Object> {
+        private final ObjectMapper objectMapper = CanonicalObjectMapperFactory.create();
+
         @Override
+        @SuppressWarnings("java:S1168") // Kafka tombstones must remain null on the DLT.
         public byte[] serialize(String topic, Object data) {
+            if (data == null) {
+                return null;
+            }
             if (data instanceof byte[] raw) {
                 return raw;
             }
-            return super.serialize(topic, data);
+            try {
+                return objectMapper.writeValueAsBytes(data);
+            } catch (JsonProcessingException ex) {
+                throw new SerializationException("Failed to serialize DLT payload for topic " + topic, ex);
+            }
         }
     }
 

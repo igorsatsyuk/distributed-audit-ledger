@@ -74,5 +74,13 @@ class KafkaListenerConfigTest {
         assertThat(factory.getConfigurationProperties().get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))
                 .isEqualTo(false);
     }
+
+    @Test
+    void dltValueSerializer_passesThroughRawBytes() {
+        KafkaListenerConfig.DltValueSerializer serializer = new KafkaListenerConfig.DltValueSerializer();
+
+        assertThat(serializer.serialize("user.login.events.dlt", new byte[] {1, 2, 3}))
+                .containsExactly((byte) 1, (byte) 2, (byte) 3);
+    }
 }
 

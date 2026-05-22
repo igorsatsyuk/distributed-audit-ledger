@@ -141,7 +141,8 @@ class IntegrityCheckIntegrationTest {
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody()
-                .jsonPath("$.message").value(containsString("999999"));
+                .jsonPath("$.message").value(message -> org.hamcrest.MatcherAssert.assertThat(
+                        String.valueOf(message), containsString("999999")));
     }
 
     @Test
@@ -239,7 +240,8 @@ class IntegrityCheckIntegrationTest {
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody()
-                .jsonPath("$.message").value(containsString("999998"));
+                .jsonPath("$.message").value(message -> org.hamcrest.MatcherAssert.assertThat(
+                        String.valueOf(message), containsString("999998")));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

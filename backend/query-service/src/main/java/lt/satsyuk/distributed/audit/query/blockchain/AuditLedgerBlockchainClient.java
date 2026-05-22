@@ -32,6 +32,7 @@ import org.web3j.protocol.core.methods.request.EthFilter;
 import org.web3j.utils.Numeric;
 
 import java.math.BigInteger;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -75,21 +76,25 @@ public class AuditLedgerBlockchainClient {
                         : new BlockchainIntegrityException("Failed to read integrity data from blockchain", ex));
     }
 
-    private AuditIntegrityCheckResponse.BlockchainRecord inspectEventHashBlocking(String eventHash) throws Exception {
-        String contractAddress = requireText(props.getContractAddress(), "web3j.contract-address is missing");
-        validateContractAddress(contractAddress);
-        byte[] hashBytes = parseEventHash(eventHash);
+    private AuditIntegrityCheckResponse.BlockchainRecord inspectEventHashBlocking(String eventHash) {
+        try {
+            String contractAddress = requireText(props.getContractAddress(), "web3j.contract-address is missing");
+            validateContractAddress(contractAddress);
+            byte[] hashBytes = parseEventHash(eventHash);
 
-        boolean exists = isHashExists(contractAddress, hashBytes);
-        if (!exists) {
-            return new AuditIntegrityCheckResponse.BlockchainRecord(false, null, null, null);
+            boolean exists = isHashExists(contractAddress, hashBytes);
+            if (!exists) {
+                return new AuditIntegrityCheckResponse.BlockchainRecord(false, null, null, null);
+            }
+
+            return locateBlockchainRecord(contractAddress, hashBytes)
+                    .orElseGet(() -> new AuditIntegrityCheckResponse.BlockchainRecord(true, null, null, null));
+        } catch (IOException ex) {
+            throw new BlockchainIntegrityException("Blockchain read failed", ex, BlockchainIntegrityException.ErrorType.RPC_FAILURE);
         }
-
-        return locateBlockchainRecord(contractAddress, hashBytes)
-                .orElseGet(() -> new AuditIntegrityCheckResponse.BlockchainRecord(true, null, null, null));
     }
 
-    private boolean isHashExists(String contractAddress, byte[] hashBytes) throws Exception {
+    private boolean isHashExists(String contractAddress, byte[] hashBytes) throws IOException {
         Function function = new Function(
                 "isHashExists",
                 Collections.singletonList(new Bytes32(hashBytes)),
@@ -122,7 +127,7 @@ public class AuditLedgerBlockchainClient {
     }
 
     private Optional<AuditIntegrityCheckResponse.BlockchainRecord> locateBlockchainRecord(String contractAddress,
-                                                                                          byte[] hashBytes) throws Exception {
+                                                                                          byte[] hashBytes) throws IOException {
         EthFilter filter = new EthFilter(
                 resolveFromBlockParameter(),
                 DefaultBlockParameterName.LATEST,
@@ -184,7 +189,7 @@ public class AuditLedgerBlockchainClient {
             if (decoded != null && !decoded.isEmpty() && decoded.getFirst() instanceof Uint256 uint256) {
                 return uint256.getValue().longValue();
             }
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOGGER.debug("Failed to decode RecordAppended timestamp from event log; falling back to null", e);
             return null;
         }
@@ -241,8 +246,8 @@ public class AuditLedgerBlockchainClient {
                     || "127.0.0.1".equals(host)
                     || "::1".equals(host)
                     || "host.docker.internal".equalsIgnoreCase(host);
-        } catch (Exception ignored) {
-            // URI.create() may throw if the address is not parseable — treat as non-local
+        } catch (IllegalArgumentException invalidUri) {
+            LOGGER.debug("Failed to parse RPC endpoint '{}'; treating it as non-local", clientAddress, invalidUri);
             return false;
         }
     }

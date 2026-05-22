@@ -8,6 +8,7 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Hash;
 import org.web3j.crypto.Credentials;
@@ -19,6 +20,7 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -83,7 +85,7 @@ public class BlockchainWriterService {
     private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
 
     private final Web3j web3j;
-    private final Optional<Credentials> credentials;
+    private final Credentials credentials;
     private final Web3jProperties props;
     private final HashCalculationService hashService;
     private final long retryDelayMs;
@@ -92,20 +94,19 @@ public class BlockchainWriterService {
     private final ConcurrentHashMap<String, InFlightWrite> inFlightWritesByHash = new ConcurrentHashMap<>();
 
     /**
-     * {@code credentials} is optional — injected as empty Optional when the private-key
-     * property is blank (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
-     * Using Optional ensures the service will not wait for a non-existent Credentials bean
-     * at startup; instead, the configuration check happens when anchorEvent() is called.
+     * Credentials are requested lazily from Spring so the service can still start when the
+     * private-key bean is absent (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
+     * Runtime validation still happens in {@link #anchorEvent(AuditEvent)}.
      */
     public BlockchainWriterService(Web3j web3j,
-                                    Optional<Credentials> credentials,
+                                    ObjectProvider<Credentials> credentialsProvider,
                                     Web3jProperties props,
                                     HashCalculationService hashService) {
-        this(web3j, credentials, props, hashService, RETRY_DELAY_MS);
+        this(web3j, credentialsProvider.getIfAvailable(), props, hashService, RETRY_DELAY_MS);
     }
 
     BlockchainWriterService(Web3j web3j,
-                            Optional<Credentials> credentials,
+                            Credentials credentials,
                             Web3jProperties props,
                             HashCalculationService hashService,
                             long retryDelayMs) {
@@ -119,7 +120,7 @@ public class BlockchainWriterService {
     }
 
     BlockchainWriterService(Web3j web3j,
-                            Optional<Credentials> credentials,
+                            Credentials credentials,
                             Web3jProperties props,
                             HashCalculationService hashService,
                             long retryDelayMs,
@@ -176,49 +177,61 @@ public class BlockchainWriterService {
         String hexHash = HashCalculationService.toHexString(hash);
         log.debug("[#7] Anchoring event {} with hash {}", event.getEventId(), hexHash);
 
-        Exception lastException = null;
         int maxAttempts = Math.addExact(props.getBlockchainWriteRetries(), 1);
+        Optional<RuntimeException> lastException = anchorWithRetries(event, hash, hexHash, maxAttempts);
+        if (lastException.isEmpty()) {
+            return;
+        }
+        log.error("[#7] All {} attempts exhausted for event {}", maxAttempts, event.getEventId(), lastException.get());
+        throw new BlockchainWriteException(
+                "Failed to anchor event " + event.getEventId() + " after " + maxAttempts + " attempts",
+                lastException.get());
+    }
+
+    private Optional<RuntimeException> anchorWithRetries(AuditEvent event, byte[] hash, String hexHash, int maxAttempts) {
+        RuntimeException lastException = null;
+
         // Service-side retries are explicit/configurable; Kafka's error handler applies the
         // outer redelivery/backoff layer around this loop, so keep this inner budget small.
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 writeToBlockchain(event, hash, hexHash, attempt);
-                return; // success
+                return Optional.empty();
             } catch (DuplicateHashException _) {
                 log.info("[#7] Hash {} already on-chain — skipping (event {})", hexHash, event.getEventId());
-                return; // idempotent — treat as success
-            } catch (ReceiptTimeoutException e) {
-                throw e; // unknown outcome; let Kafka redelivery re-check later instead of retrying immediately
-            } catch (NonRecoverableEventException e) {
-                throw e; // propagate immediately without retry
-            } catch (BlockchainNotConfiguredException e) {
-                throw e; // propagate immediately without retry/DLT
-            } catch (Exception e) {
-                // Transient network/RPC failure — eligible for retry.
-                // Error subclasses are intentionally NOT caught here and propagate up.
+                return Optional.empty();
+            } catch (ReceiptTimeoutException | NonRecoverableEventException | BlockchainNotConfiguredException e) {
+                throw e;
+            } catch (RuntimeException e) {
                 lastException = e;
                 log.warn("[#7] Attempt {}/{} failed for event {}: {}", attempt, maxAttempts, event.getEventId(), e.getMessage());
-                if (attempt < maxAttempts) {
-                    try {
-                        sleep(retryDelayMs);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        throw new BlockchainWriteException("Retry interrupted while anchoring event " + event.getEventId(), interrupted);
-                    }
-                }
+                pauseBeforeNextAttemptIfNeeded(event.getEventId(), attempt, maxAttempts);
             }
         }
-        log.error("[#7] All {} attempts exhausted for event {}", maxAttempts, event.getEventId(), lastException);
-        throw new BlockchainWriteException("Failed to anchor event " + event.getEventId() + " after " + maxAttempts + " attempts", lastException);
+
+        return Optional.ofNullable(lastException);
+    }
+
+    private void pauseBeforeNextAttemptIfNeeded(String eventId, int attempt, int maxAttempts) {
+        if (attempt >= maxAttempts) {
+            return;
+        }
+        try {
+            sleep(retryDelayMs);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new BlockchainWriteException("Retry interrupted while anchoring event " + eventId, interrupted);
+        }
     }
 
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private void writeToBlockchain(AuditEvent event, byte[] hash, String hexHash, int attempt) throws Exception {
+    private void writeToBlockchain(AuditEvent event, byte[] hash, String hexHash, int attempt) {
+        Credentials signerCredentials = requireCredentials();
         AuditLedgerContract contract = AuditLedgerContract.load(
-                props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
+                props.getContractAddress(), web3j, signerCredentials, new DefaultGasProvider());
 
         // If a previous write for this hash is still in-flight, inspect it first instead of
         // blindly sending a new tx.
@@ -228,7 +241,7 @@ public class BlockchainWriterService {
         final boolean hashExists;
         try {
             hashExists = contract.isHashExists(hash);
-        } catch (Exception probeEx) {
+        } catch (RuntimeException probeEx) {
             if (isPermanentContractProbeFailure(probeEx)) {
                 throw new BlockchainNotConfiguredException(
                         "Cannot verify AuditLedger at configured contract address (isHashExists probe failed)", probeEx);
@@ -240,7 +253,7 @@ public class BlockchainWriterService {
             throw new DuplicateHashException(hexHash);
         }
 
-        String signer = credentials.get().getAddress();
+        String signer = signerCredentials.getAddress();
         ensureSignerOwnsContract(contract, signer);
 
         Instant occurredAt = resolveOccurredAt(event);
@@ -251,24 +264,24 @@ public class BlockchainWriterService {
         try {
             TransactionReceipt receipt = waitForReceipt(contract, hash, hexHash, timestamp, eventType, signer);
             if (receipt == null) {
-                throw new RuntimeException("appendAuditRecord returned null receipt");
+                throw new BlockchainWriteException("appendAuditRecord returned null receipt", null);
             }
             if (receipt.getStatus() == null || !receipt.isStatusOK()) {
                 String revertReason = receipt.getRevertReason();
                 String reasonPart = (revertReason == null || revertReason.isBlank())
                         ? ""
                         : " (revertReason=" + revertReason + ")";
-                throw new RuntimeException("appendAuditRecord mined with failed status " + receipt.getStatus()
-                        + " for tx " + receipt.getTransactionHash() + reasonPart);
+                throw new BlockchainWriteException("appendAuditRecord mined with failed status " + receipt.getStatus()
+                        + " for tx " + receipt.getTransactionHash() + reasonPart, null);
             }
             log.info("[#7] Hash {} anchored on-chain. Tx={} Block={}",
                     hexHash, receipt.getTransactionHash(), receipt.getBlockNumber());
-        } catch (Exception appendEx) {
+        } catch (RuntimeException appendEx) {
             throw classifyAppendFailure(contract, hash, hexHash, appendEx);
         }
     }
 
-    private void ensureSignerOwnsContract(AuditLedgerContract contract, String signer) throws Exception {
+    private void ensureSignerOwnsContract(AuditLedgerContract contract, String signer) {
         String owner = resolveContractOwner(contract);
         if (owner.equalsIgnoreCase(signer)) {
             return;
@@ -278,11 +291,11 @@ public class BlockchainWriterService {
                 "Configured signer does not own AuditLedger contract (owner=" + owner + ", signer=" + signer + ")");
     }
 
-    private String resolveContractOwner(AuditLedgerContract contract) throws Exception {
+    private String resolveContractOwner(AuditLedgerContract contract) {
         String owner;
         try {
             owner = contract.owner();
-        } catch (Exception probeEx) {
+        } catch (RuntimeException probeEx) {
             if (isPermanentContractProbeFailure(probeEx)) {
                 throw new BlockchainNotConfiguredException(
                         "Cannot resolve AuditLedger owner at configured contract address", probeEx);
@@ -297,6 +310,13 @@ public class BlockchainWriterService {
     }
 
     private void validateConfiguration() {
+        validateClientAddress();
+        validatePrivateKeyConfiguration();
+        validateContractAddressConfiguration();
+        validateRetryAndTimeoutBounds();
+    }
+
+    private void validateClientAddress() {
         String clientAddress = props.getClientAddress();
         if (clientAddress == null || clientAddress.isBlank()) {
             throw new BlockchainNotConfiguredException(
@@ -308,8 +328,11 @@ public class BlockchainWriterService {
                     "Blockchain writer has malformed web3j.client-address (expected http(s) URL): "
                             + redactedClientAddress);
         }
-        if (credentials.isEmpty()) {
-            String privateKey = props.getPrivateKey();
+    }
+
+    private void validatePrivateKeyConfiguration() {
+        String privateKey = props.getPrivateKey();
+        if (credentials == null) {
             if (privateKey != null && !privateKey.isBlank()) {
                 throw new BlockchainNotConfiguredException(
                         "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
@@ -317,11 +340,21 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is missing");
         }
-        String privateKey = props.getPrivateKey();
         if (privateKey != null && !privateKey.isBlank() && !Web3jValidationUtils.isValidPrivateKey(privateKey)) {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
         }
+    }
+
+    private Credentials requireCredentials() {
+        if (credentials == null) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.private-key is missing");
+        }
+        return credentials;
+    }
+
+    private void validateContractAddressConfiguration() {
         String addr = props.getContractAddress();
         if (addr == null || addr.isBlank()) {
             throw new BlockchainNotConfiguredException(
@@ -335,18 +368,24 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer has invalid contract address: zero-address is not allowed");
         }
-        if (props.getBlockchainWriteRetries() < 0) {
+    }
+
+    private void validateRetryAndTimeoutBounds() {
+        int retries = props.getBlockchainWriteRetries();
+        if (retries < 0) {
             throw new BlockchainNotConfiguredException(
-                    "web3j.blockchain-write-retries must be >= 0 but was " + props.getBlockchainWriteRetries());
+                    "web3j.blockchain-write-retries must be >= 0 but was " + retries);
         }
-        if (props.getBlockchainWriteRetries() > MAX_BLOCKCHAIN_WRITE_RETRIES) {
+        if (retries > MAX_BLOCKCHAIN_WRITE_RETRIES) {
             throw new BlockchainNotConfiguredException(
                     "web3j.blockchain-write-retries must be <= " + MAX_BLOCKCHAIN_WRITE_RETRIES
-                            + " but was " + props.getBlockchainWriteRetries());
+                            + " but was " + retries);
         }
-        if (props.getReceiptWaitTimeoutSeconds() <= 0) {
+
+        int receiptTimeoutSeconds = props.getReceiptWaitTimeoutSeconds();
+        if (receiptTimeoutSeconds <= 0) {
             throw new BlockchainNotConfiguredException(
-                    "web3j.receipt-wait-timeout-seconds must be > 0 but was " + props.getReceiptWaitTimeoutSeconds());
+                    "web3j.receipt-wait-timeout-seconds must be > 0 but was " + receiptTimeoutSeconds);
         }
     }
 
@@ -368,7 +407,7 @@ public class BlockchainWriterService {
         int questionIdx = url.indexOf('?', authorityStart);
 
         // Find where authority ends (before path or query)
-        int authorityEnd = slashIdx >= 0 ? slashIdx : (questionIdx >= 0 ? questionIdx : url.length());
+        int authorityEnd = resolveAuthorityEnd(url, slashIdx, questionIdx);
         String authority = url.substring(authorityStart, authorityEnd);
 
         // Redact userinfo (before '@')
@@ -381,17 +420,27 @@ public class BlockchainWriterService {
         return url.substring(0, authorityStart) + safeAuthority + "/<redacted>";
     }
 
+    private static int resolveAuthorityEnd(String url, int slashIdx, int questionIdx) {
+        if (slashIdx >= 0) {
+            return slashIdx;
+        }
+        if (questionIdx >= 0) {
+            return questionIdx;
+        }
+        return url.length();
+    }
+
     private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
                                               byte[] hash,
                                               String hexHash,
                                               BigInteger timestamp,
                                               String eventType,
-                                              String source) throws Exception {
+                                              String source) {
         int timeoutSeconds = props.getReceiptWaitTimeoutSeconds();
 
         // Use computeIfAbsent to atomically check and submit for this hash,
         // ensuring only one concurrent transaction per hash is in-flight.
-        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, ignored ->
+        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, hashKey ->
                 new InFlightWrite(
                         submitAppendAuditRecord(contract, hash, timestamp, eventType, source),
                         System.nanoTime()
@@ -421,7 +470,7 @@ public class BlockchainWriterService {
 
     private TransactionReceipt awaitInFlightResult(String hexHash,
                                                    InFlightWrite inFlightWrite,
-                                                   int timeoutSeconds) throws Exception {
+                                                   int timeoutSeconds) {
         Future<TransactionReceipt> future = inFlightWrite.future();
         try {
             TransactionReceipt receipt = future.get(timeoutSeconds, TimeUnit.SECONDS);
@@ -435,17 +484,26 @@ public class BlockchainWriterService {
         } catch (TimeoutException ex) {
             throw new ReceiptTimeoutException(
                     "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt", ex);
-        } catch (java.util.concurrent.ExecutionException ex) {
+        } catch (ExecutionException ex) {
             inFlightWritesByHash.remove(hexHash, inFlightWrite);
             Throwable cause = ex.getCause();
-            if (cause instanceof Exception inner) {
-                throw inner;
+            if (cause instanceof Error error) {
+                throw error;
             }
-            throw new RuntimeException("appendAuditRecord execution failed", cause);
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new ReceiptTimeoutException(
+                        "Interrupted while executing appendAuditRecord asynchronously; transaction outcome is unknown",
+                        interrupted);
+            }
+            throw new BlockchainWriteException("appendAuditRecord execution failed", cause);
         }
     }
 
-    private void awaitInFlightWriteIfPresent(AuditLedgerContract contract, byte[] hash, String hexHash) throws Exception {
+    private void awaitInFlightWriteIfPresent(AuditLedgerContract contract, byte[] hash, String hexHash) {
         InFlightWrite inFlight = inFlightWritesByHash.get(hexHash);
         if (inFlight == null) {
             return;
@@ -456,7 +514,7 @@ public class BlockchainWriterService {
             final boolean hashExists;
             try {
                 hashExists = contract.isHashExists(hash);
-            } catch (Exception probeEx) {
+            } catch (RuntimeException probeEx) {
                 throw new ReceiptTimeoutException(
                         "Timed out waiting " + timeoutSeconds + "s for appendAuditRecord receipt; "
                                 + "existing in-flight write is still pending and chain re-check failed",
@@ -492,7 +550,7 @@ public class BlockchainWriterService {
             receipt = awaitInFlightResult(hexHash, inFlight, timeoutSeconds);
         } catch (ReceiptTimeoutException timeout) {
             throw timeout;
-        } catch (Exception appendEx) {
+        } catch (RuntimeException appendEx) {
             throw classifyAppendFailure(contract, hash, hexHash, appendEx);
         }
 
@@ -514,10 +572,10 @@ public class BlockchainWriterService {
         return ageNanos >= TimeUnit.SECONDS.toNanos(staleThresholdSeconds);
     }
 
-    private Exception classifyAppendFailure(AuditLedgerContract contract,
+    private RuntimeException classifyAppendFailure(AuditLedgerContract contract,
                                             byte[] hash,
                                             String hexHash,
-                                            Exception appendEx) throws Exception {
+                                            RuntimeException appendEx) {
         // Legacy heuristic: some JSON-RPC implementations surface the Solidity custom-error
         // name in the message; use it as a fast-path check.
         if (isDuplicateHashRevert(appendEx)) {
@@ -538,7 +596,7 @@ public class BlockchainWriterService {
                 log.debug("[#7] Post-failure isHashExists confirmed duplicate for hash {}", hexHash);
                 return new DuplicateHashException(hexHash);
             }
-        } catch (Exception checkEx) {
+        } catch (RuntimeException checkEx) {
             log.warn("[#7] Post-failure isHashExists check failed for hash {}: {}", hexHash, checkEx.getMessage());
         }
         return appendEx;

@@ -28,16 +28,16 @@ public class AuditIntegrityCheckService {
                 .flatMap(this::resolveIntegrityResponse);
     }
 
-    private Mono<AuditIntegrityCheckResponse> resolveIntegrityResponse(AuditEventRecord record) {
-        if (!hasText(record.getEventHash())) {
-            return Mono.just(toResponse(record, MISSING_BLOCKCHAIN_RECORD, false));
+    private Mono<AuditIntegrityCheckResponse> resolveIntegrityResponse(AuditEventRecord auditEventRecord) {
+        if (!hasText(auditEventRecord.getEventHash())) {
+            return Mono.just(toResponse(auditEventRecord, MISSING_BLOCKCHAIN_RECORD, false));
         }
 
-        return blockchainClient.inspectEventHash(record.getEventHash())
-                .map(blockchainRecord -> toResponse(record, blockchainRecord, true));
+        return blockchainClient.inspectEventHash(auditEventRecord.getEventHash())
+                .map(blockchainRecord -> toResponse(auditEventRecord, blockchainRecord, true));
     }
 
-    private AuditIntegrityCheckResponse toResponse(AuditEventRecord record,
+    private AuditIntegrityCheckResponse toResponse(AuditEventRecord auditEventRecord,
                                                    AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord,
                                                    boolean hasDbHash) {
         String status;
@@ -47,11 +47,11 @@ public class AuditIntegrityCheckService {
             status = blockchainRecord.exists() ? "ON_CHAIN" : "MISMATCH";
         }
 
-        String normalizedEventHash = hasText(record.getEventHash()) ? record.getEventHash().trim() : null;
+        String normalizedEventHash = hasText(auditEventRecord.getEventHash()) ? auditEventRecord.getEventHash().trim() : null;
 
         return new AuditIntegrityCheckResponse(
-                record.getId(),
-                record.getEventId(),
+                auditEventRecord.getId(),
+                auditEventRecord.getEventId(),
                 normalizedEventHash,
                 blockchainRecord,
                 status

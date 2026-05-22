@@ -148,8 +148,8 @@
                     class="status-chip hash-chip"
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
-                    tabindex="0"
                     [attr.aria-label]="'Integrity status: ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash: ' + element.eventHash : 'Event hash not available')"
+                    tabindex="0"
                   >{{ effectiveIntegrityStatus(element) }}</span>
                 </td>
               </ng-container>

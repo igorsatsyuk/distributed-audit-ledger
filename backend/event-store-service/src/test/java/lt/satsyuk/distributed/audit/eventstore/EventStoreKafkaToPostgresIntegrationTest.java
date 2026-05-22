@@ -29,6 +29,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
@@ -160,7 +161,7 @@ class EventStoreKafkaToPostgresIntegrationTest {
                         rs.getString("event_hash")
                 ));
             }
-        } catch (Exception _) {
+        } catch (SQLException _) {
             return Optional.empty();
         }
     }

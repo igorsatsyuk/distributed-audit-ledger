@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static lt.satsyuk.distributed.audit.auditwriter.testutil.TestWaitUtils.pauseWithoutThreadSleep;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
@@ -159,8 +160,8 @@ class AuditEventConsumerKafkaTestcontainersTest {
         }
     }
 
-    private static String keyAsUtf8(ConsumerRecord<byte[], byte[]> record) {
-        return record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+    private static String keyAsUtf8(ConsumerRecord<byte[], byte[]> consumerRecord) {
+        return consumerRecord.key() == null ? null : new String(consumerRecord.key(), StandardCharsets.UTF_8);
     }
 
     private Long awaitSourceOffsetSettled() throws Exception {
@@ -169,7 +170,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
         long deadlineNanos = System.nanoTime() + Duration.ofSeconds(20).toNanos();
 
         while (System.nanoTime() < deadlineNanos) {
-            Thread.sleep(200L);
+            pauseWithoutThreadSleep(200L);
             Long current = committedSourceOffset();
             if (Objects.equals(current, baseline)) {
                 unchangedReads++;
@@ -184,6 +185,7 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
         throw new IllegalStateException("Source committed offset did not settle within timeout");
     }
+
 
     private KafkaConsumer<byte[], byte[]> buildDltByteArrayConsumer(String groupId) {
         Map<String, Object> consumerProps = new HashMap<>();
@@ -360,10 +362,10 @@ class AuditEventConsumerKafkaTestcontainersTest {
                     .atMost(Duration.ofSeconds(30))
                     .untilAsserted(() -> {
                         ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
-                        for (ConsumerRecord<byte[], byte[]> record : polled) {
-                            String key = record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+                        for (ConsumerRecord<byte[], byte[]> consumerRecord : polled) {
+                            String key = consumerRecord.key() == null ? null : new String(consumerRecord.key(), StandardCharsets.UTF_8);
                             if (poisonKey.equals(key)) {
-                                matched[0] = record;
+                                matched[0] = consumerRecord;
                                 break;
                             }
                         }
@@ -398,10 +400,10 @@ class AuditEventConsumerKafkaTestcontainersTest {
                     .atMost(Duration.ofSeconds(30))
                     .untilAsserted(() -> {
                         ConsumerRecords<byte[], byte[]> polled = dltConsumer.poll(Duration.ofMillis(300));
-                        for (ConsumerRecord<byte[], byte[]> record : polled) {
-                            String key = record.key() == null ? null : new String(record.key(), StandardCharsets.UTF_8);
+                        for (ConsumerRecord<byte[], byte[]> consumerRecord : polled) {
+                            String key = consumerRecord.key() == null ? null : new String(consumerRecord.key(), StandardCharsets.UTF_8);
                             if (tombstoneKey.equals(key)) {
-                                matched[0] = record;
+                                matched[0] = consumerRecord;
                                 break;
                             }
                         }

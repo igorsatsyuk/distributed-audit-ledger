@@ -15,6 +15,8 @@ import org.web3j.tx.gas.ContractGasProvider;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
 /**
  * Web3j contract wrapper for {@code AuditLedger.sol}.
@@ -75,10 +77,13 @@ public class AuditLedgerContract extends Contract {
     public TransactionReceipt appendAuditRecord(byte[] hash,
                                                  BigInteger timestamp,
                                                  String eventType,
-                                                 String source) throws Exception {
-        return executeRemoteCallTransaction(
-                buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
-        ).send();
+                                                 String source) {
+        return executeContractCall(
+                () -> executeRemoteCallTransaction(
+                        buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
+                ).sendAsync().join(),
+                "Failed to append AuditLedger record"
+        );
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code appendAuditRecord}. */
@@ -107,17 +112,23 @@ public class AuditLedgerContract extends Contract {
      * @param hash 32-byte hash to check
      * @return {@code true} if the hash has already been recorded on-chain
      */
-    public boolean isHashExists(byte[] hash) throws Exception {
-        return executeRemoteCallSingleValueReturn(
-                buildIsHashExistsFunction(hash), Boolean.class
-        ).send();
+    public boolean isHashExists(byte[] hash) {
+        return executeContractCall(
+                () -> executeRemoteCallSingleValueReturn(
+                        buildIsHashExistsFunction(hash), Boolean.class
+                ).sendAsync().join(),
+                "Failed to query AuditLedger isHashExists"
+        );
     }
 
     /** Calls Ownable {@code owner()} and returns the current contract owner address. */
-    public String owner() throws Exception {
-        return executeRemoteCallSingleValueReturn(
-                buildOwnerFunction(), String.class
-        ).send();
+    public String owner() {
+        return executeContractCall(
+                () -> executeRemoteCallSingleValueReturn(
+                        buildOwnerFunction(), String.class
+                ).sendAsync().join(),
+                "Failed to query AuditLedger owner"
+        );
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code isHashExists}. */
@@ -135,6 +146,26 @@ public class AuditLedgerContract extends Contract {
                 Collections.emptyList(),
                 Collections.singletonList(new TypeReference<Address>() {})
         );
+    }
+
+    private static <T> T executeContractCall(Supplier<T> contractCall, String message) {
+        try {
+            return contractCall.get();
+        } catch (CompletionException ex) {
+            throw new ContractOperationException(message, unwrapCompletionCause(ex));
+        } catch (RuntimeException ex) {
+            throw new ContractOperationException(message, ex);
+        }
+    }
+
+    private static Throwable unwrapCompletionCause(CompletionException ex) {
+        return ex.getCause() != null ? ex.getCause() : ex;
+    }
+
+    public static final class ContractOperationException extends RuntimeException {
+        public ContractOperationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }
 
