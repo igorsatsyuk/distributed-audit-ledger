@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class KafkaTopicsProperties {
 
     private String auditEvents;
-    private String userLoginEvents = "user.login.events";
+    private String userLoginEvents;
 
     public String getAuditEvents() {
         return hasText(auditEvents) ? auditEvents : userLoginEvents;
