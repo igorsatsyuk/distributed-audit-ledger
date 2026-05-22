@@ -8,7 +8,6 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.invocation.InvocationOnMock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -1043,27 +1042,27 @@ class BlockchainWriterServiceTest {
     }
 
     private static Answer<TransactionReceipt> delayedReceiptAnswer(long delayMillis, TransactionReceipt receipt) {
-        return new Answer<>() {
-            @Override
-            public TransactionReceipt answer(InvocationOnMock invocation) {
-                invocation.getMock();
-                pauseWithoutThreadSleep(delayMillis);
-                return receipt;
-            }
+        return invocation -> {
+            pauseWithoutThreadSleep(delayMillis);
+            return receipt;
         };
     }
 
     private static void pauseWithoutThreadSleep(long millis) {
         long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        while (System.nanoTime() < deadlineNanos) {
-            long remainingNanos = deadlineNanos - System.nanoTime();
-            if (remainingNanos > 0) {
-                LockSupport.parkNanos(Math.min(remainingNanos, TimeUnit.MILLISECONDS.toNanos(1)));
+        long maxParkNanos = TimeUnit.MILLISECONDS.toNanos(1);
+        while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Test wait was interrupted");
             }
-        }
-        if (Thread.currentThread().isInterrupted()) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError("Test wait was interrupted");
+
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0L) {
+                return;
+            }
+
+            LockSupport.parkNanos(Math.min(remainingNanos, maxParkNanos));
         }
     }
 
