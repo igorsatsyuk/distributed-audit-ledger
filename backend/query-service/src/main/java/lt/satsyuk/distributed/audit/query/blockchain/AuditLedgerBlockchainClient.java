@@ -179,8 +179,8 @@ public class AuditLedgerBlockchainClient {
                     timestampFunction.getOutputParameters()
             );
 
-            if (decoded != null && !decoded.isEmpty() && decoded.getFirst() instanceof Uint256) {
-                return ((Uint256) decoded.getFirst()).getValue().longValue();
+            if (decoded != null && !decoded.isEmpty() && decoded.getFirst() instanceof Uint256 uint256) {
+                return uint256.getValue().longValue();
             }
         } catch (Exception e) {
             LOGGER.debug("Failed to decode RecordAppended timestamp from event log; falling back to null", e);

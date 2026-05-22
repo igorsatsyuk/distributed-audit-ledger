@@ -159,8 +159,11 @@ export class AuditDashboardComponent implements OnDestroy {
   parseEventData(item: AuditLog): unknown {
     try {
       return JSON.parse(item.eventDataJson);
-    } catch (_ignored: unknown) {
+    } catch (error: unknown) {
       // eventDataJson is not valid JSON — return the raw string as-is
+      if (error instanceof Error) {
+        console.debug('Failed to parse event data:', error.message);
+      }
       return item.eventDataJson;
     }
   }

@@ -391,7 +391,7 @@ public class BlockchainWriterService {
 
         // Use computeIfAbsent to atomically check and submit for this hash,
         // ensuring only one concurrent transaction per hash is in-flight.
-        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, _ignored ->
+        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, ignored ->
                 new InFlightWrite(
                         submitAppendAuditRecord(contract, hash, timestamp, eventType, source),
                         System.nanoTime()
