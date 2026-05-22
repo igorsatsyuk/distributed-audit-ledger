@@ -403,9 +403,10 @@ jobs:
           projectBaseDir: blockchain
           args: >
             -Dsonar.projectKey=${{ github.event.repository.name }}-blockchain
-            -Dsonar.sources=contracts,scripts
+            -Dsonar.sources=contracts,scripts,hardhat.config.js
             -Dsonar.tests=test,test-js
             -Dsonar.exclusions=node_modules/**,artifacts/**,cache/**
+            -Dsonar.coverage.exclusions=contracts/**
             -Dsonar.javascript.lcov.reportPaths=coverage-js/lcov.info,coverage/lcov.info
             ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
