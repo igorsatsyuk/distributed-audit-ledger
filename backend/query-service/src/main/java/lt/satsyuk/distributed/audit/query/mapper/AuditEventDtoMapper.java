@@ -25,7 +25,7 @@ public interface AuditEventDtoMapper {
         }
         try {
             return EventType.valueOf(value);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             // Return null for unknown event types to avoid breaking the whole request
             // when query-service is deployed behind event-store with a newer enum
             return null;
