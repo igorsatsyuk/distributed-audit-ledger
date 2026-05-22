@@ -1,27 +1,12 @@
 const hre = require("hardhat");
+const { deployAuditLedger } = require("./deployAuditLedger");
 
-async function deployAuditLedger(runtimeEnvironment = hre) {
-  const contract = await runtimeEnvironment.ethers.deployContract("AuditLedger");
-  await contract.waitForDeployment();
-
-  const address = await contract.getAddress();
-  console.log(`AuditLedger deployed to: ${address}`);
-  return address;
+async function main() {
+  await deployAuditLedger(hre);
 }
 
-async function main(runtimeEnvironment = hre) {
-  await deployAuditLedger(runtimeEnvironment);
-}
-
-if (require.main === module) {
-  main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
-}
-
-module.exports = {
-  deployAuditLedger,
-  main
-};
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
 

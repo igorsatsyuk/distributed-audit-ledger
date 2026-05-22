@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,8 +28,16 @@ def parse_kv_file(path: Path) -> dict[str, str]:
 def api_get_json(url: str, token: str) -> dict:
     request = urllib.request.Request(url)
     request.add_header("Authorization", f"Basic {build_basic_auth(token)}")
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        response_body = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Sonar API request failed: {url} returned HTTP {error.code}. Response: {response_body}"
+        ) from error
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"Sonar API request failed: {url}. Reason: {error.reason}") from error
 
 
 def build_basic_auth(token: str) -> str:
@@ -54,7 +63,7 @@ def wait_for_ce_task(ce_task_url: str, token: str, timeout_seconds: int, poll_se
         time.sleep(poll_seconds)
 
 
-def build_measures_url(host_url: str, project_key: str) -> str:
+def build_measures_url(host_url: str, project_key: str, pull_request: str | None, branch: str | None) -> str:
     metric_keys = ",".join(
         [
             "coverage",
@@ -69,10 +78,30 @@ def build_measures_url(host_url: str, project_key: str) -> str:
             "new_duplicated_lines_density",
         ]
     )
-    return (
-        f"{host_url}/api/measures/component?"
-        f"component={urllib.parse.quote(project_key)}&metricKeys={urllib.parse.quote(metric_keys)}"
-    )
+    query = {
+        "component": project_key,
+        "metricKeys": metric_keys,
+    }
+    if pull_request:
+        query["pullRequest"] = pull_request
+    elif branch:
+        query["branch"] = branch
+    return f"{host_url}/api/measures/component?{urllib.parse.urlencode(query)}"
+
+
+def detect_analysis_scope() -> tuple[str | None, str | None]:
+    event_path = os.getenv("GITHUB_EVENT_PATH", "")
+    if event_path:
+        try:
+            event_payload = json.loads(Path(event_path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            event_payload = {}
+        pull_request_number = event_payload.get("pull_request", {}).get("number")
+        if pull_request_number is not None:
+            return str(pull_request_number), None
+
+    branch = (os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME") or "").strip()
+    return None, branch or None
 
 
 def to_measure_map(payload: dict) -> dict[str, str]:
@@ -119,23 +148,28 @@ def main() -> int:
         print("ceTaskUrl is missing in report-task.txt", file=sys.stderr)
         return 2
 
-    print(f"Waiting for Sonar CE task: {ce_task_url}")
-    task = wait_for_ce_task(ce_task_url, token, args.timeout_seconds, args.poll_seconds)
-    task_status = task.get("status", "UNKNOWN")
-    analysis_id = task.get("analysisId")
+    try:
+        print(f"Waiting for Sonar CE task: {ce_task_url}")
+        task = wait_for_ce_task(ce_task_url, token, args.timeout_seconds, args.poll_seconds)
+        task_status = task.get("status", "UNKNOWN")
+        analysis_id = task.get("analysisId")
 
-    if task_status != "SUCCESS" or not analysis_id:
-        print(f"Sonar CE task status is {task_status}; analysisId={analysis_id}", file=sys.stderr)
+        if task_status != "SUCCESS" or not analysis_id:
+            print(f"Sonar CE task status is {task_status}; analysisId={analysis_id}", file=sys.stderr)
+            return 1
+
+        qg_url = f"{host_url}/api/qualitygates/project_status?analysisId={urllib.parse.quote(analysis_id)}"
+        qg_payload = api_get_json(qg_url, token)
+        project_status = qg_payload.get("projectStatus", {})
+        gate_status = project_status.get("status", "NONE")
+        conditions = project_status.get("conditions", [])
+
+        pull_request, branch = detect_analysis_scope()
+        measures_url = build_measures_url(host_url, args.project_key, pull_request, branch)
+        measures = to_measure_map(api_get_json(measures_url, token))
+    except RuntimeError as error:
+        print(str(error), file=sys.stderr)
         return 1
-
-    qg_url = f"{host_url}/api/qualitygates/project_status?analysisId={urllib.parse.quote(analysis_id)}"
-    qg_payload = api_get_json(qg_url, token)
-    project_status = qg_payload.get("projectStatus", {})
-    gate_status = project_status.get("status", "NONE")
-    conditions = project_status.get("conditions", [])
-
-    measures_url = build_measures_url(host_url, args.project_key)
-    measures = to_measure_map(api_get_json(measures_url, token))
 
     print(f"Quality Gate ({args.component_name}): {gate_status}")
     print("Measures:")
