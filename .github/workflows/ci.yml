@@ -376,6 +376,7 @@ jobs:
         run: |
           expected_sol="blockchain/coverage/lcov.info"
           found_sol=$(find . -path "*/coverage/lcov.info" 2>/dev/null | head -1 || true)
+          found_sol=${found_sol#./}
           if [ -n "$found_sol" ] && [ "$found_sol" != "$expected_sol" ]; then
             mkdir -p "$(dirname "$expected_sol")"
             cp "$found_sol" "$expected_sol"
@@ -384,6 +385,7 @@ jobs:
 
           expected_js="blockchain/coverage-js/lcov.info"
           found_js=$(find . -path "*/coverage-js/lcov.info" 2>/dev/null | head -1 || true)
+          found_js=${found_js#./}
           if [ -n "$found_js" ] && [ "$found_js" != "$expected_js" ]; then
             mkdir -p "$(dirname "$expected_js")"
             cp "$found_js" "$expected_js"
