@@ -1,5 +1,5 @@
 const { expect } = require("chai");
-const { deployAuditLedger } = require("../scripts/deploy");
+const { deployAuditLedger, main } = require("../scripts/deploy");
 
 describe("deploy script", function () {
   it("deployAuditLedger deploys AuditLedger and returns address", async function () {
@@ -33,6 +33,27 @@ describe("deploy script", function () {
     } finally {
       console.log = originalLog;
     }
+  });
+
+  it("main delegates to deploy flow with injected runtime", async function () {
+    const deployedAddress = "0x9999999999999999999999999999999999999999";
+    let deployCalls = 0;
+
+    const fakeRuntime = {
+      ethers: {
+        deployContract: async () => {
+          deployCalls += 1;
+          return {
+            waitForDeployment: async () => {},
+            getAddress: async () => deployedAddress
+          };
+        }
+      }
+    };
+
+    await main(fakeRuntime);
+
+    expect(deployCalls).to.equal(1);
   });
 });
 

@@ -9,8 +9,8 @@ async function deployAuditLedger(runtimeEnvironment = hre) {
   return address;
 }
 
-async function main() {
-  await deployAuditLedger();
+async function main(runtimeEnvironment = hre) {
+  await deployAuditLedger(runtimeEnvironment);
 }
 
 if (require.main === module) {
