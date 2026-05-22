@@ -8,16 +8,15 @@ import org.web3j.abi.datatypes.generated.Bytes32;
 import org.web3j.abi.datatypes.generated.Uint256;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
-import org.web3j.protocol.exceptions.TransactionException;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.tx.Contract;
 import org.web3j.tx.gas.ContractGasProvider;
 
-import java.io.IOException;
-
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
 /**
  * Web3j contract wrapper for {@code AuditLedger.sol}.
@@ -75,18 +74,16 @@ public class AuditLedgerContract extends Contract {
      * @param source    Ethereum address of the sending service account
      * @return the mined {@link TransactionReceipt}
      */
-    @SuppressWarnings("java:S112")
     public TransactionReceipt appendAuditRecord(byte[] hash,
                                                  BigInteger timestamp,
                                                  String eventType,
                                                  String source) {
-        try {
-            return executeRemoteCallTransaction(
-                    buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
-            ).send();
-        } catch (Exception ex) {
-            throw new ContractOperationException("Failed to append AuditLedger record", ex);
-        }
+        return executeContractCall(
+                () -> executeRemoteCallTransaction(
+                        buildAppendAuditRecordFunction(hash, timestamp, eventType, source)
+                ).sendAsync().join(),
+                "Failed to append AuditLedger record"
+        );
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code appendAuditRecord}. */
@@ -115,27 +112,23 @@ public class AuditLedgerContract extends Contract {
      * @param hash 32-byte hash to check
      * @return {@code true} if the hash has already been recorded on-chain
      */
-    @SuppressWarnings("java:S112")
     public boolean isHashExists(byte[] hash) {
-        try {
-            return executeRemoteCallSingleValueReturn(
-                    buildIsHashExistsFunction(hash), Boolean.class
-            ).send();
-        } catch (Exception ex) {
-            throw new ContractOperationException("Failed to query AuditLedger isHashExists", ex);
-        }
+        return executeContractCall(
+                () -> executeRemoteCallSingleValueReturn(
+                        buildIsHashExistsFunction(hash), Boolean.class
+                ).sendAsync().join(),
+                "Failed to query AuditLedger isHashExists"
+        );
     }
 
     /** Calls Ownable {@code owner()} and returns the current contract owner address. */
-    @SuppressWarnings("java:S112")
     public String owner() {
-        try {
-            return executeRemoteCallSingleValueReturn(
-                    buildOwnerFunction(), String.class
-            ).send();
-        } catch (Exception ex) {
-            throw new ContractOperationException("Failed to query AuditLedger owner", ex);
-        }
+        return executeContractCall(
+                () -> executeRemoteCallSingleValueReturn(
+                        buildOwnerFunction(), String.class
+                ).sendAsync().join(),
+                "Failed to query AuditLedger owner"
+        );
     }
 
     /** Package-private: builds the ABI-encoded {@link Function} for {@code isHashExists}. */
@@ -153,6 +146,20 @@ public class AuditLedgerContract extends Contract {
                 Collections.emptyList(),
                 Collections.singletonList(new TypeReference<Address>() {})
         );
+    }
+
+    private static <T> T executeContractCall(Supplier<T> contractCall, String message) {
+        try {
+            return contractCall.get();
+        } catch (CompletionException ex) {
+            throw new ContractOperationException(message, unwrapCompletionCause(ex));
+        } catch (RuntimeException ex) {
+            throw new ContractOperationException(message, ex);
+        }
+    }
+
+    private static Throwable unwrapCompletionCause(CompletionException ex) {
+        return ex.getCause() != null ? ex.getCause() : ex;
     }
 
     public static final class ContractOperationException extends RuntimeException {

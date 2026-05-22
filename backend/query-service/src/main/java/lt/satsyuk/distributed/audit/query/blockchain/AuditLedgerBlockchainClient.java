@@ -246,8 +246,8 @@ public class AuditLedgerBlockchainClient {
                     || "127.0.0.1".equals(host)
                     || "::1".equals(host)
                     || "host.docker.internal".equalsIgnoreCase(host);
-        } catch (Exception ignored) {
-            // URI.create() may throw if the address is not parseable — treat as non-local
+        } catch (IllegalArgumentException invalidUri) {
+            LOGGER.debug("Failed to parse RPC endpoint '{}'; treating it as non-local", clientAddress, invalidUri);
             return false;
         }
     }

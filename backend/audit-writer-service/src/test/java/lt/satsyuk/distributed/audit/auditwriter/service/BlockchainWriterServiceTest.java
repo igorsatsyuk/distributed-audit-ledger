@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -67,7 +66,7 @@ class BlockchainWriterServiceTest {
         lenient().when(credentials.getAddress()).thenReturn("0xsender");
         lenient().when(contract.owner()).thenReturn("0xsender");
 
-        service = new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L);
+        service = new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
     }
 
     @Test
@@ -87,7 +86,7 @@ class BlockchainWriterServiceTest {
                                                                       String expectedMessagePart) {
         props.setPrivateKey(privateKey);
         BlockchainWriterService noCredService =
-                new BlockchainWriterService(web3j, Optional.empty(), props, hashService, 0L);
+                new BlockchainWriterService(web3j, null, props, hashService, 0L);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
 
         assertThatThrownBy(() -> noCredService.anchorEvent(event))
@@ -213,7 +212,7 @@ class BlockchainWriterServiceTest {
                     .thenReturn(contract);
 
             BlockchainWriterService fastRetryService =
-                    new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L);
+                    new BlockchainWriterService(web3j, credentials, props, hashService, 0L);
 
             assertThatThrownBy(() -> fastRetryService.anchorEvent(event))
                     .isInstanceOf(BlockchainWriterService.BlockchainWriteException.class)
@@ -604,7 +603,7 @@ class BlockchainWriterServiceTest {
                 .thenThrow(new RejectedExecutionException("executor queue is full"));
 
         BlockchainWriterService serviceWithRejectingExecutor =
-                new BlockchainWriterService(web3j, Optional.of(credentials), props, hashService, 0L, rejectingExecutor);
+                new BlockchainWriterService(web3j, credentials, props, hashService, 0L, rejectingExecutor);
 
         try (MockedStatic<AuditLedgerContract> mocked = mockStatic(AuditLedgerContract.class)) {
             mocked.when(() -> AuditLedgerContract.load(anyString(), any(), any(), any()))

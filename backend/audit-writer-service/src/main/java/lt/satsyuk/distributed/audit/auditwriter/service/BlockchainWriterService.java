@@ -8,6 +8,7 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Hash;
 import org.web3j.crypto.Credentials;
@@ -84,7 +85,7 @@ public class BlockchainWriterService {
     private static final AtomicInteger WAITER_COUNTER = new AtomicInteger(0);
 
     private final Web3j web3j;
-    private final Optional<Credentials> credentials;
+    private final Credentials credentials;
     private final Web3jProperties props;
     private final HashCalculationService hashService;
     private final long retryDelayMs;
@@ -93,20 +94,19 @@ public class BlockchainWriterService {
     private final ConcurrentHashMap<String, InFlightWrite> inFlightWritesByHash = new ConcurrentHashMap<>();
 
     /**
-     * {@code credentials} is optional — injected as empty Optional when the private-key
-     * property is blank (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
-     * Using Optional ensures the service will not wait for a non-existent Credentials bean
-     * at startup; instead, the configuration check happens when anchorEvent() is called.
+     * Credentials are requested lazily from Spring so the service can still start when the
+     * private-key bean is absent (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
+     * Runtime validation still happens in {@link #anchorEvent(AuditEvent)}.
      */
     public BlockchainWriterService(Web3j web3j,
-                                    Optional<Credentials> credentials,
+                                    ObjectProvider<Credentials> credentialsProvider,
                                     Web3jProperties props,
                                     HashCalculationService hashService) {
-        this(web3j, credentials, props, hashService, RETRY_DELAY_MS);
+        this(web3j, credentialsProvider.getIfAvailable(), props, hashService, RETRY_DELAY_MS);
     }
 
     BlockchainWriterService(Web3j web3j,
-                            Optional<Credentials> credentials,
+                            Credentials credentials,
                             Web3jProperties props,
                             HashCalculationService hashService,
                             long retryDelayMs) {
@@ -120,7 +120,7 @@ public class BlockchainWriterService {
     }
 
     BlockchainWriterService(Web3j web3j,
-                            Optional<Credentials> credentials,
+                            Credentials credentials,
                             Web3jProperties props,
                             HashCalculationService hashService,
                             long retryDelayMs,
@@ -229,8 +229,9 @@ public class BlockchainWriterService {
     // -------------------------------------------------------------------------
 
     private void writeToBlockchain(AuditEvent event, byte[] hash, String hexHash, int attempt) {
+        Credentials signerCredentials = requireCredentials();
         AuditLedgerContract contract = AuditLedgerContract.load(
-                props.getContractAddress(), web3j, credentials.get(), new DefaultGasProvider());
+                props.getContractAddress(), web3j, signerCredentials, new DefaultGasProvider());
 
         // If a previous write for this hash is still in-flight, inspect it first instead of
         // blindly sending a new tx.
@@ -252,7 +253,7 @@ public class BlockchainWriterService {
             throw new DuplicateHashException(hexHash);
         }
 
-        String signer = credentials.get().getAddress();
+        String signer = signerCredentials.getAddress();
         ensureSignerOwnsContract(contract, signer);
 
         Instant occurredAt = resolveOccurredAt(event);
@@ -331,7 +332,7 @@ public class BlockchainWriterService {
 
     private void validatePrivateKeyConfiguration() {
         String privateKey = props.getPrivateKey();
-        if (credentials.isEmpty()) {
+        if (credentials == null) {
             if (privateKey != null && !privateKey.isBlank()) {
                 throw new BlockchainNotConfiguredException(
                         "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
@@ -343,6 +344,14 @@ public class BlockchainWriterService {
             throw new BlockchainNotConfiguredException(
                     "Blockchain writer is not configured: web3j.private-key is malformed (expected 64 hex chars, optional 0x prefix)");
         }
+    }
+
+    private Credentials requireCredentials() {
+        if (credentials == null) {
+            throw new BlockchainNotConfiguredException(
+                    "Blockchain writer is not configured: web3j.private-key is missing");
+        }
+        return credentials;
     }
 
     private void validateContractAddressConfiguration() {
@@ -398,7 +407,7 @@ public class BlockchainWriterService {
         int questionIdx = url.indexOf('?', authorityStart);
 
         // Find where authority ends (before path or query)
-        int authorityEnd = slashIdx >= 0 ? slashIdx : (questionIdx >= 0 ? questionIdx : url.length());
+        int authorityEnd = resolveAuthorityEnd(url, slashIdx, questionIdx);
         String authority = url.substring(authorityStart, authorityEnd);
 
         // Redact userinfo (before '@')
@@ -411,6 +420,16 @@ public class BlockchainWriterService {
         return url.substring(0, authorityStart) + safeAuthority + "/<redacted>";
     }
 
+    private static int resolveAuthorityEnd(String url, int slashIdx, int questionIdx) {
+        if (slashIdx >= 0) {
+            return slashIdx;
+        }
+        if (questionIdx >= 0) {
+            return questionIdx;
+        }
+        return url.length();
+    }
+
     private TransactionReceipt waitForReceipt(AuditLedgerContract contract,
                                               byte[] hash,
                                               String hexHash,
@@ -421,7 +440,7 @@ public class BlockchainWriterService {
 
         // Use computeIfAbsent to atomically check and submit for this hash,
         // ensuring only one concurrent transaction per hash is in-flight.
-        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, ignored ->
+        InFlightWrite inFlightWrite = inFlightWritesByHash.computeIfAbsent(hexHash, hashKey ->
                 new InFlightWrite(
                         submitAppendAuditRecord(contract, hash, timestamp, eventType, source),
                         System.nanoTime()
