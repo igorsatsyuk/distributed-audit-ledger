@@ -5,12 +5,14 @@ import lt.satsyuk.distributed.audit.event.UserProfileChangedEvent;
 import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import lt.satsyuk.distributed.audit.eventstore.config.KafkaTopicsProperties;
 import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,7 +31,7 @@ class AuditEventConsumerTest {
         when(persistenceService.persist(any(AuditEvent.class))).thenReturn(Mono.empty());
 
         AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
-        consumer.consume(UserLoggedInEvent.of("user-9", "198.51.100.22", "JUnit"), "event-key");
+        consumer.consume(recordOf(UserLoggedInEvent.of("user-9", "198.51.100.22", "JUnit")));
 
         verify(persistenceService).persist(any(UserLoggedInEvent.class));
     }
@@ -41,18 +43,22 @@ class AuditEventConsumerTest {
         AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
         AuditEvent profileChanged = UserProfileChangedEvent.of("user-9", java.util.Map.of("email", "u@example.com"));
 
-        consumer.consume(profileChanged, "event-key");
+        consumer.consume(recordOf(profileChanged));
 
         verify(persistenceService).persist(profileChanged);
     }
 
     @Test
-    void consumeSkipsNullEvent() {
+    void consumeThrowsOnNullEvent() {
         AuditEventConsumer consumer = new AuditEventConsumer(persistenceService, TOPICS);
 
-        consumer.consume(null, "event-key");
+        assertThrows(IllegalStateException.class, () -> consumer.consume(recordOf(null)));
 
         verify(persistenceService, never()).persist(any(AuditEvent.class));
+    }
+
+    private static ConsumerRecord<String, AuditEvent> recordOf(AuditEvent event) {
+        return new ConsumerRecord<>("user.login.events", 0, 0L, "event-key", event);
     }
 }
 
