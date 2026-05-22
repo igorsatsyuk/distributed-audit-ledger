@@ -15,6 +15,7 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.web3j.protocol.exceptions.TransactionException;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.tx.gas.DefaultGasProvider;
 import org.web3j.tx.response.PollingTransactionReceiptProcessor;
@@ -82,7 +83,7 @@ class AuditLedgerContractGanacheTest {
     private static AuditLedgerContract contract;
 
     @BeforeAll
-    static void deployContract() throws Exception {
+    static void deployContract() throws IOException, TransactionException {
         String rpcUrl = "http://" + GANACHE.getHost() + ":" + GANACHE.getMappedPort(8545);
         web3j   = Web3j.build(new HttpService(rpcUrl));
         owner   = Credentials.create(OWNER_PRIVATE_KEY);
@@ -108,7 +109,7 @@ class AuditLedgerContractGanacheTest {
      * path of both write and read wrapper methods.
      */
     @Test
-    void appendAuditRecord_anchorsHashAndIsHashExistsConfirmsIt() throws Exception {
+    void appendAuditRecord_anchorsHashAndIsHashExistsConfirmsIt() {
         byte[] hash          = randomHash();
         BigInteger timestamp = BigInteger.valueOf(Instant.now().getEpochSecond());
 
@@ -131,7 +132,7 @@ class AuditLedgerContractGanacheTest {
 
     /** Read-only path: {@code isHashExists} returns {@code false} for an un-anchored hash. */
     @Test
-    void isHashExists_returnsFalseForUnknownHash() throws Exception {
+    void isHashExists_returnsFalseForUnknownHash() {
         assertThat(contract.isHashExists(randomHash()))
                 .as("isHashExists must return false for a hash that was never anchored")
                 .isFalse();
@@ -142,7 +143,7 @@ class AuditLedgerContractGanacheTest {
      * {@code buildOwnerFunction()} is correctly encoded.
      */
     @Test
-    void owner_returnsDeployerAddress() throws Exception {
+    void owner_returnsDeployerAddress() {
         assertThat(contract.owner())
                 .as("owner() must equal the deployer address")
                 .isEqualToIgnoringCase(owner.getAddress());
@@ -163,7 +164,7 @@ class AuditLedgerContractGanacheTest {
      * {@code /AuditLedger.bytecode} classpath resource, then submitting a raw signed
      * contract-creation transaction.  Returns the deployed contract address once mined.
      */
-    private static String deployAuditLedger(Web3j web3j, Credentials credentials) throws Exception {
+    private static String deployAuditLedger(Web3j web3j, Credentials credentials) throws IOException, TransactionException {
         String bytecode = resolveAuditLedgerBytecode();
 
         long chainId = web3j.ethChainId().send().getChainId().longValue();

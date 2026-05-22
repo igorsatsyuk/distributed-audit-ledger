@@ -8,6 +8,7 @@ import lt.satsyuk.distributed.audit.event.UserLoggedInEvent;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Hash;
@@ -98,6 +99,7 @@ public class BlockchainWriterService {
      * private-key bean is absent (see {@link lt.satsyuk.distributed.audit.auditwriter.config.Web3jConfig}).
      * Runtime validation still happens in {@link #anchorEvent(AuditEvent)}.
      */
+    @Autowired
     public BlockchainWriterService(Web3j web3j,
                                     ObjectProvider<Credentials> credentialsProvider,
                                     Web3jProperties props,

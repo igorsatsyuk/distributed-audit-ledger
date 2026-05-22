@@ -18,8 +18,10 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,8 +43,9 @@ class AuditLogQueryServiceTest {
 
     @Test
     void findAuditLogsAppliesFilterAndMapsRecords() {
-        AuditEventRecord eventRecord = sampleRecord(101L, "user-1");
-        AuditEventDto dto = AuditEventDto.builder().id(101L).userId("user-1").build();
+        AuditEventRecord eventRecord = sampleRecord();
+        // Mapper contract test only needs identity equality, not DTO field mutation.
+        AuditEventDto dto = mock(AuditEventDto.class);
 
         when(auditLogQueryRepository.findByFilter(any())).thenReturn(Flux.just(eventRecord));
         when(mapper.toDto(eventRecord)).thenReturn(dto);
@@ -57,6 +60,7 @@ class AuditLogQueryServiceTest {
                 )
                 .blockFirst();
 
+        assertNotNull(result);
         assertEquals(dto, result);
 
         ArgumentCaptor<AuditLogFilter> filterCaptor = ArgumentCaptor.forClass(AuditLogFilter.class);
@@ -69,56 +73,64 @@ class AuditLogQueryServiceTest {
 
     @Test
     void findAuditLogsRejectsInvalidRange() {
-        assertThrows(QueryValidationException.class,
-                () -> service.findAuditLogs(
-                        null,
-                        null,
-                        Instant.parse("2026-05-20T00:00:00Z"),
-                        Instant.parse("2026-05-10T00:00:00Z"),
-                        10,
-                        0L
-                ));
+        Instant from = Instant.parse("2026-05-20T00:00:00Z");
+        Instant to = Instant.parse("2026-05-10T00:00:00Z");
+
+        assertThrows(QueryValidationException.class, () -> blockAuditLogsWithRange(from, to));
     }
 
     @Test
     void findAuditLogsRejectsNegativeLimit() {
-        assertThrows(QueryValidationException.class,
-                () -> service.findAuditLogs(null, null, null, null, -1, 0L));
+        assertThrows(QueryValidationException.class, () -> blockAuditLogsWithLimit(-1));
     }
 
     @Test
     void findAuditLogsRejectsZeroLimit() {
-        assertThrows(QueryValidationException.class,
-                () -> service.findAuditLogs(null, null, null, null, 0, 0L));
+        assertThrows(QueryValidationException.class, () -> blockAuditLogsWithLimit(0));
     }
 
     @Test
     void findAuditLogsRejectsNegativeOffset() {
-        assertThrows(QueryValidationException.class,
-                () -> service.findAuditLogs(null, null, null, null, 100, -1L));
+        assertThrows(QueryValidationException.class, this::blockAuditLogsWithNegativeOffset);
     }
 
     @Test
     void findAuditLogsRejectsLimitAboveMax() {
-        assertThrows(QueryValidationException.class,
-                () -> service.findAuditLogs(null, null, null, null, 1000, 0L));
+        assertThrows(QueryValidationException.class, () -> blockAuditLogsWithLimit(1000));
     }
 
     @Test
     void findByIdThrowsNotFoundWhenRecordMissing() {
         when(auditLogQueryRepository.findById(404L)).thenReturn(Mono.empty());
 
-        assertThrows(AuditLogNotFoundException.class, () -> service.findById(404L).block());
+        assertThrows(AuditLogNotFoundException.class, this::blockMissingAuditLogById);
     }
 
-    private AuditEventRecord sampleRecord(Long id, String userId) {
+    private AuditEventRecord sampleRecord() {
         AuditEventRecord eventRecord = new AuditEventRecord();
-        eventRecord.setId(id);
-        eventRecord.setEventId("event-" + id);
+        eventRecord.setId(101L);
+        eventRecord.setEventId("event-101");
         eventRecord.setEventType("USER_LOGGED_IN");
-        eventRecord.setUserId(userId);
+        eventRecord.setUserId("user-1");
         eventRecord.setCreatedAt(LocalDateTime.of(2026, 5, 16, 10, 0));
-        eventRecord.setPayload("{\"userId\":\"" + userId + "\"}");
+        eventRecord.setPayload("{\"userId\":\"user-1\"}");
         return eventRecord;
     }
+
+    private void blockAuditLogsWithRange(Instant from, Instant to) {
+        service.findAuditLogs(null, null, from, to, 10, 0L).blockFirst();
+    }
+
+    private void blockAuditLogsWithLimit(int limit) {
+        service.findAuditLogs(null, null, null, null, limit, 0L).blockFirst();
+    }
+
+    private void blockAuditLogsWithNegativeOffset() {
+        service.findAuditLogs(null, null, null, null, 100, -1L).blockFirst();
+    }
+
+    private void blockMissingAuditLogById() {
+        service.findById(404L).block();
+    }
+
 }

@@ -48,8 +48,9 @@ class AuditEventConsumerTest {
     @Test
     void consumeThrowsOnNullEvent() {
         AuditEventConsumer consumer = new AuditEventConsumer(persistenceService);
+        ConsumerRecord<String, AuditEvent> nullRecord = recordOf(null);
 
-        assertThrows(IllegalStateException.class, () -> consumer.consume(recordOf(null)));
+        assertThrows(IllegalStateException.class, () -> consumer.consume(nullRecord));
 
         verify(persistenceService, never()).persist(any(AuditEvent.class));
     }

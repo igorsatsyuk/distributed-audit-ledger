@@ -15,6 +15,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -90,10 +91,11 @@ class UserLoginCommandServiceTest {
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("kafka unavailable")));
 
         UserLoginCommand command = UserLoginCommand.builder().userId("user1").build();
+        Mono<CommandResponse> responseMono = userLoginCommandService.handleUserLogin(command, null, null);
 
         CommandPublishException exception = assertThrows(
                 CommandPublishException.class,
-                () -> userLoginCommandService.handleUserLogin(command, null, null).block()
+                responseMono::block
         );
 
         assertTrue(exception.getMessage().contains("Failed to publish event"));
@@ -107,10 +109,11 @@ class UserLoginCommandServiceTest {
                 .thenThrow(new IllegalStateException("invalid producer state"));
 
         UserLoginCommand command = UserLoginCommand.builder().userId("user1").build();
+        Mono<CommandResponse> responseMono = userLoginCommandService.handleUserLogin(command, null, null);
 
         CommandPublishException exception = assertThrows(
                 CommandPublishException.class,
-                () -> userLoginCommandService.handleUserLogin(command, null, null).block()
+                responseMono::block
         );
 
         assertTrue(exception.getMessage().contains("Failed to publish event"));

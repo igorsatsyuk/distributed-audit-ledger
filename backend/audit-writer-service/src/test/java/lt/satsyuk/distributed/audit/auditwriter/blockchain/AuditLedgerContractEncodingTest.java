@@ -64,13 +64,10 @@ class AuditLedgerContractEncodingTest {
         String encoded = FunctionEncoder.encode(fn);
 
         assertThat(encoded)
-                .as("call must start with appendAuditRecord selector")
-                .startsWith("0x5002047e");
-
-        // 0x + 8 (selector) + 64 (bytes32) + 64 (uint256) + 64 (offset) + 64 (address)
-        // + 64 (string length) + 64 (string data padded) = 2 + 8 + 384 = 394 chars
-        assertThat(encoded)
-                .as("encoded call length must match ABI parameter encoding for (bytes32,uint256,string,address)")
+                .as("appendAuditRecord encoded call must have the expected selector and ABI length")
+                .startsWith("0x5002047e")
+                // 0x + 8 (selector) + 64 (bytes32) + 64 (uint256) + 64 (offset) + 64 (address)
+                // + 64 (string length) + 64 (string data padded) = 2 + 8 + 384 = 394 chars
                 .hasSize(394);
     }
 
@@ -89,12 +86,9 @@ class AuditLedgerContractEncodingTest {
         String encoded = FunctionEncoder.encode(fn);
 
         assertThat(encoded)
-                .as("call must start with isHashExists selector")
-                .startsWith("0x3bd4c457");
-
-        // 0x + 8 (selector) + 64 (bytes32) = 74 chars
-        assertThat(encoded)
-                .as("encoded call length must match ABI parameter encoding for (bytes32)")
+                .as("isHashExists encoded call must have the expected selector and ABI length")
+                .startsWith("0x3bd4c457")
+                // 0x + 8 (selector) + 64 (bytes32) = 74 chars
                 .hasSize(74);
     }
 }

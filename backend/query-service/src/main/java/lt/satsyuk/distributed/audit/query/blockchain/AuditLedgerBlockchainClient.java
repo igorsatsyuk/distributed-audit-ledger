@@ -116,7 +116,7 @@ public class AuditLedgerBlockchainClient {
                     BlockchainIntegrityException.ErrorType.RPC_FAILURE);
         }
 
-        List<Type> decoded = FunctionReturnDecoder.decode(ethCall.getValue(), function.getOutputParameters());
+        List<? extends Type> decoded = FunctionReturnDecoder.decode(ethCall.getValue(), function.getOutputParameters());
         if (decoded == null || decoded.isEmpty()) {
             throw new BlockchainIntegrityException(
                     "Blockchain contract mismatch: eth_call returned empty or undecodable value for isHashExists (check contract address / ABI)",
@@ -181,7 +181,7 @@ public class AuditLedgerBlockchainClient {
                     Collections.emptyList(),
                     Collections.singletonList(new TypeReference<Uint256>() {})
             );
-            List<Type> decoded = FunctionReturnDecoder.decode(
+            List<? extends Type> decoded = FunctionReturnDecoder.decode(
                     log.getData(),
                     timestampFunction.getOutputParameters()
             );
