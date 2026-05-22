@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -32,6 +31,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static lt.satsyuk.distributed.audit.auditwriter.testutil.TestWaitUtils.pauseWithoutThreadSleep;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -1048,23 +1048,6 @@ class BlockchainWriterServiceTest {
         };
     }
 
-    private static void pauseWithoutThreadSleep(long millis) {
-        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        long maxParkNanos = TimeUnit.MILLISECONDS.toNanos(1);
-        while (true) {
-            if (Thread.currentThread().isInterrupted()) {
-                Thread.currentThread().interrupt();
-                throw new AssertionError("Test wait was interrupted");
-            }
-
-            long remainingNanos = deadlineNanos - System.nanoTime();
-            if (remainingNanos <= 0L) {
-                return;
-            }
-
-            LockSupport.parkNanos(Math.min(remainingNanos, maxParkNanos));
-        }
-    }
 
     private static Class<?> findInFlightWriteClass() {
         return java.util.Arrays.stream(BlockchainWriterService.class.getDeclaredClasses())

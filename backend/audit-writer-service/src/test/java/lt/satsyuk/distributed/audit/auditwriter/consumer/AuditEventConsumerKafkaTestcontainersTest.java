@@ -41,9 +41,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static lt.satsyuk.distributed.audit.auditwriter.testutil.TestWaitUtils.pauseWithoutThreadSleep;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
@@ -186,23 +186,6 @@ class AuditEventConsumerKafkaTestcontainersTest {
         throw new IllegalStateException("Source committed offset did not settle within timeout");
     }
 
-    private static void pauseWithoutThreadSleep(long millis) {
-        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        long maxParkNanos = TimeUnit.MILLISECONDS.toNanos(1);
-        while (true) {
-            if (Thread.currentThread().isInterrupted()) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Test wait was interrupted");
-            }
-
-            long remainingNanos = deadlineNanos - System.nanoTime();
-            if (remainingNanos <= 0L) {
-                return;
-            }
-
-            LockSupport.parkNanos(Math.min(remainingNanos, maxParkNanos));
-        }
-    }
 
     private KafkaConsumer<byte[], byte[]> buildDltByteArrayConsumer(String groupId) {
         Map<String, Object> consumerProps = new HashMap<>();
