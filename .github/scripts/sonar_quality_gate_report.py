@@ -105,13 +105,15 @@ def main() -> int:
         print("SONAR_TOKEN is missing", file=sys.stderr)
         return 2
 
-    host_url = os.getenv("SONAR_HOST_URL", "https://sonarcloud.io").rstrip("/")
+    configured_host_url = (os.getenv("SONAR_HOST_URL") or "").strip()
     report_task_path = Path(args.report_task_file)
     if not report_task_path.exists():
         print(f"report-task.txt not found: {report_task_path}", file=sys.stderr)
         return 2
 
     report = parse_kv_file(report_task_path)
+    report_server_url = (report.get("serverUrl") or "").strip()
+    host_url = (configured_host_url or report_server_url or "https://sonarcloud.io").rstrip("/")
     ce_task_url = report.get("ceTaskUrl")
     if not ce_task_url:
         print("ceTaskUrl is missing in report-task.txt", file=sys.stderr)
