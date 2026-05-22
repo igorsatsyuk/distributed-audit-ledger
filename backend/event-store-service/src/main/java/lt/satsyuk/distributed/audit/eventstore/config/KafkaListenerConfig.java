@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.eventstore.config;
 
 import lt.satsyuk.distributed.audit.event.AuditEvent;
+import lt.satsyuk.distributed.audit.eventstore.consumer.AuditEventConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
@@ -58,6 +60,10 @@ public class KafkaListenerConfig {
                 recoverer(),
                 new FixedBackOff(100, 3)
         );
+        errorHandler.addNotRetryableExceptions(
+                AuditEventConsumer.SkippableDeserializationException.class,
+                DeserializationException.class
+        );
         factory.setCommonErrorHandler(errorHandler);
 
         return factory;
@@ -65,14 +71,37 @@ public class KafkaListenerConfig {
 
     @Bean
     public ConsumerRecordRecoverer recoverer() {
-        return (record, ex) -> log.error(
-                "Poison pill detected after retries; record will be skipped. topic=[{}], partition=[{}], offset=[{}], key=[{}]",
-                record.topic(),
-                record.partition(),
-                record.offset(),
-                record.key(),
-                ex
-        );
+        return (record, ex) -> {
+            if (isSkippablePoisonRecord(ex)) {
+                log.error(
+                        "Poison pill detected; record will be skipped. topic=[{}], partition=[{}], offset=[{}], key=[{}]",
+                        record.topic(),
+                        record.partition(),
+                        record.offset(),
+                        record.key(),
+                        ex
+                );
+                return;
+            }
+
+            throw new IllegalStateException(
+                    "Non-poison processing error must not be skipped. topic=["
+                            + record.topic() + "], partition=[" + record.partition() + "], offset=[" + record.offset() + "]",
+                    ex
+            );
+        };
+    }
+
+    private boolean isSkippablePoisonRecord(Exception ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof AuditEventConsumer.SkippableDeserializationException
+                    || current instanceof DeserializationException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
 

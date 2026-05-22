@@ -9,8 +9,12 @@ import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
 @Deprecated
 public class UserLoginEventConsumer extends AuditEventConsumer {
 
+    /**
+     * Keeps the historical constructor signature for backward-compatible wiring.
+     */
     public UserLoginEventConsumer(
             EventPersistenceService eventPersistenceService,
+            @SuppressWarnings("unused")
             KafkaTopicsProperties kafkaTopicsProperties
     ) {
         super(eventPersistenceService);

@@ -32,7 +32,7 @@ public class AuditEventConsumer {
         String key = record.key();
 
         if (event == null) {
-            throw new IllegalStateException(buildNullEventMessage(record));
+            throw new SkippableDeserializationException(buildNullEventMessage(record));
         }
 
         try {
@@ -80,6 +80,12 @@ public class AuditEventConsumer {
             }
         }
         return null;
+    }
+
+    public static final class SkippableDeserializationException extends IllegalStateException {
+        public SkippableDeserializationException(String message) {
+            super(message);
+        }
     }
 }
 
