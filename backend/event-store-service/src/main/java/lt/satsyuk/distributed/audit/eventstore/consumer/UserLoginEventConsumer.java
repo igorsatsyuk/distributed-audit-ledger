@@ -13,7 +13,7 @@ public class UserLoginEventConsumer extends AuditEventConsumer {
             EventPersistenceService eventPersistenceService,
             KafkaTopicsProperties kafkaTopicsProperties
     ) {
-        super(eventPersistenceService, kafkaTopicsProperties);
+        super(eventPersistenceService);
     }
 }
 

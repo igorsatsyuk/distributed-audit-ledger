@@ -6,15 +6,19 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.log.LogAccessor;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.kafka.support.serializer.SerializationUtils;
 import org.springframework.stereotype.Component;
-import org.springframework.util.SerializationUtils;
+
+import java.util.Locale;
 
 @Component
 public class AuditEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AuditEventConsumer.class);
+    private static final LogAccessor logAccessor = new LogAccessor(AuditEventConsumer.class);
 
     private final EventPersistenceService eventPersistenceService;
 
@@ -47,8 +51,7 @@ public class AuditEventConsumer {
                 .append(" offset=[").append(record.offset()).append(']')
                 .append(" key=[").append(record.key()).append(']');
 
-        Header deserializationHeader =
-                record.headers().lastHeader(ErrorHandlingDeserializer.VALUE_DESERIALIZER_EXCEPTION_HEADER);
+        Header deserializationHeader = findDeserializationHeader(record);
         if (deserializationHeader != null) {
             message.append(" deserializationError=[").append(deserializeHeaderMessage(deserializationHeader)).append(']');
         }
@@ -58,14 +61,25 @@ public class AuditEventConsumer {
 
     private String deserializeHeaderMessage(Header deserializationHeader) {
         try {
-            Object decoded = SerializationUtils.deserialize(deserializationHeader.value());
-            if (decoded instanceof Throwable throwable && throwable.getMessage() != null) {
-                return throwable.getClass().getSimpleName() + ": " + throwable.getMessage();
+            DeserializationException decoded =
+                    SerializationUtils.byteArrayToDeserializationException(logAccessor, deserializationHeader);
+            if (decoded != null && decoded.getMessage() != null) {
+                return decoded.getClass().getSimpleName() + ": " + decoded.getMessage();
             }
             return "present";
         } catch (RuntimeException ex) {
             return "present (failed to decode header: " + ex.getClass().getSimpleName() + ")";
         }
+    }
+
+    private Header findDeserializationHeader(ConsumerRecord<String, AuditEvent> record) {
+        for (Header header : record.headers()) {
+            String key = header.key().toLowerCase(Locale.ROOT);
+            if (key.contains("deserializer") && key.contains("exception")) {
+                return header;
+            }
+        }
+        return null;
     }
 }
 
