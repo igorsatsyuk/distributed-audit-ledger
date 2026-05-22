@@ -40,8 +40,8 @@ public class AuditEventConsumer {
 
         try {
             // block() is intentional: this runs on a Kafka thread (not a Reactor scheduler),
-            // so blocking is safe here. timeout(...) ensures slow writes fail loudly
-            // instead of returning null and being treated as success.
+            // so blocking is safe here. timeout(...) adds fail-fast behavior for slow DB writes
+            // and prevents indefinite blocking of the Kafka consumer thread.
             eventPersistenceService.persist(event)
                     .timeout(PERSIST_TIMEOUT)
                     .block();

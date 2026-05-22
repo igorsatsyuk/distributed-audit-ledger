@@ -9,7 +9,8 @@ import org.springframework.data.relational.core.mapping.Table;
 import java.time.LocalDateTime;
 
 /**
- * R2DBC read-only entity mapped to the {@code audit.events} table — owned by {@code query-service}.
+ * R2DBC read-only entity mapped to the {@code audit.events} table and used by {@code query-service}.
+ * The table schema and Flyway migrations are owned by {@code event-store-service}.
  *
  * <p>The {@code payload} field is read as plain {@code String} via {@code payload::text} cast.
  * {@code event-store-service} has a structurally similar write entity ({@code StoredAuditEvent}) that
