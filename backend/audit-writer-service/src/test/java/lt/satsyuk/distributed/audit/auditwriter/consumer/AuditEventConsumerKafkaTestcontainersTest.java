@@ -188,15 +188,19 @@ class AuditEventConsumerKafkaTestcontainersTest {
 
     private static void pauseWithoutThreadSleep(long millis) {
         long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        while (System.nanoTime() < deadlineNanos) {
-            long remainingNanos = deadlineNanos - System.nanoTime();
-            if (remainingNanos > 0) {
-                LockSupport.parkNanos(Math.min(remainingNanos, TimeUnit.MILLISECONDS.toNanos(1)));
+        long maxParkNanos = TimeUnit.MILLISECONDS.toNanos(1);
+        while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Test wait was interrupted");
             }
-        }
-        if (Thread.currentThread().isInterrupted()) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Test wait was interrupted");
+
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0L) {
+                return;
+            }
+
+            LockSupport.parkNanos(Math.min(remainingNanos, maxParkNanos));
         }
     }
 
