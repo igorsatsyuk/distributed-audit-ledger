@@ -45,7 +45,7 @@ type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuditDashboardComponent implements OnDestroy {
-  static readonly PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+  static readonly PAGE_SIZE_OPTIONS: number[] = [10, 20, 50];
   static readonly DEFAULT_PAGE_SIZE = 20;
 
   readonly PAGE_SIZE_OPTIONS = AuditDashboardComponent.PAGE_SIZE_OPTIONS;
@@ -133,7 +133,7 @@ export class AuditDashboardComponent implements OnDestroy {
 
   openDetails(item: AuditLog): void {
     this.selectedAuditLog.set(item);
-    this.detailsDrawer?.open().catch(() => { /* drawer open failure is non-critical */ });
+    this.detailsDrawer?.open()?.catch(() => { /* drawer open failure is non-critical */ });
     this.integrityTrigger$.next(item.id);
   }
 
@@ -141,7 +141,7 @@ export class AuditDashboardComponent implements OnDestroy {
     this.selectedAuditLog.set(null);
     this.integrityCheckResult.set(null);
     this.integrityCheckError.set(null);
-    this.detailsDrawer?.close().catch(() => { /* drawer close failure is non-critical */ });
+    this.detailsDrawer?.close()?.catch(() => { /* drawer close failure is non-critical */ });
   }
 
   integrityClass(status: string): string {
