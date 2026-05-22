@@ -177,6 +177,7 @@ jobs:
           cmd=(
             mvn -B -ntp
             -f backend/pom.xml
+            -Djacoco.skip=true
             -DskipTests
             verify
             sonar:sonar

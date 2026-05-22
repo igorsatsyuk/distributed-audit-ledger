@@ -26,7 +26,7 @@ module.exports = function configureKarma(config) {
         { type: 'lcovonly', file: 'lcov.info' }
       ]
     },
-    reporters: ['progress', 'kjhtml', 'coverage'],
+    reporters: ['progress', 'kjhtml'],
     browsers: ['Chrome'],
     restartOnFileChange: true
   });
