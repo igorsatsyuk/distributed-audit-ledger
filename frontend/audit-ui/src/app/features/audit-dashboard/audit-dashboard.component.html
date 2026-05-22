@@ -148,8 +148,12 @@
                     type="button"
                     class="status-chip hash-chip"
                     [ngClass]="integrityClass(effectiveIntegrityStatus(element))"
+                    #hashTooltip="matTooltip"
                     [matTooltip]="element.eventHash ?? 'No hash yet'"
                     [attr.aria-label]="'Integrity status: ' + effectiveIntegrityStatus(element) + '. ' + (element.eventHash ? 'Event hash: ' + element.eventHash : 'Event hash not available')"
+                    (click)="$event.stopPropagation(); hashTooltip.toggle()"
+                    (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); hashTooltip.toggle()"
+                    (keydown.space)="$event.preventDefault(); $event.stopPropagation(); hashTooltip.toggle()"
                   >{{ effectiveIntegrityStatus(element) }}</button>
                 </td>
               </ng-container>
