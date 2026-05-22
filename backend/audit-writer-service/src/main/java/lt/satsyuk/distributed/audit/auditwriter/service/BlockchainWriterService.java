@@ -487,8 +487,17 @@ public class BlockchainWriterService {
         } catch (ExecutionException ex) {
             inFlightWritesByHash.remove(hexHash, inFlightWrite);
             Throwable cause = ex.getCause();
+            if (cause instanceof Error error) {
+                throw error;
+            }
             if (cause instanceof RuntimeException runtime) {
                 throw runtime;
+            }
+            if (cause instanceof InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new ReceiptTimeoutException(
+                        "Interrupted while executing appendAuditRecord asynchronously; transaction outcome is unknown",
+                        interrupted);
             }
             throw new BlockchainWriteException("appendAuditRecord execution failed", cause);
         }

@@ -39,7 +39,8 @@ import java.util.Map;
 /**
  * Explicit Kafka listener container setup for the audit-writer consumer.
  *
- * <p>Uses {@link ErrorHandlingDeserializer} to wrap {@link JsonDeserializer} so that
+ * <p>Uses {@link ErrorHandlingDeserializer} to wrap
+ * {@link org.springframework.kafka.support.serializer.JsonDeserializer} so that
  * poison records (malformed JSON, unknown payload type) are routed to the container
  * error handler rather than stalling the partition at the same offset indefinitely.
  *
@@ -77,7 +78,6 @@ public class KafkaListenerConfig {
     private static final String JSON_TRUSTED_PACKAGES_CONFIG = "spring.json.trusted.packages";
     private static final String JSON_USE_TYPE_INFO_HEADERS_CONFIG = "spring.json.use.type.headers";
     private static final String JSON_VALUE_DEFAULT_TYPE_CONFIG = "spring.json.value.default.type";
-    private static final String JSON_ADD_TYPE_INFO_HEADERS_CONFIG = "spring.json.add.type.headers";
 
     static final long RETRY_ATTEMPTS = 2L;
     static final long DEFAULT_RETRY_INTERVAL_MS = 2_000L;
@@ -92,7 +92,6 @@ public class KafkaListenerConfig {
         mergeKafkaOverrides(props, environment, "spring.kafka.producer");
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DltValueSerializer.class);
-        props.put(JSON_ADD_TYPE_INFO_HEADERS_CONFIG, false);
 
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -219,7 +218,8 @@ public class KafkaListenerConfig {
      * <p>When {@link org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
      * catches a deserialization failure it stores the original raw bytes in the Kafka
      * headers; {@link DeadLetterPublishingRecoverer} then publishes those raw bytes as
-     * the DLT record value.  Serializing {@code byte[]} with {@link JsonSerializer}
+     * the DLT record value.  Serializing {@code byte[]} with
+     * {@link org.springframework.kafka.support.serializer.JsonSerializer}
      * would encode the array as JSON (base64 or integer array) and corrupt the payload.
      * This serializer passes {@code byte[]} values through unchanged and falls back to
      * JSON for all other types.
