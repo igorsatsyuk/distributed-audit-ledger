@@ -49,16 +49,18 @@ public class KafkaListenerConfig {
 
     @Bean(name = "kafkaListenerContainerFactory")
     public ConcurrentKafkaListenerContainerFactory<String, AuditEvent> kafkaListenerContainerFactory(
-            ConsumerFactory<String, AuditEvent> consumerFactory
+            ConsumerFactory<String, AuditEvent> consumerFactory,
+            @Value("${spring.kafka.listener.error-handler.backoff-interval-ms:100}") long backoffIntervalMs,
+            @Value("${spring.kafka.listener.error-handler.max-retries:3}") long maxRetries
     ) {
         ConcurrentKafkaListenerContainerFactory<String, AuditEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
 
-        // Configure error handler to skip poison records after retries.
+        // Configure retry/backoff for poison records; values are externally configurable.
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(
                 recoverer(),
-                new FixedBackOff(100, 3)
+                new FixedBackOff(sanitizeBackoffInterval(backoffIntervalMs), sanitizeMaxRetries(maxRetries))
         );
         factory.setCommonErrorHandler(errorHandler);
 
@@ -98,6 +100,14 @@ public class KafkaListenerConfig {
             current = current.getCause();
         }
         return false;
+    }
+
+    private long sanitizeBackoffInterval(long configuredIntervalMs) {
+        return configuredIntervalMs >= 0 ? configuredIntervalMs : 100;
+    }
+
+    private long sanitizeMaxRetries(long configuredRetries) {
+        return configuredRetries >= 0 ? configuredRetries : 3;
     }
 }
 

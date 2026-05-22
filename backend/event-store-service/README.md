@@ -9,6 +9,9 @@
 - Calculating the `SHA-256` payload hash (`event_hash`)
 - Persistence via Spring Data R2DBC
 - Poison record handling: 3 retries and then skip (without DLT publishing); persistence errors are not skipped by the recoverer
+- Retry/backoff tuning via properties:
+  `spring.kafka.listener.error-handler.backoff-interval-ms` and
+  `spring.kafka.listener.error-handler.max-retries`
 - Flyway migrations in `src/main/resources/db/migration`
 
 ## `event_hash` compatibility

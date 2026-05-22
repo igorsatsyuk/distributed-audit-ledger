@@ -25,6 +25,7 @@ import java.time.ZoneOffset;
 public class EventPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(EventPersistenceService.class);
+    private static final int MAX_AGGREGATE_ID_LENGTH = 128;
 
     private final ObjectMapper objectMapper;
     private final EventHashService eventHashService;
@@ -64,7 +65,7 @@ public class EventPersistenceService {
 
         StoredAuditEvent entity = new StoredAuditEvent();
         entity.setEventId(event.getEventId());
-        entity.setAggregateId(aggregateId);
+        entity.setAggregateId(normalizeAggregateId(aggregateId, event.getEventId()));
         entity.setEventType(eventType.name());
         entity.setUserId(extractStringField(payloadRoot, "userId"));
         entity.setPayload(Json.of(payloadJson));
@@ -92,6 +93,22 @@ public class EventPersistenceService {
             return fallbackEventId;
         }
         return "entity:" + entityType + ":" + entityId;
+    }
+
+    private String normalizeAggregateId(String aggregateId, String fallbackEventId) {
+        if (aggregateId == null || aggregateId.isBlank()) {
+            return fallbackEventId;
+        }
+        if (aggregateId.length() <= MAX_AGGREGATE_ID_LENGTH) {
+            return aggregateId;
+        }
+        log.warn(
+                "aggregate_id exceeds {} chars (actual={}); using fallback eventId [{}]",
+                MAX_AGGREGATE_ID_LENGTH,
+                aggregateId.length(),
+                fallbackEventId
+        );
+        return fallbackEventId;
     }
 
     private String extractStringField(JsonNode payloadRoot, String fieldName) {
