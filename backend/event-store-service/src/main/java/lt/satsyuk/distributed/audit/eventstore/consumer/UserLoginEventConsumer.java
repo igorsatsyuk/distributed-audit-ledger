@@ -7,15 +7,17 @@ import lt.satsyuk.distributed.audit.eventstore.service.EventPersistenceService;
  * @deprecated Prefer {@link AuditEventConsumer}. This class is not a Spring bean and is kept
  * only for source/binary compatibility with historical references.
  */
+@SuppressWarnings("java:S1133")
 @Deprecated(since = "1.0")
 public class UserLoginEventConsumer extends AuditEventConsumer {
 
     /**
      * Keeps the historical constructor signature for source/binary compatibility.
      */
+    @SuppressWarnings({"java:S1172", "unused"})
     public UserLoginEventConsumer(
             EventPersistenceService eventPersistenceService,
-            @SuppressWarnings("unused") KafkaTopicsProperties kafkaTopicsProperties
+            KafkaTopicsProperties kafkaTopicsProperties
     ) {
         super(eventPersistenceService);
     }
