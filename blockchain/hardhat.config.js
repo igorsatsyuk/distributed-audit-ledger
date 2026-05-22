@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("solidity-coverage");
 require("dotenv").config();
 
 const GANACHE_RPC_URL = process.env.GANACHE_RPC_URL || "http://127.0.0.1:8545";

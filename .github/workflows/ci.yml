@@ -27,6 +27,15 @@ jobs:
       - name: Run backend tests
         run: mvn -B -ntp -f backend/pom.xml verify
 
+      - name: Upload backend JaCoCo reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-jacoco-reports
+          path: backend/**/target/site/jacoco/jacoco.xml
+          if-no-files-found: warn
+          retention-days: 7
+
   frontend:
     name: Frontend (Angular)
     runs-on: ubuntu-latest
@@ -47,7 +56,7 @@ jobs:
 
       - name: Run tests (headless)
         working-directory: frontend/audit-ui
-        run: npm run test:headless -- --code-coverage
+        run: npm run test:coverage
 
       - name: Upload frontend coverage report
         if: always()
@@ -84,9 +93,18 @@ jobs:
         working-directory: blockchain
         run: npm run compile
 
-      - name: Run Hardhat tests
+      - name: Run Hardhat coverage
         working-directory: blockchain
-        run: npm test
+        run: npm run coverage
+
+      - name: Upload blockchain coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blockchain-coverage
+          path: blockchain/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 7
 
   sonar-backend:
     name: SonarQube - backend
@@ -137,6 +155,14 @@ jobs:
           java-version: 25
           cache: maven
 
+      - name: Download backend JaCoCo reports
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-jacoco-reports
+          path: backend-coverage
+
       - name: Run SonarQube analysis (backend)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
         shell: bash
@@ -144,15 +170,26 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
           host_url="${SONAR_HOST_URL:-https://sonarcloud.io}"
+          report_paths=""
+          if [ -d "backend-coverage" ]; then
+            report_paths=$(find "$(pwd)/backend-coverage" -type f -name "jacoco.xml" -print 2>/dev/null | paste -sd, - || true)
+          fi
           cmd=(
             mvn -B -ntp
             -f backend/pom.xml
+            -Djacoco.skip=true
             -DskipTests
             verify
             sonar:sonar
             "-Dsonar.host.url=${host_url}"
             "-Dsonar.projectKey=${REPO_NAME}-backend"
           )
+
+          if [ -n "${report_paths}" ]; then
+            cmd+=("-Dsonar.coverage.jacoco.xmlReportPaths=${report_paths}")
+          else
+            echo "JaCoCo XML reports not found; Sonar will run without coverage input"
+          fi
 
           if [ -n "${SONAR_ORGANIZATION}" ]; then
             cmd+=("-Dsonar.organization=${SONAR_ORGANIZATION}")
@@ -280,6 +317,29 @@ jobs:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
+      - name: Download blockchain coverage report
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: blockchain-coverage
+          path: blockchain/coverage
+
+      - name: Normalize blockchain lcov path for Sonar
+        if: steps.sonar-check.outputs.sonar_enabled == 'true'
+        shell: bash
+        run: |
+          expected="blockchain/coverage/lcov.info"
+          found=$(find blockchain/coverage -name "lcov.info" 2>/dev/null | head -1 || true)
+          if [ -n "$found" ] && [ "$found" != "$expected" ]; then
+            mkdir -p "$(dirname "$expected")"
+            cp "$found" "$expected"
+            echo "Reorganized lcov: $found -> $expected"
+          fi
+          if [ ! -f "$expected" ]; then
+            echo "lcov.info not found; Sonar will run without coverage input"
+          fi
+
       - name: Run SonarQube analysis (blockchain)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
         uses: SonarSource/sonarqube-scan-action@v6
@@ -292,6 +352,7 @@ jobs:
             -Dsonar.sources=contracts,scripts
             -Dsonar.tests=test
             -Dsonar.exclusions=node_modules/**,artifacts/**,cache/**
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
 
   notify-telegram:
