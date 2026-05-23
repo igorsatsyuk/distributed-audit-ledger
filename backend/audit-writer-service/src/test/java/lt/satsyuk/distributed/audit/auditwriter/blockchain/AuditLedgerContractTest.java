@@ -1,12 +1,14 @@
 package lt.satsyuk.distributed.audit.auditwriter.blockchain;
 
 import org.junit.jupiter.api.Test;
+import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 
@@ -19,7 +21,7 @@ class AuditLedgerContractTest {
     @Test
     void load_returnsContractBoundToGivenAddress() {
         Web3j web3j = mock(Web3j.class);
-        Credentials credentials = Credentials.create("0x59c6995e998f97a5a0044966f094538f33f9f7f5f09e4f9b2d71f88f5b4f4d87");
+        Credentials credentials = Credentials.create(ECKeyPair.create(BigInteger.ONE));
 
         AuditLedgerContract contract = AuditLedgerContract.load(
                 "0x0000000000000000000000000000000000000001",

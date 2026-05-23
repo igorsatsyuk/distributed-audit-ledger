@@ -194,7 +194,6 @@ jobs:
             "-Dsonar.host.url=${host_url}"
             "-Dsonar.projectKey=${REPO_NAME}-backend"
             "-Dsonar.token=${SONAR_TOKEN}"
-            "-Dsonar.login=${SONAR_TOKEN}"
           )
 
           if [ -n "${report_paths}" ]; then
