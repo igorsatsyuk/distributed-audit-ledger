@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 
 import java.util.List;
@@ -25,18 +26,21 @@ class GlobalExceptionHandlerTest {
     void handleValidationErrorFormatsFieldErrors() {
         WebExchangeBindException exception = mock(WebExchangeBindException.class);
         BindingResult bindingResult = mock(BindingResult.class);
+        ServerWebExchange exchange = mockExchange("/commands/user/login");
         FieldError blankUserError = new FieldError("authLoginRequest", "username", "must not be blank");
         FieldError fullMessageError = new FieldError("authLoginRequest", "password", "password must not be blank");
 
         when(exception.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getFieldErrors()).thenReturn(List.of(blankUserError, fullMessageError));
 
-        ResponseEntity<CommandResponse> response = handler.handleValidationError(exception);
+        ResponseEntity<?> response = handler.handleValidationError(exception, exchange);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().isSuccess()).isFalse();
-        assertThat(response.getBody().getMessage())
+        assertThat(response.getBody()).isInstanceOf(CommandResponse.class);
+        CommandResponse body = (CommandResponse) response.getBody();
+        assertThat(body.isSuccess()).isFalse();
+        assertThat(body.getMessage())
                 .isEqualTo("username must not be blank; password must not be blank");
     }
 
@@ -44,6 +48,7 @@ class GlobalExceptionHandlerTest {
     void handleValidationErrorFallsBackWhenDefaultMessageIsNull() {
         WebExchangeBindException exception = mock(WebExchangeBindException.class);
         BindingResult bindingResult = mock(BindingResult.class);
+        ServerWebExchange exchange = mockExchange("/commands/user/login");
         FieldError fieldError = mock(FieldError.class);
 
         when(exception.getBindingResult()).thenReturn(bindingResult);
@@ -51,23 +56,58 @@ class GlobalExceptionHandlerTest {
         when(fieldError.getField()).thenReturn("userId");
         when(fieldError.getDefaultMessage()).thenReturn(null);
 
-        ResponseEntity<CommandResponse> response = handler.handleValidationError(exception);
+        ResponseEntity<?> response = handler.handleValidationError(exception, exchange);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getMessage()).isEqualTo("userId Validation failed");
+        assertThat(response.getBody()).isInstanceOf(CommandResponse.class);
+        assertThat(((CommandResponse) response.getBody()).getMessage()).isEqualTo("userId Validation failed");
     }
 
     @Test
     void handleWebInputErrorUsesDefaultMessageWhenReasonMissing() {
         ServerWebInputException exception = mock(ServerWebInputException.class);
+        ServerWebExchange exchange = mockExchange("/commands/user/login");
         when(exception.getReason()).thenReturn(null);
 
-        ResponseEntity<CommandResponse> response = handler.handleWebInputError(exception);
+        ResponseEntity<?> response = handler.handleWebInputError(exception, exchange);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getMessage()).isEqualTo("Invalid request payload");
+        assertThat(response.getBody()).isInstanceOf(CommandResponse.class);
+        assertThat(((CommandResponse) response.getBody()).getMessage()).isEqualTo("Invalid request payload");
+    }
+
+    @Test
+    void handleValidationErrorReturnsAuthErrorForAuthEndpoints() {
+        WebExchangeBindException exception = mock(WebExchangeBindException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        ServerWebExchange exchange = mockExchange("/auth/login");
+        FieldError fieldError = new FieldError("authLoginRequest", "username", "must not be blank");
+
+        when(exception.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
+
+        ResponseEntity<?> response = handler.handleValidationError(exception, exchange);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isInstanceOf(AuthErrorResponse.class);
+        assertThat(((AuthErrorResponse) response.getBody()).error()).isEqualTo("INVALID_REQUEST");
+        assertThat(((AuthErrorResponse) response.getBody()).message()).isEqualTo("username must not be blank");
+    }
+
+    @Test
+    void handleWebInputErrorReturnsAuthErrorForAuthEndpoints() {
+        ServerWebInputException exception = mock(ServerWebInputException.class);
+        ServerWebExchange exchange = mockExchange("/auth/login");
+        when(exception.getReason()).thenReturn(null);
+
+        ResponseEntity<?> response = handler.handleWebInputError(exception, exchange);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isInstanceOf(AuthErrorResponse.class);
+        assertThat(((AuthErrorResponse) response.getBody()).error()).isEqualTo("INVALID_REQUEST");
+        assertThat(((AuthErrorResponse) response.getBody()).message()).isEqualTo("Invalid request payload");
     }
 
     @Test
@@ -92,6 +132,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().error()).isEqualTo("INVALID_CREDENTIALS");
         assertThat(response.getBody().message()).isEqualTo("Invalid username or password");
+    }
+
+    private ServerWebExchange mockExchange(String path) {
+        ServerWebExchange exchange = mock(ServerWebExchange.class);
+        org.springframework.http.server.reactive.ServerHttpRequest request = mock(org.springframework.http.server.reactive.ServerHttpRequest.class);
+        org.springframework.http.server.RequestPath requestPath = mock(org.springframework.http.server.RequestPath.class);
+
+        when(exchange.getRequest()).thenReturn(request);
+        when(request.getPath()).thenReturn(requestPath);
+        when(requestPath.value()).thenReturn(path);
+
+        return exchange;
     }
 }
 

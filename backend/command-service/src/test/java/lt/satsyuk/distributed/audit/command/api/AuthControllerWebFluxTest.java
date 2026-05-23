@@ -76,12 +76,25 @@ class AuthControllerWebFluxTest {
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
-                .jsonPath("$.success").isEqualTo(false)
+                .jsonPath("$.error").isEqualTo("INVALID_REQUEST")
                 .jsonPath("$.message").value(message -> {
                     String value = String.valueOf(message);
                     org.junit.jupiter.api.Assertions.assertTrue(value.contains("username must not be blank"));
                     org.junit.jupiter.api.Assertions.assertTrue(value.contains("password must not be blank"));
                 });
+    }
+
+    @Test
+    void malformedLoginPayloadReturnsAuthErrorShape() {
+        webTestClient.post()
+                .uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"username\":")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("INVALID_REQUEST")
+                .jsonPath("$.message").exists();
     }
 }
 

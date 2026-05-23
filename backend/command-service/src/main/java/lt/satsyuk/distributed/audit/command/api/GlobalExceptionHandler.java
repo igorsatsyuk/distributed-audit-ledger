@@ -9,6 +9,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 
 import java.util.Objects;
@@ -19,20 +20,22 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(WebExchangeBindException.class)
-    public ResponseEntity<CommandResponse> handleValidationError(WebExchangeBindException exception) {
+    public ResponseEntity<?> handleValidationError(WebExchangeBindException exception,
+                                                   ServerWebExchange exchange) {
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(this::formatFieldError)
                 .collect(Collectors.joining("; "));
 
-        return ResponseEntity.badRequest().body(CommandResponse.rejected(message));
+        return badRequest(exchange, message);
     }
 
     @ExceptionHandler(ServerWebInputException.class)
-    public ResponseEntity<CommandResponse> handleWebInputError(ServerWebInputException exception) {
+    public ResponseEntity<?> handleWebInputError(ServerWebInputException exception,
+                                                 ServerWebExchange exchange) {
         String message = Objects.requireNonNullElse(exception.getReason(), "Invalid request payload");
-        return ResponseEntity.badRequest().body(CommandResponse.rejected(message));
+        return badRequest(exchange, message);
     }
 
     @ExceptionHandler(CommandPublishException.class)
@@ -54,6 +57,18 @@ public class GlobalExceptionHandler {
             return safeDefaultMessage;
         }
         return error.getField() + " " + safeDefaultMessage;
+    }
+
+    private ResponseEntity<?> badRequest(ServerWebExchange exchange, String message) {
+        if (isAuthRequest(exchange)) {
+            return ResponseEntity.badRequest().body(new AuthErrorResponse("INVALID_REQUEST", message));
+        }
+        return ResponseEntity.badRequest().body(CommandResponse.rejected(message));
+    }
+
+    private boolean isAuthRequest(ServerWebExchange exchange) {
+        String path = exchange.getRequest().getPath().value();
+        return path.startsWith("/auth/");
     }
 }
 

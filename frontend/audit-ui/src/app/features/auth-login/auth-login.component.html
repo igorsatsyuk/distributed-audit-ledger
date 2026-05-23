@@ -14,7 +14,7 @@
       </mat-form-field>
 
       @if (errorMessage()) {
-        <p class="login-error">{{ errorMessage() }}</p>
+        <p class="login-error" role="alert" aria-live="polite">{{ errorMessage() }}</p>
       }
 
       <button mat-raised-button color="primary" type="submit" [disabled]="loading()">
