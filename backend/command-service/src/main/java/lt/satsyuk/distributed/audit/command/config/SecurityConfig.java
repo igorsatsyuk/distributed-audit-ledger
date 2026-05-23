@@ -31,7 +31,11 @@ import java.util.Objects;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public SecurityConfig(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Bean
     JwtService jwtService(AuthProperties authProperties) {
@@ -92,7 +96,7 @@ public class SecurityConfig {
         exchange.getResponse().setStatusCode(org.springframework.http.HttpStatus.valueOf(status));
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         try {
-            byte[] bytes = OBJECT_MAPPER.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = objectMapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
             return exchange.getResponse().writeWith(Mono.just(exchange.getResponse()
                     .bufferFactory()
                     .wrap(bytes)));

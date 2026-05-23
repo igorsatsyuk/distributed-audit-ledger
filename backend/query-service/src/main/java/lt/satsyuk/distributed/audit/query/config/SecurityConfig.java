@@ -27,7 +27,11 @@ import java.nio.charset.StandardCharsets;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public SecurityConfig(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Bean
     JwtService jwtService(AuthJwtProperties authJwtProperties) {
@@ -82,7 +86,7 @@ public class SecurityConfig {
         exchange.getResponse().setStatusCode(org.springframework.http.HttpStatus.valueOf(status));
         exchange.getResponse().getHeaders().setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
         try {
-            byte[] bytes = OBJECT_MAPPER.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
+            byte[] bytes = objectMapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8);
             return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
         } catch (Exception exception) {
             return Mono.error(exception);
