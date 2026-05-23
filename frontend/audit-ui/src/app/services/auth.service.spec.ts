@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 
@@ -144,5 +144,31 @@ describe('AuthService', () => {
     expect(stored).toBeNull();
     expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
+
+  it('auto-clears session after token expiration time passes', fakeAsync(() => {
+    let latestUsername: string | null = null;
+    service.session$.subscribe((session) => {
+      latestUsername = session?.username ?? null;
+    });
+
+    service.login({ username: 'auditor', password: 'auditor123!' }).subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      accessToken: 'jwt-token',
+      tokenType: 'Bearer',
+      expiresAt: new Date(Date.now() + 40).toISOString(),
+      username: 'auditor',
+      roles: ['AUDITOR'],
+    });
+
+    expect(service.isAuthenticated()).toBeTrue();
+    expect(latestUsername === 'auditor').toBeTrue();
+
+    tick(60);
+
+    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.getAuthorizationHeader()).toBeNull();
+    expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
+    expect(latestUsername).toBeNull();
+  }));
 });
 

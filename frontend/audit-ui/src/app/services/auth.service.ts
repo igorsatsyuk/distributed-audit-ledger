@@ -11,14 +11,17 @@ export class AuthService {
   private static readonly STORAGE_KEY = 'dal.auth.session';
   private readonly storage: Storage;
   private readonly loginUrl = `${environment.commandServiceBaseUrl}/auth/login`;
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly sessionSubject: BehaviorSubject<AuthSession | null>;
   readonly session$: Observable<AuthSession | null>;
 
   constructor(private readonly http: HttpClient) {
     this.storage = sessionStorage;
-    this.sessionSubject = new BehaviorSubject<AuthSession | null>(this.readStoredSession());
+    const initialSession = this.readStoredSession();
+    this.sessionSubject = new BehaviorSubject<AuthSession | null>(initialSession);
     this.session$ = this.sessionSubject.asObservable();
+    this.scheduleAutoLogout(initialSession);
   }
 
   login(request: AuthLoginRequest): Observable<AuthTokenResponse> {
@@ -93,14 +96,50 @@ export class AuthService {
   private setSession(session: AuthSession): void {
     this.storage.setItem(AuthService.STORAGE_KEY, JSON.stringify(session));
     this.sessionSubject.next(session);
+    this.scheduleAutoLogout(session);
   }
 
   private clearSession(): void {
+    this.clearExpiryTimer();
     this.storage.removeItem(AuthService.STORAGE_KEY);
     this.sessionSubject.next(null);
   }
 
   private static readonly ALLOWED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['AUDITOR', 'ADMIN', 'USER']);
+
+  private static isAllowedRole(role: unknown): role is UserRole {
+    return role === 'AUDITOR' || role === 'ADMIN' || role === 'USER';
+  }
+
+  private scheduleAutoLogout(session: AuthSession | null): void {
+    this.clearExpiryTimer();
+    if (!session) {
+      return;
+    }
+
+    const expiresAt = Date.parse(session.expiresAt);
+    if (!Number.isFinite(expiresAt)) {
+      this.clearSession();
+      return;
+    }
+
+    const delayMs = expiresAt - Date.now();
+    if (delayMs <= 0) {
+      this.clearSession();
+      return;
+    }
+
+    this.expiryTimer = setTimeout(() => {
+      this.clearSession();
+    }, delayMs);
+  }
+
+  private clearExpiryTimer(): void {
+    if (this.expiryTimer !== null) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+  }
 
   private readStoredSession(): AuthSession | null {
     const raw = this.storage.getItem(AuthService.STORAGE_KEY);
@@ -118,7 +157,7 @@ export class AuthService {
         typeof parsed.username !== 'string' || !parsed.username ||
         typeof parsed.expiresAt !== 'string' ||
         !Array.isArray(parsed.roles) || parsed.roles.length === 0 ||
-        !parsed.roles.every((r: unknown) => AuthService.ALLOWED_ROLES.has(r as UserRole))
+        !parsed.roles.every(AuthService.isAllowedRole)
       ) {
         this.storage.removeItem(AuthService.STORAGE_KEY);
         return null;
