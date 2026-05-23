@@ -1,10 +1,29 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 function isProtectedRequest(url: string): boolean {
   try {
     const parsedUrl = new URL(url, globalThis.location?.origin ?? 'http://localhost');
+    const currentOrigin = globalThis.location?.origin ?? 'http://localhost';
+
+    // Only attach JWT for same-origin requests or to configured service URLs
+    if (parsedUrl.origin !== currentOrigin) {
+      const configuredUrls = [
+        environment.queryServiceBaseUrl,
+        environment.commandServiceBaseUrl,
+      ].filter(Boolean);
+
+      const isTrustedUrl = configuredUrls.some(
+        (serviceUrl) => new URL(serviceUrl, currentOrigin).origin === parsedUrl.origin
+      );
+
+      if (!isTrustedUrl) {
+        return false; // Don't attach JWT to third-party origins
+      }
+    }
+
     return parsedUrl.pathname.startsWith('/api') || parsedUrl.pathname.startsWith('/commands');
   } catch {
     return url.startsWith('/api') || url.startsWith('/commands');

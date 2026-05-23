@@ -73,7 +73,7 @@ describe('AuthService', () => {
     expect(service.hasAnyRole(['AUDITOR', 'ADMIN'])).toBeTrue();
   });
 
-  it('ignores invalid serialized session in localStorage', () => {
+  it('ignores invalid serialized session in sessionStorage', () => {
     sessionStorage.setItem('dal.auth.session', '{not-json');
 
     const stored = (service as any).readStoredSession();
@@ -82,7 +82,7 @@ describe('AuthService', () => {
     expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
 
-  it('drops expired session loaded from localStorage', () => {
+  it('drops expired session loaded from sessionStorage', () => {
     sessionStorage.setItem(
       'dal.auth.session',
       JSON.stringify({

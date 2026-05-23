@@ -35,6 +35,20 @@ public class AuthenticationService {
         if (configuredUsers.isEmpty()) {
             throw new IllegalStateException("auth.users must not be empty");
         }
+
+        // Validate each configured user before building the map
+        for (AuthProperties.User user : configuredUsers) {
+            if (user.getUsername() == null || user.getUsername().isBlank()) {
+                throw new IllegalStateException("auth.users[*].username must not be blank");
+            }
+            if (user.getPassword() == null || user.getPassword().isBlank()) {
+                throw new IllegalStateException("auth.users[*].password must not be blank");
+            }
+            if (user.getRoles() == null || user.getRoles().isEmpty()) {
+                throw new IllegalStateException("auth.users[*].roles must not be empty");
+            }
+        }
+
         this.usersByUsername = configuredUsers.stream()
                 .collect(Collectors.toUnmodifiableMap(
                         AuthProperties.User::getUsername,
