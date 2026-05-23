@@ -150,11 +150,12 @@ public class AuditLedgerBlockchainClient {
         }
 
         for (EthLog.LogResult<?> logResult : ethLog.getLogs()) {
-            if (logResult instanceof EthLog.LogObject logObject) {
-                Log log = logObject.get();
-                if (log != null) {
-                    return Optional.of(toBlockchainRecord(log));
-                }
+            if (logResult == null) {
+                continue;
+            }
+            Object rawLog = logResult.get();
+            if (rawLog instanceof Log log) {
+                return Optional.of(toBlockchainRecord(log));
             }
         }
 
