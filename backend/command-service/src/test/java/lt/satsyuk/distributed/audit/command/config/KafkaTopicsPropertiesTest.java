@@ -23,7 +23,7 @@ class KafkaTopicsPropertiesTest {
     }
 
     @Test
-    void auditEventsReturnsAuditEventsEvenWhenBlank() {
+    void auditEventsReturnsFallbackToUserLoginEventsWhenAuditEventsIsBlank() {
         KafkaTopicsProperties properties = new KafkaTopicsProperties();
         properties.setAuditEvents("   ");
         properties.setUserLoginEvents("login-topic");

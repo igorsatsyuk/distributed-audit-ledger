@@ -35,6 +35,21 @@ class JwtSecurityComponentsTest {
     }
 
     @Test
+    void bearerTokenConverterAcceptsLowercaseBearerScheme() {
+        BearerTokenAuthenticationConverter converter = new BearerTokenAuthenticationConverter();
+        ServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/audit-logs")
+                        .header(HttpHeaders.AUTHORIZATION, "bearer token-value")
+                        .build()
+        );
+
+        Authentication authentication = converter.convert(exchange).block();
+
+        assertThat(authentication).isInstanceOf(UsernamePasswordAuthenticationToken.class);
+        assertThat(authentication.getCredentials()).isEqualTo("token-value");
+    }
+
+    @Test
     void jwtAuthenticationManagerMapsRolesToGrantedAuthorities() {
         JwtService jwtService = new JwtService("shared-security-test-secret-123456", "dal-test", Duration.ofMinutes(30));
         String token = jwtService.generateToken("auditor", Set.of(UserRole.AUDITOR, UserRole.ADMIN), Instant.now());

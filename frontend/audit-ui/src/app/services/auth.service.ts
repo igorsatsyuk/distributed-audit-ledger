@@ -54,6 +54,10 @@ export class AuthService {
   }
 
   hasAnyRole(roles: UserRole[]): boolean {
+    if (!this.isAuthenticated()) {
+      return false;
+    }
+
     const session = this.sessionSubject.value;
     if (!session) {
       return false;
@@ -69,6 +73,9 @@ export class AuthService {
   }
 
   getUsername(): string | null {
+    if (!this.isAuthenticated()) {
+      return null;
+    }
     return this.sessionSubject.value?.username ?? null;
   }
 

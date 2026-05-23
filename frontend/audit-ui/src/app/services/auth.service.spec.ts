@@ -82,6 +82,34 @@ describe('AuthService', () => {
     expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
 
+  it('hasAnyRole returns false and clears expired session', () => {
+    service.login({ username: 'auditor', password: 'auditor123!' }).subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      accessToken: 'jwt-token',
+      tokenType: 'Bearer',
+      expiresAt: '2000-01-01T00:00:00Z',
+      username: 'auditor',
+      roles: ['AUDITOR'],
+    });
+
+    expect(service.hasAnyRole(['AUDITOR'])).toBeFalse();
+    expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
+  });
+
+  it('getUsername returns null for expired session', () => {
+    service.login({ username: 'auditor', password: 'auditor123!' }).subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      accessToken: 'jwt-token',
+      tokenType: 'Bearer',
+      expiresAt: '2000-01-01T00:00:00Z',
+      username: 'auditor',
+      roles: ['AUDITOR'],
+    });
+
+    expect(service.getUsername()).toBeNull();
+    expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
+  });
+
   it('drops expired session loaded from sessionStorage', () => {
     sessionStorage.setItem(
       'dal.auth.session',

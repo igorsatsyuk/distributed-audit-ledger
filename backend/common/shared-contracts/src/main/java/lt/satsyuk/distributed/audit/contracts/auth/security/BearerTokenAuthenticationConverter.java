@@ -8,12 +8,15 @@ import org.springframework.web.server.ServerWebExchange;
 import org.jspecify.annotations.NonNull;
 import reactor.core.publisher.Mono;
 
+import java.util.Locale;
+
 /**
  * Extracts a bearer token from Authorization header for reactive security filters.
  */
 public class BearerTokenAuthenticationConverter implements ServerAuthenticationConverter {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String BEARER_PREFIX_LOWERCASE = BEARER_PREFIX.toLowerCase(Locale.ROOT);
 
     @Override
     public @NonNull Mono<Authentication> convert(@NonNull ServerWebExchange exchange) {
@@ -21,7 +24,8 @@ public class BearerTokenAuthenticationConverter implements ServerAuthenticationC
         if (authorization == null || authorization.isBlank()) {
             return Mono.empty();
         }
-        if (!authorization.startsWith(BEARER_PREFIX) || authorization.length() <= BEARER_PREFIX.length()) {
+        String normalized = authorization.toLowerCase(Locale.ROOT);
+        if (!normalized.startsWith(BEARER_PREFIX_LOWERCASE) || authorization.length() <= BEARER_PREFIX.length()) {
             return Mono.empty();
         }
 

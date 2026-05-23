@@ -72,5 +72,25 @@ describe('authInterceptor', () => {
     expect(req.request.headers.has('Authorization')).toBeFalse();
     req.flush([]);
   });
+
+  it('does not add Authorization header for /apiary path', () => {
+    authService.token = 'jwt-token';
+
+    http.get('/apiary').subscribe();
+
+    const req = httpMock.expectOne('/apiary');
+    expect(req.request.headers.has('Authorization')).toBeFalse();
+    req.flush({});
+  });
+
+  it('does not add Authorization header for /commandsFoo path', () => {
+    authService.token = 'jwt-token';
+
+    http.get('/commandsFoo').subscribe();
+
+    const req = httpMock.expectOne('/commandsFoo');
+    expect(req.request.headers.has('Authorization')).toBeFalse();
+    req.flush({});
+  });
 });
 

@@ -3,6 +3,15 @@ import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../environments/environment';
 
+function isApiOrCommandsPath(pathname: string): boolean {
+  return (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    pathname === '/commands' ||
+    pathname.startsWith('/commands/')
+  );
+}
+
 function isProtectedRequest(url: string): boolean {
   try {
     const parsedUrl = new URL(url, globalThis.location?.origin ?? 'http://localhost');
@@ -24,9 +33,9 @@ function isProtectedRequest(url: string): boolean {
       }
     }
 
-    return parsedUrl.pathname.startsWith('/api') || parsedUrl.pathname.startsWith('/commands');
+    return isApiOrCommandsPath(parsedUrl.pathname);
   } catch {
-    return url.startsWith('/api') || url.startsWith('/commands');
+    return isApiOrCommandsPath(url);
   }
 }
 
