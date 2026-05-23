@@ -32,7 +32,7 @@ class AuditLedgerContractTest {
     }
 
     @Test
-    void executeContractCall_wrapsCompletionExceptionCause() throws Exception {
+    void executeContractCall_wrapsCompletionExceptionCause() {
         IllegalStateException rootCause = new IllegalStateException("rpc failed");
 
         assertThatThrownBy(() -> invokeExecuteContractCall(() -> {
@@ -44,7 +44,7 @@ class AuditLedgerContractTest {
     }
 
     @Test
-    void executeContractCall_wrapsCompletionExceptionWithoutCauseUsingOriginalException() throws Exception {
+    void executeContractCall_wrapsCompletionExceptionWithoutCauseUsingOriginalException() {
         CompletionException completionException = new CompletionException("timeout", null);
 
         assertThatThrownBy(() -> invokeExecuteContractCall(() -> {
@@ -56,7 +56,7 @@ class AuditLedgerContractTest {
     }
 
     @Test
-    void executeContractCall_wrapsRuntimeException() throws Exception {
+    void executeContractCall_wrapsRuntimeException() {
         RuntimeException runtimeException = new RuntimeException("boom");
 
         assertThatThrownBy(() -> invokeExecuteContractCall(() -> {

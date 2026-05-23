@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.listener.ConsumerRecordRecoverer;
 import org.springframework.kafka.support.serializer.DeserializationException;
-import org.springframework.mock.env.MockEnvironment;
 
 import java.lang.reflect.Method;
 
@@ -22,7 +21,6 @@ class KafkaListenerConfigTest {
     @Test
     void consumerFactory_disablesAutoCommitAndSetsAuditEventDefaults() {
         KafkaListenerConfig config = new KafkaListenerConfig();
-        MockEnvironment environment = new MockEnvironment();
 
         @SuppressWarnings("unchecked")
         org.springframework.kafka.core.DefaultKafkaConsumerFactory<String, AuditEvent> consumerFactory =
@@ -50,9 +48,9 @@ class KafkaListenerConfigTest {
     void recoverer_skipsPoisonPillExceptions() {
         KafkaListenerConfig config = new KafkaListenerConfig();
         ConsumerRecordRecoverer recoverer = config.recoverer();
-        ConsumerRecord<String, AuditEvent> record = new ConsumerRecord<>("user.login.events", 0, 7L, "event-key", null);
+        ConsumerRecord<String, AuditEvent> consumerRecord = new ConsumerRecord<>("user.login.events", 0, 7L, "event-key", null);
 
-        assertThatCode(() -> recoverer.accept(record,
+        assertThatCode(() -> recoverer.accept(consumerRecord,
                 new AuditEventConsumer.SkippableDeserializationException("bad payload")))
                 .doesNotThrowAnyException();
     }
@@ -61,20 +59,20 @@ class KafkaListenerConfigTest {
     void recoverer_skipsWhenDeserializationExceptionIsNestedCause() {
         KafkaListenerConfig config = new KafkaListenerConfig();
         ConsumerRecordRecoverer recoverer = config.recoverer();
-        ConsumerRecord<String, AuditEvent> record = new ConsumerRecord<>("user.login.events", 0, 8L, "event-key", null);
+        ConsumerRecord<String, AuditEvent> consumerRecord = new ConsumerRecord<>("user.login.events", 0, 8L, "event-key", null);
         RuntimeException wrapped = new RuntimeException("wrapper", mock(DeserializationException.class));
 
-        assertThatCode(() -> recoverer.accept(record, wrapped)).doesNotThrowAnyException();
+        assertThatCode(() -> recoverer.accept(consumerRecord, wrapped)).doesNotThrowAnyException();
     }
 
     @Test
     void recoverer_rethrowsNonPoisonFailures() {
         KafkaListenerConfig config = new KafkaListenerConfig();
         ConsumerRecordRecoverer recoverer = config.recoverer();
-        ConsumerRecord<String, AuditEvent> record = new ConsumerRecord<>("user.login.events", 1, 9L, "event-key", null);
+        ConsumerRecord<String, AuditEvent> consumerRecord = new ConsumerRecord<>("user.login.events", 1, 9L, "event-key", null);
         RuntimeException processingFailure = new RuntimeException("db unavailable");
 
-        assertThatThrownBy(() -> recoverer.accept(record, processingFailure))
+        assertThatThrownBy(() -> recoverer.accept(consumerRecord, processingFailure))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Non-poison processing error must not be skipped")
                 .hasCause(processingFailure);

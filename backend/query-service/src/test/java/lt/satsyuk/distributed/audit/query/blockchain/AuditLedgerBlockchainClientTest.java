@@ -301,6 +301,70 @@ class AuditLedgerBlockchainClientTest {
     }
 
     @Test
+    void inspectEventHashSkipsNullLogResultEntries() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setResult("0x" + "0".repeat(63) + "1");
+        when(callRequest.send()).thenReturn(ethCall);
+
+        Request<?, EthLog> logsRequest = mockRequest();
+        doReturn(logsRequest).when(web3j).ethGetLogs(any());
+        EthLog ethLog = new EthLog();
+        ethLog.setResult(Collections.singletonList(null));
+        when(logsRequest.send()).thenReturn(ethLog);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord = inspectBlocking(client, VALID_HASH);
+
+        assertNotNull(blockchainRecord);
+        assertTrue(blockchainRecord.exists());
+        assertNull(blockchainRecord.transactionHash());
+        assertNull(blockchainRecord.blockNumber());
+        assertNull(blockchainRecord.timestamp());
+    }
+
+    @Test
+    void inspectEventHashIgnoresNonLogPayloadsInLogResult() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setResult("0x" + "0".repeat(63) + "1");
+        when(callRequest.send()).thenReturn(ethCall);
+
+        Request<?, EthLog> logsRequest = mockRequest();
+        doReturn(logsRequest).when(web3j).ethGetLogs(any());
+
+        EthLog.LogResult<Object> nonLogResult = new EthLog.LogResult<>() {
+            @Override
+            public Object get() {
+                return "unexpected";
+            }
+        };
+
+        EthLog ethLog = new EthLog();
+        ethLog.setResult(Collections.singletonList(nonLogResult));
+        when(logsRequest.send()).thenReturn(ethLog);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord = inspectBlocking(client, VALID_HASH);
+
+        assertNotNull(blockchainRecord);
+        assertTrue(blockchainRecord.exists());
+        assertNull(blockchainRecord.transactionHash());
+        assertNull(blockchainRecord.blockNumber());
+        assertNull(blockchainRecord.timestamp());
+    }
+
+    @Test
     void inspectEventHashMapsUnexpectedErrorsToBlockchainIntegrityException() throws Exception {
         Web3j web3j = mock(Web3j.class);
         Request<?, EthCall> callRequest = mockRequest();
