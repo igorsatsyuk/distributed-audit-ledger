@@ -144,6 +144,37 @@ def append_summary(text: str) -> None:
         handle.write(text)
 
 
+def is_missing_new_code_metrics_only(gate_status: str, conditions: list[dict], measures: dict[str, str]) -> bool:
+    if gate_status != "ERROR":
+        return False
+
+    # When Sonar cannot compute new-code metrics for a context (e.g., no new code),
+    # these measures are often "-" and the gate can surface as ERROR.
+    if measures.get("new_coverage", "-") != "-":
+        return False
+
+    if not conditions:
+        return False
+
+    has_non_ok_condition = False
+    for condition in conditions:
+        status = (condition.get("status") or "").upper()
+        if status in {"", "OK"}:
+            continue
+
+        has_non_ok_condition = True
+        metric_key = condition.get("metricKey", "")
+        actual_value = condition.get("actualValue")
+        normalized_actual = "-" if actual_value in (None, "") else str(actual_value)
+
+        if not metric_key.startswith("new_"):
+            return False
+        if normalized_actual != "-":
+            return False
+
+    return has_non_ok_condition
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-key", required=True)
@@ -151,6 +182,11 @@ def main() -> int:
     parser.add_argument("--report-task-file", required=True)
     parser.add_argument("--timeout-seconds", type=int, default=300)
     parser.add_argument("--poll-seconds", type=int, default=5)
+    parser.add_argument(
+        "--allow-missing-new-code-metrics",
+        action="store_true",
+        help="Do not fail when Sonar returns ERROR only because new_* metrics are unavailable",
+    )
     args = parser.parse_args()
 
     token = os.getenv("SONAR_TOKEN", "")
@@ -250,6 +286,11 @@ def main() -> int:
     append_summary("\n".join(summary_lines))
 
     if gate_status != "OK":
+        if args.allow_missing_new_code_metrics and is_missing_new_code_metrics_only(gate_status, conditions, measures):
+            print(
+                "Quality Gate returned ERROR due to unavailable new-code metrics; treated as neutral for this run"
+            )
+            return 0
         print("Quality Gate failed", file=sys.stderr)
         return 1
 
