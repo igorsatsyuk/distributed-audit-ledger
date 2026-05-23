@@ -33,8 +33,6 @@ class InMemoryEventStorageTest {
 
         List<AuditEvent> snapshot = storage.findAll();
 
-        assertThat(snapshot).hasSize(1);
-        assertThat(snapshot).isUnmodifiable();
+        assertThat(snapshot).hasSize(1).isUnmodifiable();
     }
 }
-
