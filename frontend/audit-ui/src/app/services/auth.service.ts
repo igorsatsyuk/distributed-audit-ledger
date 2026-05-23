@@ -9,12 +9,17 @@ import { AuthLoginRequest, AuthSession, AuthTokenResponse, UserRole } from '../m
 })
 export class AuthService {
   private static readonly STORAGE_KEY = 'dal.auth.session';
+  private readonly storage: Storage;
   private readonly loginUrl = `${environment.commandServiceBaseUrl}/auth/login`;
 
-  private readonly sessionSubject = new BehaviorSubject<AuthSession | null>(this.readStoredSession());
-  readonly session$ = this.sessionSubject.asObservable();
+  private readonly sessionSubject: BehaviorSubject<AuthSession | null>;
+  readonly session$: Observable<AuthSession | null>;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {
+    this.storage = sessionStorage;
+    this.sessionSubject = new BehaviorSubject<AuthSession | null>(this.readStoredSession());
+    this.session$ = this.sessionSubject.asObservable();
+  }
 
   login(request: AuthLoginRequest): Observable<AuthTokenResponse> {
     return this.http.post<AuthTokenResponse>(this.loginUrl, request).pipe(
@@ -61,17 +66,17 @@ export class AuthService {
   }
 
   private setSession(session: AuthSession): void {
-    localStorage.setItem(AuthService.STORAGE_KEY, JSON.stringify(session));
+    this.storage.setItem(AuthService.STORAGE_KEY, JSON.stringify(session));
     this.sessionSubject.next(session);
   }
 
   private clearSession(): void {
-    localStorage.removeItem(AuthService.STORAGE_KEY);
+    this.storage.removeItem(AuthService.STORAGE_KEY);
     this.sessionSubject.next(null);
   }
 
   private readStoredSession(): AuthSession | null {
-    const raw = localStorage.getItem(AuthService.STORAGE_KEY);
+    const raw = this.storage.getItem(AuthService.STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -80,12 +85,12 @@ export class AuthService {
       const parsed = JSON.parse(raw) as AuthSession;
       const expiresAt = Date.parse(parsed.expiresAt);
       if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-        localStorage.removeItem(AuthService.STORAGE_KEY);
+        this.storage.removeItem(AuthService.STORAGE_KEY);
         return null;
       }
       return parsed;
     } catch {
-      localStorage.removeItem(AuthService.STORAGE_KEY);
+      this.storage.removeItem(AuthService.STORAGE_KEY);
       return null;
     }
   }

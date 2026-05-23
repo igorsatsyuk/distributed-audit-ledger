@@ -42,17 +42,18 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<CommandResponse> handleInvalidCredentials(InvalidCredentialsException exception) {
+    public ResponseEntity<AuthErrorResponse> handleInvalidCredentials(InvalidCredentialsException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(CommandResponse.rejected(exception.getMessage()));
+                .body(new AuthErrorResponse("INVALID_CREDENTIALS", exception.getMessage()));
     }
 
     private String formatFieldError(FieldError error) {
-        String defaultMessage = Objects.requireNonNullElse(error.getDefaultMessage(), "Validation failed");
-        if (defaultMessage.contains(error.getField())) {
-            return defaultMessage;
+        String defaultMessage = error.getDefaultMessage();
+        String safeDefaultMessage = Objects.requireNonNullElse(defaultMessage, "Validation failed");
+        if (defaultMessage != null && defaultMessage.contains(error.getField())) {
+            return safeDefaultMessage;
         }
-        return error.getField() + " " + defaultMessage;
+        return error.getField() + " " + safeDefaultMessage;
     }
 }
 

@@ -20,18 +20,18 @@ kafka:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:distributed-audit-ledger-development-secret-please-change}
-    issuer: ${AUTH_JWT_ISSUER:distributed-audit-ledger}
-    expiration: ${AUTH_JWT_EXPIRATION:PT1H}
+    secret: ${AUTH_JWT_SECRET}
+    issuer: ${AUTH_JWT_ISSUER}
+    expiration: ${AUTH_JWT_EXPIRATION}
   users:
-    - username: ${AUTH_ADMIN_USERNAME:admin}
-      password: ${AUTH_ADMIN_PASSWORD:admin123!}
+    - username: ${AUTH_ADMIN_USERNAME}
+      password: ${AUTH_ADMIN_PASSWORD}
       roles: [ADMIN, AUDITOR, USER]
-    - username: ${AUTH_AUDITOR_USERNAME:auditor}
-      password: ${AUTH_AUDITOR_PASSWORD:auditor123!}
+    - username: ${AUTH_AUDITOR_USERNAME}
+      password: ${AUTH_AUDITOR_PASSWORD}
       roles: [AUDITOR]
-    - username: ${AUTH_USER_USERNAME:user}
-      password: ${AUTH_USER_PASSWORD:user123!}
+    - username: ${AUTH_USER_USERNAME}
+      password: ${AUTH_USER_PASSWORD}
       roles: [USER]
 
 management:

@@ -5,6 +5,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authentication.ServerAuthenticationConverter;
 import org.springframework.web.server.ServerWebExchange;
+import org.jspecify.annotations.NonNull;
 import reactor.core.publisher.Mono;
 
 /**
@@ -15,7 +16,7 @@ public class BearerTokenAuthenticationConverter implements ServerAuthenticationC
     private static final String BEARER_PREFIX = "Bearer ";
 
     @Override
-    public Mono<Authentication> convert(ServerWebExchange exchange) {
+    public @NonNull Mono<Authentication> convert(@NonNull ServerWebExchange exchange) {
         String authorization = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authorization == null || authorization.isBlank()) {
             return Mono.empty();

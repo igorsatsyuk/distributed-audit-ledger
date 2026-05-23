@@ -43,12 +43,10 @@ class IntegrityCheckIntegrationTest {
 
     /** Valid 64-char hex hash used across multiple test cases. */
     private static final String HASH_64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    private static final JwtService JWT_SERVICE = new JwtService(
-            "distributed-audit-ledger-development-secret-please-change",
-            "distributed-audit-ledger",
-            Duration.ofHours(1)
-    );
+    @Autowired
+    JwtService jwtService;
 
+    @SuppressWarnings("resource")
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
@@ -315,8 +313,8 @@ class IntegrityCheckIntegrationTest {
                 .block(Duration.ofSeconds(5));
     }
 
-    private static String bearerToken(UserRole... roles) {
-        return "Bearer " + JWT_SERVICE.generateToken(
+    private String bearerToken(UserRole... roles) {
+        return "Bearer " + jwtService.generateToken(
                 "integration-user",
                 Set.of(roles),
                 Instant.now()

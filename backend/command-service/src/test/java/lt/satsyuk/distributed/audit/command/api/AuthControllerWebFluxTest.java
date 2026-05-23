@@ -63,7 +63,7 @@ class AuthControllerWebFluxTest {
                 .exchange()
                 .expectStatus().isUnauthorized()
                 .expectBody()
-                .jsonPath("$.success").isEqualTo(false)
+                .jsonPath("$.error").isEqualTo("INVALID_CREDENTIALS")
                 .jsonPath("$.message").isEqualTo("Invalid username or password");
     }
 

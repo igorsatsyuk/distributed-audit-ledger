@@ -62,5 +62,15 @@ describe('authInterceptor', () => {
     expect(req.request.headers.has('Authorization')).toBeFalse();
     req.flush({});
   });
+
+  it('adds Authorization header for absolute protected api urls', () => {
+    authService.token = 'jwt-token';
+
+    http.get('http://localhost:8084/api/audit-logs').subscribe();
+
+    const req = httpMock.expectOne('http://localhost:8084/api/audit-logs');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-token');
+    req.flush([]);
+  });
 });
 

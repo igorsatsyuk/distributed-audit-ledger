@@ -15,9 +15,9 @@ spring:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:distributed-audit-ledger-development-secret-please-change}
-    issuer: ${AUTH_JWT_ISSUER:distributed-audit-ledger}
-    expiration: ${AUTH_JWT_EXPIRATION:PT1H}
+    secret: ${AUTH_JWT_SECRET}
+    issuer: ${AUTH_JWT_ISSUER}
+    expiration: ${AUTH_JWT_EXPIRATION}
 
 web3j:
   client-address: ${GANACHE_RPC_URL:http://localhost:8545}

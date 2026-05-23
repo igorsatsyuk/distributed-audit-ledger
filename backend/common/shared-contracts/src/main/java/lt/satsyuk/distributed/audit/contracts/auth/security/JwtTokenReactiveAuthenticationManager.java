@@ -8,6 +8,7 @@ import org.springframework.security.authentication.ReactiveAuthenticationManager
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.jspecify.annotations.NonNull;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
@@ -24,7 +25,7 @@ public class JwtTokenReactiveAuthenticationManager implements ReactiveAuthentica
     }
 
     @Override
-    public Mono<Authentication> authenticate(Authentication authentication) {
+    public @NonNull Mono<Authentication> authenticate(@NonNull Authentication authentication) {
         String token = String.valueOf(authentication.getCredentials());
         return Mono.fromSupplier(() -> jwtService.parseAndValidate(token, Instant.now()))
                 .map(this::toAuthentication)

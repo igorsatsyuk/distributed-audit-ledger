@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 
 /**
  * Minimal HS256 JWT encoder/decoder shared by backend services.
@@ -63,13 +64,14 @@ public class JwtService {
         if (roles == null || roles.isEmpty()) {
             throw new IllegalArgumentException("JWT roles must not be empty");
         }
-        Instant expiresAt = issuedAt.plus(expiration);
+        Instant safeIssuedAt = Objects.requireNonNull(issuedAt, "JWT issuedAt must not be null");
+        Instant expiresAt = safeIssuedAt.plus(expiration);
 
         Map<String, Object> header = Map.of("alg", JWT_ALGORITHM, "typ", JWT_TYPE);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("iss", issuer);
         payload.put("sub", subject);
-        payload.put("iat", issuedAt.getEpochSecond());
+        payload.put("iat", safeIssuedAt.getEpochSecond());
         payload.put("exp", expiresAt.getEpochSecond());
         payload.put("roles", roles.stream().map(UserRole::name).sorted().toList());
 
@@ -88,6 +90,7 @@ public class JwtService {
         if (token == null || token.isBlank()) {
             throw new JwtValidationException("JWT token is missing");
         }
+        Instant safeNow = Objects.requireNonNull(now, "JWT validation time must not be null");
 
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
@@ -99,7 +102,7 @@ public class JwtService {
             Map<String, Object> header = decodeToMap(parts[0]);
             Map<String, Object> payload = decodeToMap(parts[1]);
             validateHeader(header);
-            return toClaims(payload, now);
+            return toClaims(payload, safeNow);
         } catch (JwtValidationException exception) {
             throw exception;
         } catch (Exception exception) {

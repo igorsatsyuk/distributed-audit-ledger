@@ -165,12 +165,13 @@ class ContractsDtoAndMapperFactoryTest {
     void jwtServiceRejectsExpiredToken() {
         JwtService jwtService = new JwtService("test-secret-value-1234567890", "dal-test", Duration.ofMinutes(1));
         Instant issuedAt = Instant.parse("2026-05-22T10:00:00Z");
+        Instant validationTime = issuedAt.plus(Duration.ofMinutes(2));
 
         String token = jwtService.generateToken("user", Set.of(UserRole.USER), issuedAt);
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 JwtValidationException.class,
-                () -> jwtService.parseAndValidate(token, issuedAt.plus(Duration.ofMinutes(2)))
+                () -> jwtService.parseAndValidate(token, validationTime)
         );
     }
 }

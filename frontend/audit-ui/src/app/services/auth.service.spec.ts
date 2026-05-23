@@ -11,7 +11,7 @@ describe('AuthService', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    localStorage.clear();
+    sessionStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
@@ -21,7 +21,7 @@ describe('AuthService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('stores session after successful login', () => {
@@ -74,16 +74,16 @@ describe('AuthService', () => {
   });
 
   it('ignores invalid serialized session in localStorage', () => {
-    localStorage.setItem('dal.auth.session', '{not-json');
+    sessionStorage.setItem('dal.auth.session', '{not-json');
 
     const stored = (service as any).readStoredSession();
 
     expect(stored).toBeNull();
-    expect(localStorage.getItem('dal.auth.session')).toBeNull();
+    expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
 
   it('drops expired session loaded from localStorage', () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       'dal.auth.session',
       JSON.stringify({
         accessToken: 'old-token',
@@ -97,7 +97,7 @@ describe('AuthService', () => {
     const stored = (service as any).readStoredSession();
 
     expect(stored).toBeNull();
-    expect(localStorage.getItem('dal.auth.session')).toBeNull();
+    expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
 });
 

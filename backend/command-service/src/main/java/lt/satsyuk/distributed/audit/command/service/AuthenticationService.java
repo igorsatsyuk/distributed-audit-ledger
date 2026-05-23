@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -29,15 +31,18 @@ public class AuthenticationService {
                                  JwtService jwtService) {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
-        this.usersByUsername = authProperties.getUsers().stream()
+        List<AuthProperties.User> configuredUsers = Objects.requireNonNull(authProperties.getUsers(), "auth.users must be configured");
+        if (configuredUsers.isEmpty()) {
+            throw new IllegalStateException("auth.users must not be empty");
+        }
+        this.usersByUsername = configuredUsers.stream()
                 .collect(Collectors.toUnmodifiableMap(
                         AuthProperties.User::getUsername,
                         user -> new AuthenticatedUser(
                                 user.getUsername(),
                                 passwordEncoder.encode(user.getPassword()),
                                 Set.copyOf(user.getRoles())
-                        ),
-                        preferFirst()
+                        )
                 ));
     }
 
@@ -61,9 +66,6 @@ public class AuthenticationService {
                 .build();
     }
 
-    private static <T> java.util.function.BinaryOperator<T> preferFirst() {
-        return (left, ignored) -> left;
-    }
 
     private record AuthenticatedUser(String username, String encodedPassword, Set<UserRole> roles) {
     }
