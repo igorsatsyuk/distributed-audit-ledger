@@ -20,8 +20,8 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(WebExchangeBindException.class)
-    public ResponseEntity<?> handleValidationError(WebExchangeBindException exception,
-                                                   ServerWebExchange exchange) {
+    public ResponseEntity<Object> handleValidationError(WebExchangeBindException exception,
+                                                        ServerWebExchange exchange) {
         String message = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -32,8 +32,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(ServerWebInputException.class)
-    public ResponseEntity<?> handleWebInputError(ServerWebInputException exception,
-                                                 ServerWebExchange exchange) {
+    public ResponseEntity<Object> handleWebInputError(ServerWebInputException exception,
+                                                      ServerWebExchange exchange) {
         String message = Objects.requireNonNullElse(exception.getReason(), "Invalid request payload");
         return badRequest(exchange, message);
     }
@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
         return error.getField() + " " + safeDefaultMessage;
     }
 
-    private ResponseEntity<?> badRequest(ServerWebExchange exchange, String message) {
+    private ResponseEntity<Object> badRequest(ServerWebExchange exchange, String message) {
         if (isAuthRequest(exchange)) {
             return ResponseEntity.badRequest().body(new AuthErrorResponse("INVALID_REQUEST", message));
         }
