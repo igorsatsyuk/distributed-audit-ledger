@@ -79,7 +79,7 @@ public class SecurityConfig {
                                 CommandResponse.rejected("Access denied")
                         )))
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/auth/login", "/actuator/health/**", "/actuator/info", "/error").permitAll()
+                        .pathMatchers("/auth/login", "/actuator/health/**", "/actuator/info", "/actuator/metrics/**", "/error").permitAll()
                         .pathMatchers("/commands/**").hasAnyRole("USER", "ADMIN")
                         .anyExchange().authenticated())
                 .addFilterAt(jwtFilter, SecurityWebFiltersOrder.AUTHENTICATION)

@@ -11,6 +11,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,9 +39,13 @@ public class AuthenticationService {
         }
 
         // Validate each configured user before building the map
+        Set<String> usernames = new HashSet<>();
         for (AuthProperties.User user : configuredUsers) {
             if (user.getUsername() == null || user.getUsername().isBlank()) {
                 throw new IllegalStateException("auth.users[*].username must not be blank");
+            }
+            if (!usernames.add(user.getUsername())) {
+                throw new IllegalStateException("auth.users contains duplicate username: " + user.getUsername());
             }
             if (user.getPassword() == null || user.getPassword().isBlank()) {
                 throw new IllegalStateException("auth.users[*].password must not be blank");

@@ -69,7 +69,7 @@ public class SecurityConfig {
                                 new ApiErrorResponse("Access denied")
                         )))
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/actuator/health/**", "/actuator/info", "/error").permitAll()
+                        .pathMatchers("/actuator/health/**", "/actuator/info", "/actuator/metrics/**", "/error").permitAll()
                         .pathMatchers("/api/**").hasAnyRole("AUDITOR", "ADMIN")
                         .anyExchange().authenticated())
                 .addFilterAt(jwtFilter, SecurityWebFiltersOrder.AUTHENTICATION)

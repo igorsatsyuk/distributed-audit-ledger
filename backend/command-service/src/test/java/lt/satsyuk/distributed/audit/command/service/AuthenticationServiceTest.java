@@ -192,6 +192,29 @@ class AuthenticationServiceTest {
         );
     }
 
+    @Test
+    void constructorThrowsWhenDuplicateUsernamesConfigured() {
+        AuthProperties authProperties = new AuthProperties();
+
+        AuthProperties.User first = new AuthProperties.User();
+        first.setUsername("duplicate-user");
+        first.setPassword("pass1");
+        first.setRoles(EnumSet.of(UserRole.USER));
+
+        AuthProperties.User second = new AuthProperties.User();
+        second.setUsername("duplicate-user");
+        second.setPassword("pass2");
+        second.setRoles(EnumSet.of(UserRole.ADMIN));
+
+        authProperties.setUsers(List.of(first, second));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> new AuthenticationService(authProperties, passwordEncoder, jwtService)
+        );
+        assertTrue(exception.getMessage().contains("duplicate username"));
+    }
+
     private AuthProperties createValidAuthProperties() {
         AuthProperties authProperties = new AuthProperties();
         AuthProperties.User user = new AuthProperties.User();
