@@ -150,7 +150,7 @@ def is_missing_new_code_metrics_only(gate_status: str, conditions: list[dict], m
 
     # When Sonar cannot compute new-code metrics for a context (e.g., no new code),
     # these measures are often "-" and the gate can surface as ERROR.
-    if measures.get("new_coverage", "-") != "-":
+    if measures.get("new_coverage", "-") not in {"-", "NO_VALUE", ""}:
         return False
 
     if not conditions:
@@ -169,7 +169,7 @@ def is_missing_new_code_metrics_only(gate_status: str, conditions: list[dict], m
 
         if not metric_key.startswith("new_"):
             return False
-        if normalized_actual != "-":
+        if normalized_actual not in {"-", "NO_VALUE", "None"}:
             return False
 
     return has_non_ok_condition
