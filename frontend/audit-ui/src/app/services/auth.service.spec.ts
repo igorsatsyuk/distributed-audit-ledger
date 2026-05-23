@@ -110,15 +110,32 @@ describe('AuthService', () => {
     expect(sessionStorage.getItem('dal.auth.session')).toBeNull();
   });
 
-  it('drops expired session loaded from sessionStorage', () => {
+  it('getAuthorizationHeader returns tokenType and token for valid session', () => {
+    service.login({ username: 'auditor', password: 'auditor123!' }).subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      accessToken: 'jwt-token',
+      tokenType: 'Bearer',
+      expiresAt: '2099-01-01T00:00:00Z',
+      username: 'auditor',
+      roles: ['AUDITOR'],
+    });
+
+    expect(service.getAuthorizationHeader()).toBe('Bearer jwt-token');
+  });
+
+  it('getAuthorizationHeader returns null when not authenticated', () => {
+    expect(service.getAuthorizationHeader()).toBeNull();
+  });
+
+  it('drops session with invalid roles from sessionStorage', () => {
     sessionStorage.setItem(
       'dal.auth.session',
       JSON.stringify({
         accessToken: 'old-token',
         tokenType: 'Bearer',
-        expiresAt: '2000-01-01T00:00:00Z',
+        expiresAt: '2099-01-01T00:00:00Z',
         username: 'user',
-        roles: ['USER'],
+        roles: ['SUPERADMIN'],
       }),
     );
 

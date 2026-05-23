@@ -5,10 +5,14 @@ import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../services/auth.service';
 
 class AuthServiceStub {
-  token: string | null = null;
+  private _header: string | null = null;
 
-  getAccessToken(): string | null {
-    return this.token;
+  set token(value: string | null) {
+    this._header = value ? `Bearer ${value}` : null;
+  }
+
+  getAuthorizationHeader(): string | null {
+    return this._header;
   }
 }
 

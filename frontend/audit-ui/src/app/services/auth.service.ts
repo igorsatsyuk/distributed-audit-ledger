@@ -72,6 +72,17 @@ export class AuthService {
     return this.sessionSubject.value?.accessToken ?? null;
   }
 
+  getAuthorizationHeader(): string | null {
+    if (!this.isAuthenticated()) {
+      return null;
+    }
+    const session = this.sessionSubject.value;
+    if (!session) {
+      return null;
+    }
+    return `${session.tokenType} ${session.accessToken}`;
+  }
+
   getUsername(): string | null {
     if (!this.isAuthenticated()) {
       return null;
@@ -89,6 +100,8 @@ export class AuthService {
     this.sessionSubject.next(null);
   }
 
+  private static readonly ALLOWED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['AUDITOR', 'ADMIN', 'USER']);
+
   private readStoredSession(): AuthSession | null {
     const raw = this.storage.getItem(AuthService.STORAGE_KEY);
     if (!raw) {
@@ -97,6 +110,20 @@ export class AuthService {
 
     try {
       const parsed = JSON.parse(raw) as AuthSession;
+
+      // Validate all required fields to prevent runtime errors from tampered storage
+      if (
+        typeof parsed.accessToken !== 'string' || !parsed.accessToken ||
+        typeof parsed.tokenType !== 'string' || !parsed.tokenType ||
+        typeof parsed.username !== 'string' || !parsed.username ||
+        typeof parsed.expiresAt !== 'string' ||
+        !Array.isArray(parsed.roles) || parsed.roles.length === 0 ||
+        !parsed.roles.every((r) => AuthService.ALLOWED_ROLES.has(r as UserRole))
+      ) {
+        this.storage.removeItem(AuthService.STORAGE_KEY);
+        return null;
+      }
+
       const expiresAt = Date.parse(parsed.expiresAt);
       if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
         this.storage.removeItem(AuthService.STORAGE_KEY);

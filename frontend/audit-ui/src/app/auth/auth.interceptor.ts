@@ -41,16 +41,16 @@ function isProtectedRequest(url: string): boolean {
 
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const authService = inject(AuthService);
-  const token = authService.getAccessToken();
+  const authHeader = authService.getAuthorizationHeader();
 
-  if (!token || !isProtectedRequest(request.url)) {
+  if (!authHeader || !isProtectedRequest(request.url)) {
     return next(request);
   }
 
   return next(
     request.clone({
       setHeaders: {
-        Authorization: `Bearer ${token}`,
+        Authorization: authHeader,
       },
     }),
   );

@@ -45,13 +45,18 @@ public class JwtService {
         if (secret == null || secret.isBlank()) {
             throw new IllegalArgumentException("JWT secret must not be blank");
         }
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (secretBytes.length < 32) {
+            throw new IllegalArgumentException(
+                    "JWT secret is too short (" + secretBytes.length + " bytes); minimum 32 bytes required for HS256");
+        }
         if (issuer == null || issuer.isBlank()) {
             throw new IllegalArgumentException("JWT issuer must not be blank");
         }
         if (expiration == null || expiration.isZero() || expiration.isNegative()) {
             throw new IllegalArgumentException("JWT expiration must be positive");
         }
-        this.secret = secret.getBytes(StandardCharsets.UTF_8);
+        this.secret = secretBytes;
         this.issuer = issuer;
         this.expiration = expiration;
         this.objectMapper = objectMapper;

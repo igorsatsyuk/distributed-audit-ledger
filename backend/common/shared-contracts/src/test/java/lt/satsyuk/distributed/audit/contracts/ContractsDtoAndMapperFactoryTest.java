@@ -148,7 +148,7 @@ class ContractsDtoAndMapperFactoryTest {
 
     @Test
     void jwtServiceGeneratesAndValidatesToken() {
-        JwtService jwtService = new JwtService("test-secret-value-1234567890", "dal-test", Duration.ofMinutes(15));
+        JwtService jwtService = new JwtService("test-secret-value-1234567890abcd", "dal-test", Duration.ofMinutes(15));
         Instant issuedAt = Instant.parse("2026-05-22T10:00:00Z");
 
         String token = jwtService.generateToken("auditor", Set.of(UserRole.AUDITOR, UserRole.ADMIN), issuedAt);
@@ -163,7 +163,7 @@ class ContractsDtoAndMapperFactoryTest {
 
     @Test
     void jwtServiceRejectsExpiredToken() {
-        JwtService jwtService = new JwtService("test-secret-value-1234567890", "dal-test", Duration.ofMinutes(1));
+        JwtService jwtService = new JwtService("test-secret-value-1234567890abcd", "dal-test", Duration.ofMinutes(1));
         Instant issuedAt = Instant.parse("2026-05-22T10:00:00Z");
         Instant validationTime = issuedAt.plus(Duration.ofMinutes(2));
 
