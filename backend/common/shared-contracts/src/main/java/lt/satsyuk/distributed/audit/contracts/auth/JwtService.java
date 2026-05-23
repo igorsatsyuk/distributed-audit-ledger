@@ -59,7 +59,7 @@ public class JwtService {
         this.secret = secretBytes;
         this.issuer = issuer;
         this.expiration = expiration;
-        this.objectMapper = objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "JWT ObjectMapper must not be null");
     }
 
     public String generateToken(String subject, Collection<UserRole> roles, Instant issuedAt) {
