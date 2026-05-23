@@ -1,5 +1,6 @@
 package lt.satsyuk.distributed.audit.auditwriter.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lt.satsyuk.distributed.audit.auditwriter.config.JacksonConfig;
 import lt.satsyuk.distributed.audit.contracts.config.CanonicalObjectMapperFactory;
@@ -13,6 +14,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link HashCalculationService}.
@@ -81,6 +83,15 @@ class HashCalculationServiceTest {
         assertThat(hex).hasSize(64).matches("[0-9a-f]+");
     }
 
+    @Test
+    void toHexString_formatsSignedBytesAsUnsignedHex() {
+        byte[] bytes = new byte[] {(byte) 0xFF, (byte) 0x80, (byte) 0x00, (byte) 0x0A};
+
+        String hex = HashCalculationService.toHexString(bytes);
+
+        assertThat(hex).isEqualTo("ff80000a");
+    }
+
     /**
      * Verifies that the audit-writer hash serialization produces deterministic output
      * using a fixed test event with a hard-coded expected SHA-256 digest.
@@ -142,5 +153,24 @@ class HashCalculationServiceTest {
                 .digest(payloadJson.getBytes(StandardCharsets.UTF_8));
 
         assertThat(hashService.computeHash(event)).isEqualTo(expected);
+    }
+
+    @Test
+    void computeHash_wrapsSerializationFailures() {
+        ObjectMapper failingMapper = new ObjectMapper() {
+            @Override
+            public String writeValueAsString(Object value) throws JsonProcessingException {
+                throw new JsonProcessingException("boom") {
+                };
+            }
+        };
+
+        HashCalculationService failingService = new HashCalculationService(failingMapper);
+        UserLoggedInEvent event = UserLoggedInEvent.of("broken-user", null, null);
+
+        assertThatThrownBy(() -> failingService.computeHash(event))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Failed to compute hash for event")
+                .hasCauseInstanceOf(JsonProcessingException.class);
     }
 }

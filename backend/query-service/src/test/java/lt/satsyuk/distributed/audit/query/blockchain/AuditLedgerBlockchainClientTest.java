@@ -10,8 +10,12 @@ import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.EthCall;
 import org.web3j.protocol.core.methods.response.EthLog;
+import org.web3j.protocol.core.methods.response.Log;
+import org.web3j.protocol.core.Response;
+import org.web3j.utils.Numeric;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,6 +149,127 @@ class AuditLedgerBlockchainClientTest {
         assertNull(blockchainRecord.transactionHash());
         assertNull(blockchainRecord.blockNumber());
         assertNull(blockchainRecord.timestamp());
+    }
+
+    @Test
+    void inspectEventHashReturnsDecodedTimestampWhenMatchingLogIsFound() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setResult("0x" + "0".repeat(63) + "1");
+        when(callRequest.send()).thenReturn(ethCall);
+
+        Request<?, EthLog> logsRequest = mockRequest();
+        doReturn(logsRequest).when(web3j).ethGetLogs(any());
+
+        Log log = new Log();
+        log.setTransactionHash("0xfeed");
+        log.setBlockNumber("0x2a");
+        log.setData("0x" + Numeric.toHexStringNoPrefixZeroPadded(BigInteger.valueOf(1_704_067_200L), 64));
+
+        @SuppressWarnings("unchecked")
+        EthLog.LogResult<Log> logObject = mock(EthLog.LogResult.class);
+        when(logObject.get()).thenReturn(log);
+
+        EthLog ethLog = new EthLog();
+        ethLog.setResult(Collections.singletonList(logObject));
+        when(logsRequest.send()).thenReturn(ethLog);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        AuditIntegrityCheckResponse.BlockchainRecord blockchainRecord = inspectBlocking(client, VALID_HASH);
+
+        assertNotNull(blockchainRecord);
+        assertTrue(blockchainRecord.exists());
+        assertEquals("0xfeed", blockchainRecord.transactionHash());
+        assertEquals(42L, blockchainRecord.blockNumber());
+        assertEquals(1_704_067_200L, blockchainRecord.timestamp());
+    }
+
+    @Test
+    void inspectEventHashFailsWhenEthCallResponseIsEmpty() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+        when(callRequest.send()).thenReturn(null);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        BlockchainIntegrityException ex = assertThrows(BlockchainIntegrityException.class,
+                () -> inspectBlocking(client, VALID_HASH));
+
+        assertEquals("Blockchain call failed: empty eth_call response", ex.getMessage());
+        assertEquals(BlockchainIntegrityException.ErrorType.RPC_FAILURE, ex.getErrorType());
+    }
+
+    @Test
+    void inspectEventHashFailsWhenEthCallReturnsRpcError() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setError(new Response.Error(3, "execution reverted"));
+        when(callRequest.send()).thenReturn(ethCall);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        BlockchainIntegrityException ex = assertThrows(BlockchainIntegrityException.class,
+                () -> inspectBlocking(client, VALID_HASH));
+
+        assertEquals("Blockchain call failed: execution reverted", ex.getMessage());
+        assertEquals(BlockchainIntegrityException.ErrorType.RPC_FAILURE, ex.getErrorType());
+    }
+
+    @Test
+    void inspectEventHashFailsWhenEthCallReturnsUndecodablePayload() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setResult("0x");
+        when(callRequest.send()).thenReturn(ethCall);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        BlockchainIntegrityException ex = assertThrows(BlockchainIntegrityException.class,
+                () -> inspectBlocking(client, VALID_HASH));
+
+        assertEquals(
+                "Blockchain contract mismatch: eth_call returned empty or undecodable value for isHashExists (check contract address / ABI)",
+                ex.getMessage());
+        assertEquals(BlockchainIntegrityException.ErrorType.CONFIGURATION, ex.getErrorType());
+    }
+
+    @Test
+    void inspectEventHashFailsWhenEthGetLogsResponseIsEmpty() throws Exception {
+        Web3j web3j = mock(Web3j.class);
+        Request<?, EthCall> callRequest = mockRequest();
+        doReturn(callRequest).when(web3j).ethCall(any(), eq(DefaultBlockParameterName.LATEST));
+
+        EthCall ethCall = new EthCall();
+        ethCall.setResult("0x" + "0".repeat(63) + "1");
+        when(callRequest.send()).thenReturn(ethCall);
+
+        Request<?, EthLog> logsRequest = mockRequest();
+        doReturn(logsRequest).when(web3j).ethGetLogs(any());
+        when(logsRequest.send()).thenReturn(null);
+
+        AuditLedgerBlockchainClient client = newClient("http://localhost:8545", 0L,
+                "0x1111111111111111111111111111111111111111", web3j);
+
+        BlockchainIntegrityException ex = assertThrows(BlockchainIntegrityException.class,
+                () -> inspectBlocking(client, VALID_HASH));
+
+        assertEquals("Blockchain log lookup failed: empty eth_getLogs response", ex.getMessage());
+        assertEquals(BlockchainIntegrityException.ErrorType.RPC_FAILURE, ex.getErrorType());
     }
 
     @Test
