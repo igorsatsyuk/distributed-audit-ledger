@@ -76,8 +76,8 @@ public class JwtService {
         payload.put("roles", roles.stream().map(UserRole::name).sorted().toList());
 
         try {
-            String encodedHeader = encodeJson(header);
-            String encodedPayload = encodeJson(payload);
+            String encodedHeader = encodeJson(header, "header");
+            String encodedPayload = encodeJson(payload, "payload");
             String signingInput = encodedHeader + "." + encodedPayload;
             String signature = encode(sign(signingInput));
             return signingInput + "." + signature;
@@ -118,11 +118,11 @@ public class JwtService {
         return issuer;
     }
 
-    private String encodeJson(Map<String, Object> value) {
+    private String encodeJson(Map<String, Object> value, String tokenPartName) {
         try {
             return encode(objectMapper.writeValueAsBytes(value));
         } catch (Exception exception) {
-            throw new IllegalStateException("Failed to serialize JWT payload", exception);
+            throw new IllegalStateException("Failed to serialize JWT " + tokenPartName, exception);
         }
     }
 

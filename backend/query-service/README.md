@@ -23,6 +23,19 @@ From `backend/`:
 mvn spring-boot:run -pl query-service -am
 ```
 
+`query-service` production config intentionally requires these JWT environment variables:
+
+- `AUTH_JWT_SECRET`
+- `AUTH_JWT_ISSUER`
+- `AUTH_JWT_EXPIRATION`
+
+For local development only, you can run with the dev-only `local` profile from
+`src/main/resources/application-local.yml`:
+
+```bash
+mvn spring-boot:run -pl query-service -am -Dspring-boot.run.profiles=local
+```
+
 Service port: `8084`
 
 ## Quick checks

@@ -26,6 +26,25 @@ From `backend/`:
 mvn spring-boot:run -pl command-service -am
 ```
 
+`command-service` production config intentionally requires these environment variables:
+
+- `AUTH_JWT_SECRET`
+- `AUTH_JWT_ISSUER`
+- `AUTH_JWT_EXPIRATION`
+- `AUTH_ADMIN_USERNAME`
+- `AUTH_ADMIN_PASSWORD`
+- `AUTH_AUDITOR_USERNAME`
+- `AUTH_AUDITOR_PASSWORD`
+- `AUTH_USER_USERNAME`
+- `AUTH_USER_PASSWORD`
+
+For local development only, you can use the dev-only `local` profile with safe defaults from
+`src/main/resources/application-local.yml`:
+
+```pwsh
+mvn spring-boot:run -pl command-service -am -Dspring-boot.run.profiles=local
+```
+
 ## Quick check
 
 From `backend/` (after Kafka is running):
