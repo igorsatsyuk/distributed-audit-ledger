@@ -99,8 +99,8 @@ public class JwtService {
 
         try {
             validateSignature(parts);
-            Map<String, Object> header = decodeToMap(parts[0]);
-            Map<String, Object> payload = decodeToMap(parts[1]);
+            Map<String, Object> header = decodeToMap(parts[0], "header");
+            Map<String, Object> payload = decodeToMap(parts[1], "payload");
             validateHeader(header);
             return toClaims(payload, safeNow);
         } catch (JwtValidationException exception) {
@@ -174,11 +174,11 @@ public class JwtService {
         return new JwtClaims(subject, Set.copyOf(roles), issuedAt, expiresAt, tokenIssuer);
     }
 
-    private Map<String, Object> decodeToMap(String tokenPart) {
+    private Map<String, Object> decodeToMap(String tokenPart, String tokenPartName) {
         try {
             return objectMapper.readValue(decode(tokenPart), MAP_TYPE);
         } catch (Exception exception) {
-            throw new JwtValidationException("JWT token payload is malformed", exception);
+            throw new JwtValidationException("JWT token " + tokenPartName + " is malformed", exception);
         }
     }
 

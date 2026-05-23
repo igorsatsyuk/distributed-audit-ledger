@@ -8,6 +8,7 @@ import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.List;
@@ -61,7 +62,8 @@ public class AuthenticationService {
     }
 
     public Mono<AuthTokenResponse> login(AuthLoginRequest request) {
-        return Mono.fromSupplier(() -> authenticate(request));
+        return Mono.fromCallable(() -> authenticate(request))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     private AuthTokenResponse authenticate(AuthLoginRequest request) {

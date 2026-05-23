@@ -22,6 +22,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 /**
  * Reactive Spring Security configuration for JWT-protected command endpoints.
@@ -34,10 +35,11 @@ public class SecurityConfig {
 
     @Bean
     JwtService jwtService(AuthProperties authProperties) {
+        var jwtProperties = Objects.requireNonNull(authProperties.getJwt(), "auth.jwt must be configured");
         return new JwtService(
-                authProperties.getJwt().getSecret(),
-                authProperties.getJwt().getIssuer(),
-                authProperties.getJwt().getExpiration()
+                jwtProperties.getSecret(),
+                jwtProperties.getIssuer(),
+                jwtProperties.getExpiration()
         );
     }
 

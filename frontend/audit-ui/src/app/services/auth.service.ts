@@ -46,7 +46,11 @@ export class AuthService {
       return false;
     }
     const expiresAt = Date.parse(session.expiresAt);
-    return Number.isFinite(expiresAt) && expiresAt > Date.now();
+    const isValid = Number.isFinite(expiresAt) && expiresAt > Date.now();
+    if (!isValid) {
+      this.clearSession();
+    }
+    return isValid;
   }
 
   hasAnyRole(roles: UserRole[]): boolean {
@@ -58,6 +62,9 @@ export class AuthService {
   }
 
   getAccessToken(): string | null {
+    if (!this.isAuthenticated()) {
+      return null;
+    }
     return this.sessionSubject.value?.accessToken ?? null;
   }
 
