@@ -225,10 +225,43 @@ describe('AuditDashboardComponent', () => {
     expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('ON_CHAIN');
   });
 
+  it('openDetails swallows drawer open rejection (non-critical)', async () => {
+    await init();
+    const drawerMock = {
+      open: jasmine.createSpy('open').and.returnValue(Promise.reject(new Error('drawer open failed'))),
+      close: jasmine.createSpy('close').and.returnValue(Promise.resolve()),
+    };
+    Object.defineProperty(component as object, 'detailsDrawer', { value: drawerMock });
+
+    component.openDetails(MOCK_LOG);
+    await Promise.resolve();
+
+    expect(drawerMock.open).toHaveBeenCalled();
+    expect(component.selectedAuditLog()).toEqual(MOCK_LOG);
+  });
+
   it('closeDetails clears selectedAuditLog and integrity state', async () => {
     await init();
     component.openDetails(MOCK_LOG);
     component.closeDetails();
+    expect(component.selectedAuditLog()).toBeNull();
+    expect(component.integrityCheckResult()).toBeNull();
+    expect(component.integrityCheckError()).toBeNull();
+  });
+
+  it('closeDetails swallows drawer close rejection (non-critical)', async () => {
+    await init();
+    const drawerMock = {
+      open: jasmine.createSpy('open').and.returnValue(Promise.resolve()),
+      close: jasmine.createSpy('close').and.returnValue(Promise.reject(new Error('drawer close failed'))),
+    };
+    Object.defineProperty(component as object, 'detailsDrawer', { value: drawerMock });
+
+    component.openDetails(MOCK_LOG);
+    component.closeDetails();
+    await Promise.resolve();
+
+    expect(drawerMock.close).toHaveBeenCalled();
     expect(component.selectedAuditLog()).toBeNull();
     expect(component.integrityCheckResult()).toBeNull();
     expect(component.integrityCheckError()).toBeNull();
