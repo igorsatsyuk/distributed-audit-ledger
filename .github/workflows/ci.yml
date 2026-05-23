@@ -130,6 +130,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ github.token }}
 
       - name: Check Sonar configuration
         id: sonar-check
@@ -262,6 +263,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ github.token }}
 
       - name: Check Sonar configuration
         id: sonar-check
@@ -358,6 +360,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ github.token }}
 
       - name: Check Sonar configuration
         id: sonar-check
