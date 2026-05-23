@@ -118,7 +118,7 @@ export class AuthService {
         typeof parsed.username !== 'string' || !parsed.username ||
         typeof parsed.expiresAt !== 'string' ||
         !Array.isArray(parsed.roles) || parsed.roles.length === 0 ||
-        !parsed.roles.every((r) => AuthService.ALLOWED_ROLES.has(r as UserRole))
+        !parsed.roles.every((r: unknown) => AuthService.ALLOWED_ROLES.has(r as UserRole))
       ) {
         this.storage.removeItem(AuthService.STORAGE_KEY);
         return null;

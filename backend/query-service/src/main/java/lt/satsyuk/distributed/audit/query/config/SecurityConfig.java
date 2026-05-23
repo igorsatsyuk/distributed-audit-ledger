@@ -49,7 +49,8 @@ public class SecurityConfig {
         AuthenticationWebFilter jwtFilter = new AuthenticationWebFilter(authenticationManager);
         jwtFilter.setServerAuthenticationConverter(new BearerTokenAuthenticationConverter());
         jwtFilter.setSecurityContextRepository(NoOpServerSecurityContextRepository.getInstance());
-        jwtFilter.setRequiresAuthenticationMatcher(ServerWebExchangeMatchers.pathMatchers("/api/**"));
+        jwtFilter.setRequiresAuthenticationMatcher(
+                ServerWebExchangeMatchers.pathMatchers("/api/**", "/actuator/metrics/**"));
 
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
