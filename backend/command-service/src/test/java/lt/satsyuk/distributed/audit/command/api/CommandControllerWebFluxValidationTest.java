@@ -47,10 +47,12 @@ class CommandControllerWebFluxValidationTest {
 
     @Test
     void malformedJsonReturnsCommandResponseEnvelope() {
+        String malformedPayload = "{\"userId\":";
+
         webTestClient.post()
                 .uri("/commands/user/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"userId\":")
+                .bodyValue(malformedPayload)
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()

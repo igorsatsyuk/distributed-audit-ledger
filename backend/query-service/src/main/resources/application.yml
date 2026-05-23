@@ -13,6 +13,12 @@ spring:
   flyway:
     enabled: false   # Query service does NOT run migrations — event-store owns the schema
 
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:distributed-audit-ledger-development-secret-please-change}
+    issuer: ${AUTH_JWT_ISSUER:distributed-audit-ledger}
+    expiration: ${AUTH_JWT_EXPIRATION:PT1H}
+
 web3j:
   client-address: ${GANACHE_RPC_URL:http://localhost:8545}
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}

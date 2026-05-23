@@ -1,5 +1,7 @@
 package lt.satsyuk.distributed.audit.query.integration;
 
+import lt.satsyuk.distributed.audit.contracts.auth.JwtService;
+import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
 import lt.satsyuk.distributed.audit.query.api.BlockchainIntegrityException;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -20,6 +23,8 @@ import org.web3j.protocol.Web3j;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
@@ -38,6 +43,11 @@ class IntegrityCheckIntegrationTest {
 
     /** Valid 64-char hex hash used across multiple test cases. */
     private static final String HASH_64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static final JwtService JWT_SERVICE = new JwtService(
+            "distributed-audit-ledger-development-secret-please-change",
+            "distributed-audit-ledger",
+            Duration.ofHours(1)
+    );
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES =
@@ -75,10 +85,42 @@ class IntegrityCheckIntegrationTest {
     void setUp() {
         webTestClient = WebTestClient.bindToServer()
                 .baseUrl("http://localhost:" + port)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, bearerToken(UserRole.AUDITOR))
                 .responseTimeout(Duration.ofSeconds(15))
                 .build();
         databaseClient.sql("DELETE FROM audit.events")
                 .fetch().rowsUpdated().block(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void queryEndpointsReturn401WithoutToken() {
+        WebTestClient anonymousClient = WebTestClient.bindToServer()
+                .baseUrl("http://localhost:" + port)
+                .responseTimeout(Duration.ofSeconds(15))
+                .build();
+
+        anonymousClient.get()
+                .uri("/api/audit-logs")
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Authentication is required");
+    }
+
+    @Test
+    void queryEndpointsReturn403ForUserRoleWithoutAuditorAccess() {
+        WebTestClient userClient = WebTestClient.bindToServer()
+                .baseUrl("http://localhost:" + port)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, bearerToken(UserRole.USER))
+                .responseTimeout(Duration.ofSeconds(15))
+                .build();
+
+        userClient.get()
+                .uri("/api/audit-logs")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Access denied");
     }
 
     // ── Integrity-check endpoint ──────────────────────────────────────────────
@@ -271,6 +313,14 @@ class IntegrityCheckIntegrationTest {
                 .one()
                 .map(row -> ((Number) row.get("id")).longValue())
                 .block(Duration.ofSeconds(5));
+    }
+
+    private static String bearerToken(UserRole... roles) {
+        return "Bearer " + JWT_SERVICE.generateToken(
+                "integration-user",
+                Set.of(roles),
+                Instant.now()
+        );
     }
 }
 

@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.command.api;
 
 import lt.satsyuk.distributed.audit.command.service.CommandPublishException;
+import lt.satsyuk.distributed.audit.command.service.InvalidCredentialsException;
 import lt.satsyuk.distributed.audit.contracts.dto.CommandResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CommandPublishException.class)
     public ResponseEntity<CommandResponse> handlePublishError(CommandPublishException exception) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(CommandResponse.rejected(exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<CommandResponse> handleInvalidCredentials(InvalidCredentialsException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(CommandResponse.rejected(exception.getMessage()));
     }
 
