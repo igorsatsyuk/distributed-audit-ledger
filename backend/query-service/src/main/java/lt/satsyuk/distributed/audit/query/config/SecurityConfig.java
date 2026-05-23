@@ -2,9 +2,9 @@ package lt.satsyuk.distributed.audit.query.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lt.satsyuk.distributed.audit.contracts.auth.JwtService;
+import lt.satsyuk.distributed.audit.contracts.auth.security.BearerTokenAuthenticationConverter;
+import lt.satsyuk.distributed.audit.contracts.auth.security.JwtTokenReactiveAuthenticationManager;
 import lt.satsyuk.distributed.audit.query.api.ApiErrorResponse;
-import lt.satsyuk.distributed.audit.query.security.BearerTokenServerAuthenticationConverter;
-import lt.satsyuk.distributed.audit.query.security.JwtReactiveAuthenticationManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
@@ -40,14 +40,14 @@ public class SecurityConfig {
 
     @Bean
     ReactiveAuthenticationManager reactiveAuthenticationManager(JwtService jwtService) {
-        return new JwtReactiveAuthenticationManager(jwtService);
+        return new JwtTokenReactiveAuthenticationManager(jwtService);
     }
 
     @Bean
     SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http,
                                                      ReactiveAuthenticationManager authenticationManager) {
         AuthenticationWebFilter jwtFilter = new AuthenticationWebFilter(authenticationManager);
-        jwtFilter.setServerAuthenticationConverter(new BearerTokenServerAuthenticationConverter());
+        jwtFilter.setServerAuthenticationConverter(new BearerTokenAuthenticationConverter());
         jwtFilter.setSecurityContextRepository(NoOpServerSecurityContextRepository.getInstance());
         jwtFilter.setRequiresAuthenticationMatcher(ServerWebExchangeMatchers.pathMatchers("/api/**"));
 

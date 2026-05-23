@@ -5,13 +5,11 @@ import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.adapter.DefaultServerWebExchange;
-import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
-import org.springframework.mock.http.server.reactive.MockServerWebExchange;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -50,10 +48,11 @@ class JwtSecurityComponentsTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("auditor");
-        assertThat(result.getAuthorities()).containsExactlyInAnyOrder(
-                new SimpleGrantedAuthority("ROLE_AUDITOR"),
-                new SimpleGrantedAuthority("ROLE_ADMIN")
-        );
+        assertThat(result.getAuthorities()).extracting(Object::toString)
+                .containsExactlyInAnyOrder(
+                        new SimpleGrantedAuthority("ROLE_AUDITOR").toString(),
+                        new SimpleGrantedAuthority("ROLE_ADMIN").toString()
+                );
     }
 }
 
