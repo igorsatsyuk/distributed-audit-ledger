@@ -1,7 +1,7 @@
 package lt.satsyuk.distributed.audit.command.api;
 
-import lt.satsyuk.distributed.audit.command.service.CommandPublishException;
 import lt.satsyuk.distributed.audit.command.service.AdditionalCommandService;
+import lt.satsyuk.distributed.audit.command.service.CommandPublishException;
 import lt.satsyuk.distributed.audit.command.service.UserLoginCommandService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -19,6 +20,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 @WebFluxTest(controllers = CommandController.class)
 @Import(GlobalExceptionHandler.class)
+@WithMockUser(roles = {"USER"})
 class CommandControllerWebFluxValidationTest {
 
     @Autowired
