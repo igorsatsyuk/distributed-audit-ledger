@@ -58,5 +58,46 @@ describe('AuthService', () => {
     expect(service.getAccessToken()).toBeNull();
     expect(service.getUsername()).toBeNull();
   });
+
+  it('hasAnyRole returns true only when role is present in session', () => {
+    service.login({ username: 'auditor', password: 'auditor123!' }).subscribe();
+    httpMock.expectOne(LOGIN_URL).flush({
+      accessToken: 'jwt-token',
+      tokenType: 'Bearer',
+      expiresAt: '2099-01-01T00:00:00Z',
+      username: 'auditor',
+      roles: ['AUDITOR'],
+    });
+
+    expect(service.hasAnyRole(['ADMIN'])).toBeFalse();
+    expect(service.hasAnyRole(['AUDITOR', 'ADMIN'])).toBeTrue();
+  });
+
+  it('ignores invalid serialized session in localStorage', () => {
+    localStorage.setItem('dal.auth.session', '{not-json');
+
+    const stored = (service as any).readStoredSession();
+
+    expect(stored).toBeNull();
+    expect(localStorage.getItem('dal.auth.session')).toBeNull();
+  });
+
+  it('drops expired session loaded from localStorage', () => {
+    localStorage.setItem(
+      'dal.auth.session',
+      JSON.stringify({
+        accessToken: 'old-token',
+        tokenType: 'Bearer',
+        expiresAt: '2000-01-01T00:00:00Z',
+        username: 'user',
+        roles: ['USER'],
+      }),
+    );
+
+    const stored = (service as any).readStoredSession();
+
+    expect(stored).toBeNull();
+    expect(localStorage.getItem('dal.auth.session')).toBeNull();
+  });
 });
 
