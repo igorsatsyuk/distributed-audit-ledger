@@ -6,6 +6,9 @@ import lt.satsyuk.distributed.audit.contracts.auth.AuthTokenResponse;
 import lt.satsyuk.distributed.audit.contracts.auth.JwtService;
 import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,7 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -79,10 +82,11 @@ class AuthenticationServiceTest {
         when(passwordEncoder.matches("wrongpass", "encoded_testpass"))
                 .thenReturn(false);
 
-        assertThrows(
+        InvalidCredentialsException exception = assertThrows(
                 InvalidCredentialsException.class,
-                () -> authenticationService.login(request).block()
+                authenticationService.login(request)::block
         );
+        assertNotNull(exception);
     }
 
     @Test
@@ -92,10 +96,11 @@ class AuthenticationServiceTest {
                 .password("testpass")
                 .build();
 
-        assertThrows(
+        InvalidCredentialsException exception = assertThrows(
                 InvalidCredentialsException.class,
-                () -> authenticationService.login(request).block()
+                authenticationService.login(request)::block
         );
+        assertNotNull(exception);
     }
 
     @Test
@@ -120,57 +125,13 @@ class AuthenticationServiceTest {
         );
     }
 
-    @Test
-    void constructorThrowsWhenUsernameIsBlank() {
+    @ParameterizedTest
+    @MethodSource("invalidCredentials")
+    void constructorThrowsWhenUserCredentialsAreInvalid(String username, String password) {
         AuthProperties authProperties = new AuthProperties();
         AuthProperties.User user = new AuthProperties.User();
-        user.setUsername("   ");
-        user.setPassword("testpass");
-        user.setRoles(EnumSet.of(UserRole.USER));
-        authProperties.setUsers(List.of(user));
-
-        assertThrows(
-                IllegalStateException.class,
-                () -> new AuthenticationService(authProperties, passwordEncoder, jwtService)
-        );
-    }
-
-    @Test
-    void constructorThrowsWhenUsernameIsNull() {
-        AuthProperties authProperties = new AuthProperties();
-        AuthProperties.User user = new AuthProperties.User();
-        user.setUsername(null);
-        user.setPassword("testpass");
-        user.setRoles(EnumSet.of(UserRole.USER));
-        authProperties.setUsers(List.of(user));
-
-        assertThrows(
-                IllegalStateException.class,
-                () -> new AuthenticationService(authProperties, passwordEncoder, jwtService)
-        );
-    }
-
-    @Test
-    void constructorThrowsWhenPasswordIsBlank() {
-        AuthProperties authProperties = new AuthProperties();
-        AuthProperties.User user = new AuthProperties.User();
-        user.setUsername("testuser");
-        user.setPassword("   ");
-        user.setRoles(EnumSet.of(UserRole.USER));
-        authProperties.setUsers(List.of(user));
-
-        assertThrows(
-                IllegalStateException.class,
-                () -> new AuthenticationService(authProperties, passwordEncoder, jwtService)
-        );
-    }
-
-    @Test
-    void constructorThrowsWhenPasswordIsNull() {
-        AuthProperties authProperties = new AuthProperties();
-        AuthProperties.User user = new AuthProperties.User();
-        user.setUsername("testuser");
-        user.setPassword(null);
+        user.setUsername(username);
+        user.setPassword(password);
         user.setRoles(EnumSet.of(UserRole.USER));
         authProperties.setUsers(List.of(user));
 
@@ -239,6 +200,15 @@ class AuthenticationServiceTest {
         user.setRoles(EnumSet.of(UserRole.USER));
         authProperties.setUsers(List.of(user));
         return authProperties;
+    }
+
+    private static Stream<Arguments> invalidCredentials() {
+        return Stream.of(
+                Arguments.of("   ", "testpass"),
+                Arguments.of(null, "testpass"),
+                Arguments.of("testuser", "   "),
+                Arguments.of("testuser", null)
+        );
     }
 }
 
