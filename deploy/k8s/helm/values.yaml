@@ -1,5 +1,4 @@
 namespaceOverride: ""
-createNamespace: false
 
 images:
   commandService: ghcr.io/distributed-audit-ledger/command-service:latest

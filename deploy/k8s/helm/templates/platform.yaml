@@ -1,13 +1,4 @@
 {{ $ns := include "dal.namespace" . }}
-{{ if .Values.createNamespace }}
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ $ns }}
-  labels:
-    {{- include "dal.labels" . | nindent 4 }}
----
-{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -83,10 +74,8 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
-          {{ with .Values.resources.postgres }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.postgres | nindent 12 }}
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
@@ -138,10 +127,8 @@ spec:
           volumeMounts:
             - name: zookeeper-data
               mountPath: /var/lib/zookeeper/data
-          {{ with .Values.resources.zookeeper }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.zookeeper | nindent 12 }}
   volumeClaimTemplates:
     - metadata:
         name: zookeeper-data
@@ -205,10 +192,8 @@ spec:
           volumeMounts:
             - name: kafka-data
               mountPath: /var/lib/kafka/data
-          {{ with .Values.resources.kafka }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.kafka | nindent 12 }}
   volumeClaimTemplates:
     - metadata:
         name: kafka-data
@@ -256,10 +241,8 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
-          {{ with .Values.resources.commandService }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.commandService | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -311,10 +294,8 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
-          {{ with .Values.resources.eventStoreService }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.eventStoreService | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -366,10 +347,8 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
-          {{ with .Values.resources.auditWriterService }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.auditWriterService | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -421,10 +400,8 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
-          {{ with .Values.resources.queryService }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.queryService | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -477,10 +454,8 @@ spec:
                 configMapKeyRef:
                   name: dal-config
                   key: QUERY_SERVICE_BASE_URL
-          {{ with .Values.resources.auditUi }}
           resources:
-{{ toYaml . | nindent 12 }}
-          {{ end }}
+{{ toYaml .Values.resources.auditUi | nindent 12 }}
 ---
 apiVersion: v1
 kind: Service
