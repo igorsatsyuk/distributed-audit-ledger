@@ -435,6 +435,7 @@ CREATE TABLE audit.events (
 **ID:** #16  
 **Labels:** `frontend`  
 **Depends on:** #11  
+**Status:** ✅ Done  
 **Description:**
 Улучшить UI с расширенным поиском и фильтрацией.
 
@@ -446,11 +447,11 @@ CREATE TABLE audit.events (
 - Export в CSV
 
 **Subtasks:**
-- [ ] #16.1 - Query параметры в URL
-- [ ] #16.2 - Advanced filter components
-- [ ] #16.3 - Date range picker
-- [ ] #16.4 - Export функционал
-- [ ] #16.5 - State management (localStorage)
+- [x] #16.1 - Query параметры в URL
+- [x] #16.2 - Advanced filter components
+- [x] #16.3 - Date range picker
+- [x] #16.4 - Export функционал
+- [x] #16.5 - State management (localStorage)
 
 **Expected PR:** PR-16 (Advanced filtering)
 

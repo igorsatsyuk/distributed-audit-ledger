@@ -21,11 +21,26 @@ mat-card {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   align-items: start;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.filter-field {
+  width: 100%;
+}
+
+.filter-field--wide {
+  grid-column: span 2;
+}
+
+.filter-hint {
+  margin: 0 0 1rem;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
 }
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
   min-height: 56px;
@@ -78,7 +93,6 @@ table {
 }
 
 .info-button {
-  /* Keep the Material button's default 40×40 touch target — do not override width/height */
   flex: 0 0 auto;
 }
 
@@ -100,7 +114,6 @@ table {
   font-size: 14px;
   width: 14px;
   height: 14px;
-  /* Increased from 0.38 opacity to meet ≥3:1 non-text contrast ratio on white */
   color: rgba(0, 0, 0, 0.6);
   vertical-align: middle;
 }
@@ -129,7 +142,6 @@ table {
 
 .status-chip--pending {
   background: #fef7e0;
-  /* Darkened from #b06000 to ensure ≥4.5:1 contrast ratio on 12px text */
   color: #7a4200;
 }
 
@@ -195,4 +207,10 @@ pre {
   padding: 0.75rem;
   overflow-x: auto;
   font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .filter-field--wide {
+    grid-column: span 1;
+  }
 }

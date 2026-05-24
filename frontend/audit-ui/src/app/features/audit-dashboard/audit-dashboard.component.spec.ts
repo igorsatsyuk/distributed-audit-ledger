@@ -1,6 +1,7 @@
-import { Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ActivatedRoute, convertToParamMap, Params, Router } from '@angular/router';
 import { AuditDashboardComponent } from './audit-dashboard.component';
 import { AuditLogService } from '../../services/audit-log.service';
 import { AuditLog, IntegrityCheckResponse } from '../../models/audit-log.model';
@@ -24,6 +25,15 @@ const MOCK_INTEGRITY: IntegrityCheckResponse = {
   status: 'ON_CHAIN',
 };
 
+class ActivatedRouteStub {
+  private readonly queryParamMapSubject = new BehaviorSubject(convertToParamMap({}));
+  readonly queryParamMap = this.queryParamMapSubject.asObservable();
+
+  setQueryParams(params: Params): void {
+    this.queryParamMapSubject.next(convertToParamMap(params));
+  }
+}
+
 function makeServiceSpy(overrides: Partial<{
   getAuditLogs: jasmine.Spy;
   checkIntegrity: jasmine.Spy;
@@ -35,25 +45,75 @@ function makeServiceSpy(overrides: Partial<{
   };
 }
 
+function startOfLocalDayIso(year: number, monthIndex: number, day: number): string {
+  return new Date(year, monthIndex, day, 0, 0, 0, 0).toISOString();
+}
+
+function endOfLocalDayIso(year: number, monthIndex: number, day: number): string {
+  return new Date(year, monthIndex, day, 23, 59, 59, 999).toISOString();
+}
+
+function roundTripStartIso(value: string): string {
+  const date = new Date(value);
+  return startOfLocalDayIso(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function roundTripEndIso(value: string): string {
+  const date = new Date(value);
+  return endOfLocalDayIso(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 describe('AuditDashboardComponent', () => {
   let component: AuditDashboardComponent;
   let fixture: ComponentFixture<AuditDashboardComponent>;
   let serviceSpy: ReturnType<typeof makeServiceSpy>;
+  let routeStub: ActivatedRouteStub;
+  let routerSpy: jasmine.SpyObj<Router>;
 
-  async function init(spy = makeServiceSpy()) {
+  async function init(
+    spy = makeServiceSpy(),
+    options: Partial<{
+      initialQueryParams: Params;
+      localStorageState: unknown;
+    }> = {},
+  ) {
+    localStorage.clear();
+    if (options.localStorageState !== undefined) {
+      localStorage.setItem((AuditDashboardComponent as any).STORAGE_KEY, JSON.stringify(options.localStorageState));
+    }
+
+    routeStub = new ActivatedRouteStub();
+    if (options.initialQueryParams) {
+      routeStub.setQueryParams(options.initialQueryParams);
+    }
+
+    routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate']);
+    routerSpy.navigate.and.callFake(async (_commands: readonly unknown[], extras?: { queryParams?: Params }) => {
+      routeStub.setQueryParams(extras?.queryParams ?? {});
+      return true;
+    });
+
     serviceSpy = spy;
     await TestBed.configureTestingModule({
       imports: [AuditDashboardComponent],
       providers: [
         provideNoopAnimations(),
         { provide: AuditLogService, useValue: spy },
+        { provide: ActivatedRoute, useValue: routeStub },
+        { provide: Router, useValue: routerSpy },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(AuditDashboardComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
   }
+
+  afterEach(() => {
+    localStorage.clear();
+  });
 
   it('creates the component', async () => {
     await init();
@@ -64,12 +124,76 @@ describe('AuditDashboardComponent', () => {
     await init();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('Audit log');
+    expect(el.textContent).toContain('Export CSV');
   });
 
   it('calls getAuditLogs on init with default page size and offset 0', async () => {
     await init();
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
       jasmine.objectContaining({ limit: 21, offset: 0 }),
+    );
+  });
+
+  it('hydrates filters from URL query params and requests matching data', async () => {
+    const from = '2026-05-01T00:00:00.000Z';
+    const to = '2026-05-31T23:59:59.999Z';
+
+    await init(makeServiceSpy(), {
+      initialQueryParams: {
+        userId: 'user-from-url',
+        eventType: 'USER_LOGGED_IN',
+        search: '10.0.0.5',
+        from,
+        to,
+        page: '1',
+        pageSize: '50',
+      },
+    });
+
+    expect(component.userIdControl.value).toBe('user-from-url');
+    expect(component.eventTypeControl.value).toBe('USER_LOGGED_IN');
+    expect(component.searchControl.value).toBe('10.0.0.5');
+    expect(component.pageIndex()).toBe(1);
+    expect(component.pageSize()).toBe(50);
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        userId: 'user-from-url',
+        eventType: 'USER_LOGGED_IN',
+        search: '10.0.0.5',
+        from: roundTripStartIso(from),
+        to: roundTripEndIso(to),
+        limit: 51,
+        offset: 50,
+      }),
+    );
+  });
+
+  it('restores filter state from localStorage when URL params are absent', async () => {
+    await init(makeServiceSpy(), {
+      localStorageState: {
+        userId: 'stored-user',
+        eventType: 'USER_LOGGED_IN',
+        search: 'stored-search',
+        from: '2026-05-05T00:00:00.000Z',
+        to: '2026-05-08T23:59:59.999Z',
+        page: 2,
+        pageSize: 50,
+      },
+    });
+
+    expect(routerSpy.navigate).toHaveBeenCalled();
+    expect(component.userIdControl.value).toBe('stored-user');
+    expect(component.searchControl.value).toBe('stored-search');
+    expect(component.pageIndex()).toBe(2);
+    expect(component.pageSize()).toBe(50);
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        userId: 'stored-user',
+        eventType: 'USER_LOGGED_IN',
+        search: 'stored-search',
+        limit: 51,
+        offset: 100,
+      }),
     );
   });
 
@@ -118,28 +242,67 @@ describe('AuditDashboardComponent', () => {
     expect(component.estimatedTotal()).toBe(0);
   });
 
-  it('applyFilters resets pageIndex to 0', async () => {
+  it('applyFilters resets pageIndex, updates URL params and persists state', async () => {
     await init();
     component.pageIndex.set(3);
+    component.userIdControl.setValue(' user-42 ');
+    component.eventTypeControl.setValue('USER_LOGGED_IN');
+    component.searchControl.setValue('10.0.0.9');
+    component.fromDateControl.setValue(new Date(2026, 4, 1));
+    component.toDateControl.setValue(new Date(2026, 4, 9));
+
     component.applyFilters();
+    await fixture.whenStable();
+
     expect(component.pageIndex()).toBe(0);
+    expect(routerSpy.navigate).toHaveBeenCalled();
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        userId: 'user-42',
+        eventType: 'USER_LOGGED_IN',
+        search: '10.0.0.9',
+        from: startOfLocalDayIso(2026, 4, 1),
+        to: endOfLocalDayIso(2026, 4, 9),
+        limit: 21,
+        offset: 0,
+      }),
+    );
+
+    const storedState = JSON.parse(localStorage.getItem((AuditDashboardComponent as any).STORAGE_KEY) ?? '{}');
+    expect(storedState.search).toBe('10.0.0.9');
+    expect(storedState.page).toBe(0);
   });
 
-  it('clearFilters resets pageIndex and clears controls', async () => {
-    await init();
-    component.userIdControl.setValue('user1');
-    component.eventTypeControl.setValue('LOGIN');
-    component.pageIndex.set(2);
+  it('clearFilters resets state, removes localStorage and reloads without filter params', async () => {
+    await init(makeServiceSpy(), {
+      localStorageState: {
+        userId: 'stored-user',
+        search: 'payload',
+        page: 1,
+        pageSize: 20,
+      },
+    });
+
+    (serviceSpy.getAuditLogs as jasmine.Spy).calls.reset();
     component.clearFilters();
+    await fixture.whenStable();
+
     expect(component.pageIndex()).toBe(0);
     expect(component.userIdControl.value).toBe('');
-    expect(component.eventTypeControl.value).toBe('');
+    expect(component.searchControl.value).toBe('');
+    expect(component.fromDateControl.value).toBeNull();
+    expect(localStorage.getItem((AuditDashboardComponent as any).STORAGE_KEY)).toBeNull();
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({ limit: 21, offset: 0, userId: undefined, eventType: undefined, search: undefined, from: undefined, to: undefined }),
+    );
   });
 
-  it('onPageChange updates pageSize and pageIndex then reloads', async () => {
+  it('onPageChange updates pageSize and pageIndex then reloads through URL state', async () => {
     await init();
     (serviceSpy.getAuditLogs as jasmine.Spy).calls.reset();
     component.onPageChange({ pageSize: 50, pageIndex: 1, length: 100, previousPageIndex: 0 });
+    await fixture.whenStable();
+
     expect(component.pageSize()).toBe(50);
     expect(component.pageIndex()).toBe(1);
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
@@ -181,7 +344,7 @@ describe('AuditDashboardComponent', () => {
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('MISMATCH');
   });
 
-  it('effectiveIntegrityStatus preserves original list status when the drawer verification fails (transport error is not an integrity result)', async () => {
+  it('effectiveIntegrityStatus preserves original list status when the drawer verification fails', async () => {
     const pendingRow: AuditLog = { ...MOCK_LOG, integrityStatus: 'PENDING' };
     await init(makeServiceSpy({
       getAuditLogs: jasmine.createSpy().and.returnValue(of([pendingRow])),
@@ -193,8 +356,6 @@ describe('AuditDashboardComponent', () => {
     component.openDetails(pendingRow);
     await Promise.resolve();
 
-    // A transport/RPC error must NOT replace a valid PENDING status with UNKNOWN in the row cache;
-    // only the drawer error message is shown.
     expect(component.effectiveIntegrityStatus(pendingRow)).toBe('PENDING');
   });
 
@@ -221,7 +382,6 @@ describe('AuditDashboardComponent', () => {
     component.openDetails(MOCK_LOG);
     expect(component.integrityCheckError()).toBeTruthy();
     expect(component.integrityCheckResult()).toBeNull();
-    // Row cache must NOT be updated to UNKNOWN on transport failure; original list status must remain.
     expect(component.effectiveIntegrityStatus(MOCK_LOG)).toBe('ON_CHAIN');
   });
 
@@ -267,6 +427,34 @@ describe('AuditDashboardComponent', () => {
     expect(component.integrityCheckError()).toBeNull();
   });
 
+  it('exports current page as CSV', async () => {
+    await init();
+    component.logs$.next([{ ...MOCK_LOG, eventDataJson: '{"message":"hello, \"world\""}' }]);
+
+    const anchor = document.createElement('a');
+    spyOn(document, 'createElement').and.returnValue(anchor);
+    spyOn(document.body, 'appendChild');
+    spyOn(document.body, 'removeChild');
+    spyOn(anchor, 'click');
+    const createObjectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:csv');
+    const revokeObjectUrlSpy = spyOn(URL, 'revokeObjectURL');
+
+    component.exportCsv();
+
+    // revokeObjectURL is called inside setTimeout(..., 0); flush via a real microtask tick.
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(anchor.download).toContain('audit-logs-');
+    expect(anchor.href).toBe('blob:csv');
+    expect(anchor.click).toHaveBeenCalled();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:csv');
+
+    const csvBlob = createObjectUrlSpy.calls.mostRecent().args[0] as Blob;
+    await expectAsync(csvBlob.text()).toBeResolvedTo(
+      jasmine.stringMatching(/^id,eventId,eventType,userId,occurredAt,integrityStatus,eventHash,eventDataJson\r\n/),
+    );
+  });
+
   it('parseEventData parses valid JSON string', async () => {
     await init();
     const result = component.parseEventData({ ...MOCK_LOG, eventDataJson: '{"userId":"u1"}' });
@@ -290,5 +478,18 @@ describe('AuditDashboardComponent', () => {
     pendingList$.complete();
 
     expect(component.logs$.value).toEqual([]);
+  });
+
+  it('applyFilters reloads when navigation is ignored for the same URL', async () => {
+    await init();
+    (serviceSpy.getAuditLogs as jasmine.Spy).calls.reset();
+
+    routerSpy.navigate.and.returnValue(Promise.resolve(false));
+
+    component.applyFilters();
+    await fixture.whenStable();
+
+    expect(routerSpy.navigate).toHaveBeenCalled();
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledTimes(1);
   });
 });

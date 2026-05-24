@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -55,6 +56,7 @@ class AuditLogQueryServiceTest {
                         EventType.USER_LOGGED_IN,
                         Instant.parse("2026-05-01T00:00:00Z"),
                         Instant.parse("2026-05-31T23:59:59Z"),
+                        "10.0.0.5",
                         null,
                         null
                 )
@@ -67,8 +69,20 @@ class AuditLogQueryServiceTest {
         verify(auditLogQueryRepository).findByFilter(filterCaptor.capture());
         assertEquals("user-1", filterCaptor.getValue().userId());
         assertEquals(EventType.USER_LOGGED_IN, filterCaptor.getValue().eventType());
+        assertEquals("10.0.0.5", filterCaptor.getValue().search());
         assertEquals(100, filterCaptor.getValue().limit());
         assertEquals(0L, filterCaptor.getValue().offset());
+    }
+
+    @Test
+    void findAuditLogsNormalizesBlankSearchToNull() {
+        when(auditLogQueryRepository.findByFilter(any())).thenReturn(Flux.empty());
+
+        service.findAuditLogs(null, null, null, null, "   ", null, null).blockFirst();
+
+        ArgumentCaptor<AuditLogFilter> filterCaptor = ArgumentCaptor.forClass(AuditLogFilter.class);
+        verify(auditLogQueryRepository).findByFilter(filterCaptor.capture());
+        assertNull(filterCaptor.getValue().search());
     }
 
     @Test
@@ -118,15 +132,15 @@ class AuditLogQueryServiceTest {
     }
 
     private void blockAuditLogsWithRange(Instant from, Instant to) {
-        service.findAuditLogs(null, null, from, to, 10, 0L).blockFirst();
+        service.findAuditLogs(null, null, from, to, null, 10, 0L).blockFirst();
     }
 
     private void blockAuditLogsWithLimit(int limit) {
-        service.findAuditLogs(null, null, null, null, limit, 0L).blockFirst();
+        service.findAuditLogs(null, null, null, null, null, limit, 0L).blockFirst();
     }
 
     private void blockAuditLogsWithNegativeOffset() {
-        service.findAuditLogs(null, null, null, null, 100, -1L).blockFirst();
+        service.findAuditLogs(null, null, null, null, null, 100, -1L).blockFirst();
     }
 
     private void blockMissingAuditLogById() {

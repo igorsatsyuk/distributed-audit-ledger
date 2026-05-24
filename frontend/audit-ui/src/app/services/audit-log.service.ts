@@ -40,6 +40,9 @@ export class AuditLogService {
     if (filters.to) {
       params = params.set('to', filters.to);
     }
+    if (filters.search) {
+      params = params.set('search', filters.search);
+    }
     if (filters.limit != null) {
       params = params.set('limit', filters.limit);
     }

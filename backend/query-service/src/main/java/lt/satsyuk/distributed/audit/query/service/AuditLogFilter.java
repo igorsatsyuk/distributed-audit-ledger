@@ -9,6 +9,7 @@ public record AuditLogFilter(
         EventType eventType,
         Instant from,
         Instant to,
+        String search,
         int limit,
         long offset
 ) {
