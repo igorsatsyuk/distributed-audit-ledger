@@ -35,6 +35,7 @@ reconciliation:
     # Disabled by default to avoid duplicated executions across multiple service replicas.
     enabled: ${RECONCILIATION_SCHEDULE_ENABLED:false}
     cron: "${RECONCILIATION_SCHEDULE_CRON:0 0/30 * * * ?}"
+    timeout: ${RECONCILIATION_SCHEDULE_TIMEOUT:PT15M}
 
 management:
   endpoints:

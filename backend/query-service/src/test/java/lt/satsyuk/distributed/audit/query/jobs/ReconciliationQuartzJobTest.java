@@ -1,6 +1,8 @@
 package lt.satsyuk.distributed.audit.query.jobs;
 
 import lt.satsyuk.distributed.audit.query.api.ReconciliationReportResponse;
+import lt.satsyuk.distributed.audit.query.config.ReconciliationProperties;
+import lt.satsyuk.distributed.audit.query.service.ReconciliationAlreadyRunningException;
 import lt.satsyuk.distributed.audit.query.service.ReconciliationReportService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,9 +29,15 @@ class ReconciliationQuartzJobTest {
     @Mock
     private JobExecutionContext jobExecutionContext;
 
+    private ReconciliationProperties reconciliationProperties() {
+        ReconciliationProperties properties = new ReconciliationProperties();
+        properties.getSchedule().setTimeout(java.time.Duration.ofMinutes(15));
+        return properties;
+    }
+
     @Test
     void executeInternalRunsScheduledReconciliation() {
-        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService);
+        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService, reconciliationProperties());
         when(reconciliationReportService.runScheduled()).thenReturn(Mono.just(new ReconciliationReportResponse(
                 "SCHEDULED",
                 Instant.parse("2026-05-24T10:00:00Z"),
@@ -47,7 +55,7 @@ class ReconciliationQuartzJobTest {
 
     @Test
     void executeInternalAllowsEmptyScheduledResponse() {
-        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService);
+        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService, reconciliationProperties());
         when(reconciliationReportService.runScheduled()).thenReturn(Mono.empty());
 
         assertDoesNotThrow(() -> job.executeInternal(jobExecutionContext));
@@ -56,10 +64,19 @@ class ReconciliationQuartzJobTest {
 
     @Test
     void executeInternalWrapsRuntimeExceptionIntoJobExecutionException() {
-        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService);
+        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService, reconciliationProperties());
         when(reconciliationReportService.runScheduled()).thenReturn(Mono.error(new IllegalStateException("boom")));
 
         assertThrows(JobExecutionException.class, () -> job.executeInternal(jobExecutionContext));
+        verify(reconciliationReportService).runScheduled();
+    }
+
+    @Test
+    void executeInternalSkipsWhenRunAlreadyInProgress() {
+        ReconciliationQuartzJob job = new ReconciliationQuartzJob(reconciliationReportService, reconciliationProperties());
+        when(reconciliationReportService.runScheduled()).thenReturn(Mono.error(new ReconciliationAlreadyRunningException()));
+
+        assertDoesNotThrow(() -> job.executeInternal(jobExecutionContext));
         verify(reconciliationReportService).runScheduled();
     }
 }

@@ -32,8 +32,16 @@ public class BatchIntegrityChecker {
             return Mono.error(new QueryValidationException("reconciliation.batch-size must be > 0"));
         }
 
+        BatchAccumulator accumulator = new BatchAccumulator();
         return auditLogQueryRepository.findMaxEventId()
-                .flatMap(maxId -> runBatch(batchSize, 0L, maxId, new BatchAccumulator()));
+                .flatMap(maxId -> runBatch(batchSize, 0L, maxId, accumulator))
+                .doOnSuccess(ignored -> {
+                    if (accumulator.blockchainCheckFailures > 0) {
+                        LOGGER.warn("Reconciliation completed with {} blockchain check failures; details are represented as mismatch reason {}",
+                                accumulator.blockchainCheckFailures,
+                                "BLOCKCHAIN_CHECK_FAILED");
+                    }
+                });
     }
 
     private Mono<BatchIntegrityCheckResult> runBatch(int batchSize,
@@ -67,17 +75,13 @@ public class BatchIntegrityChecker {
 
         return blockchainClient.inspectEventHash(eventHash)
                 .map(blockchainRecord -> mapBlockchainResult(eventRecord, eventHash, blockchainRecord))
-                .onErrorResume(error -> {
-                    LOGGER.warn("Blockchain reconciliation check failed for auditLogId={} eventId={}",
-                            eventRecord.getId(), eventRecord.getEventId(), error);
-                    return Mono.just(RecordOutcome.mismatch(new ReconciliationMismatch(
+                .onErrorResume(ignored -> Mono.just(RecordOutcome.blockchainCheckFailed(new ReconciliationMismatch(
                             eventRecord.getId(),
                             eventRecord.getEventId(),
                             eventHash,
                             "MISMATCH",
                             "BLOCKCHAIN_CHECK_FAILED"
-                    )));
-                });
+                    ))));
     }
 
     private RecordOutcome mapBlockchainResult(AuditEventRecord eventRecord,
@@ -108,6 +112,7 @@ public class BatchIntegrityChecker {
         private long onChainEvents;
         private long pendingEvents;
         private long mismatchEvents;
+        private long blockchainCheckFailures;
         private final List<ReconciliationMismatch> mismatches = new ArrayList<>();
 
         void add(RecordOutcome outcome) {
@@ -119,6 +124,9 @@ public class BatchIntegrityChecker {
                     mismatchEvents++;
                     if (outcome.mismatch != null) {
                         mismatches.add(outcome.mismatch);
+                    }
+                    if (outcome.blockchainCheckFailed) {
+                        blockchainCheckFailures++;
                     }
                 }
             }
@@ -144,22 +152,30 @@ public class BatchIntegrityChecker {
     private static final class RecordOutcome {
         private final OutcomeStatus status;
         private final ReconciliationMismatch mismatch;
+        private final boolean blockchainCheckFailed;
 
-        private RecordOutcome(OutcomeStatus status, ReconciliationMismatch mismatch) {
+        private RecordOutcome(OutcomeStatus status,
+                              ReconciliationMismatch mismatch,
+                              boolean blockchainCheckFailed) {
             this.status = status;
             this.mismatch = mismatch;
+            this.blockchainCheckFailed = blockchainCheckFailed;
         }
 
         static RecordOutcome onChain() {
-            return new RecordOutcome(OutcomeStatus.ON_CHAIN, null);
+            return new RecordOutcome(OutcomeStatus.ON_CHAIN, null, false);
         }
 
         static RecordOutcome pending() {
-            return new RecordOutcome(OutcomeStatus.PENDING, null);
+            return new RecordOutcome(OutcomeStatus.PENDING, null, false);
         }
 
         static RecordOutcome mismatch(ReconciliationMismatch mismatch) {
-            return new RecordOutcome(OutcomeStatus.MISMATCH, mismatch);
+            return new RecordOutcome(OutcomeStatus.MISMATCH, mismatch, false);
+        }
+
+        static RecordOutcome blockchainCheckFailed(ReconciliationMismatch mismatch) {
+            return new RecordOutcome(OutcomeStatus.MISMATCH, mismatch, true);
         }
     }
 }
