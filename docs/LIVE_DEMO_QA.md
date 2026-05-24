@@ -156,7 +156,10 @@ Use screenshot pack and/or running Angular app:
 
 ### 4) What does `PENDING` mean?
 
-`PENDING` means the `event_hash` column is null or blank in `audit.events` — the row exists but has no hash value. This is a legacy or corrupt-row condition, **not** expected eventual consistency: the event-store service writes `event_hash` synchronously during event persistence, so a blank hash indicates the row was never properly processed. `PENDING` is **not** returned when the blockchain is unreachable; that scenario results in an error response instead.
+`PENDING` appears in two different contexts with different meanings:
+
+- **Audit log list** (`GET /api/audit-logs`): `integrityStatus` is always `"PENDING"` — it is a hard-coded placeholder set by `AuditEventDtoMapper.defaultIntegrityStatus()`. It says nothing about whether `event_hash` is present or the record is valid; it simply means "not checked yet".
+- **Integrity-check endpoint** (`GET /api/audit-logs/{id}/integrity-check`): `PENDING` means the `event_hash` column is null or blank in `audit.events`. This is a legacy or corrupt-row condition — the event-store service writes `event_hash` synchronously during persistence, so a blank hash indicates the row was never properly processed. `PENDING` is **not** returned when the blockchain is unreachable; that scenario results in an error response instead.
 
 ### 5) What does `MISMATCH` mean?
 
