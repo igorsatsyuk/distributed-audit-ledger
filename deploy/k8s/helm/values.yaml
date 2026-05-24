@@ -19,7 +19,6 @@ config:
   reconciliationScheduleEnabled: "false"
   reconciliationScheduleCron: "0 0/30 * * * ?"
   reconciliationScheduleTimeout: PT15M
-  queryServiceBaseUrl: ""
 
 secrets:
   dbUsername: ""

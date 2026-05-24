@@ -134,6 +134,15 @@ jobs:
         working-directory: deploy/k8s/tests
         run: npm test
 
+      - name: Upload k8s manifest test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-manifests-coverage
+          path: deploy/k8s/tests/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
   sonar-backend:
     name: SonarQube - backend
     runs-on: ubuntu-latest

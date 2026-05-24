@@ -24,7 +24,6 @@ data:
   RECONCILIATION_SCHEDULE_ENABLED: {{ .Values.config.reconciliationScheduleEnabled | quote }}
   RECONCILIATION_SCHEDULE_CRON: {{ .Values.config.reconciliationScheduleCron | quote }}
   RECONCILIATION_SCHEDULE_TIMEOUT: {{ .Values.config.reconciliationScheduleTimeout | quote }}
-  QUERY_SERVICE_BASE_URL: {{ default (printf "http://%s:8084" $queryServiceName) .Values.config.queryServiceBaseUrl | quote }}
 ---
 apiVersion: v1
 kind: Secret
@@ -461,12 +460,6 @@ spec:
           image: {{ .Values.images.auditUi }}
           ports:
             - containerPort: 80
-          env:
-            - name: QUERY_SERVICE_BASE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ $configName }}
-                  key: QUERY_SERVICE_BASE_URL
           resources:
 {{ toYaml .Values.resources.auditUi | nindent 12 }}
 ---

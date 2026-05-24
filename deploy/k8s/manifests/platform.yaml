@@ -17,7 +17,6 @@ data:
   RECONCILIATION_SCHEDULE_ENABLED: "false"
   RECONCILIATION_SCHEDULE_CRON: "0 0/30 * * * ?"
   RECONCILIATION_SCHEDULE_TIMEOUT: PT15M
-  QUERY_SERVICE_BASE_URL: http://query-service:8084
 ---
 apiVersion: v1
 kind: Secret
@@ -439,12 +438,6 @@ spec:
           image: ghcr.io/distributed-audit-ledger/audit-ui:latest
           ports:
             - containerPort: 80
-          env:
-            - name: QUERY_SERVICE_BASE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: dal-config
-                  key: QUERY_SERVICE_BASE_URL
 ---
 apiVersion: v1
 kind: Service
