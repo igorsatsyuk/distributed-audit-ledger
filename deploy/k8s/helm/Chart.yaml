@@ -1,0 +1,7 @@
+apiVersion: v2
+name: distributed-audit-ledger
+description: Helm chart for Distributed Audit Ledger platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+

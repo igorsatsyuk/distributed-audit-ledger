@@ -1,0 +1,65 @@
+namespaceOverride: ""
+
+images:
+  commandService: ghcr.io/distributed-audit-ledger/command-service:0.1.0
+  eventStoreService: ghcr.io/distributed-audit-ledger/event-store-service:0.1.0
+  auditWriterService: ghcr.io/distributed-audit-ledger/audit-writer-service:0.1.0
+  queryService: ghcr.io/distributed-audit-ledger/query-service:0.1.0
+  auditUi: ghcr.io/distributed-audit-ledger/audit-ui:0.1.0
+  postgres: postgres:16
+  zookeeper: confluentinc/cp-zookeeper:7.6.1
+  kafka: confluentinc/cp-kafka:7.6.1
+
+config:
+  kafkaBootstrapServers: ""
+  r2dbcUrl: ""
+  dbUrl: ""
+  managementEndpointHealthProbesEnabled: "true"
+  ganacheRpcUrl: ""
+  reconciliationBatchSize: "200"
+  reconciliationScheduleEnabled: "false"
+  reconciliationScheduleCron: "0 0/30 * * * ?"
+  reconciliationScheduleTimeout: PT15M
+
+secrets:
+  create: true
+  existingSecretName: ""
+  dbUsername: ""
+  dbPassword: ""
+  jwtSecret: ""
+  jwtIssuer: distributed-audit-ledger
+  jwtExpiration: PT1H
+  authAdminUsername: ""
+  authAdminPassword: ""
+  authAuditorUsername: ""
+  authAuditorPassword: ""
+  authUserUsername: ""
+  authUserPassword: ""
+  auditLedgerContractAddress: ""
+  auditLedgerContractDeploymentBlock: "0"
+  ganachePrivateKey: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: dal.local
+
+components:
+  auditWriter:
+    enabled: true
+
+resources:
+  postgres: {}
+  zookeeper: {}
+  kafka: {}
+  commandService: {}
+  eventStoreService: {}
+  auditWriterService: {}
+  queryService: {}
+  auditUi: {}
+
+persistence:
+  postgresSize: 10Gi
+  kafkaSize: 10Gi
+  zookeeperSize: 5Gi
+

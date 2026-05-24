@@ -8,6 +8,7 @@ JOB_RESULT_FIELDS = (
 	("backend", "BACKEND_RESULT"),
 	("frontend", "FRONTEND_RESULT"),
 	("blockchain", "BLOCKCHAIN_RESULT"),
+	("k8s-manifests", "K8S_MANIFESTS_RESULT"),
 	("sonarqube-backend", "SONAR_BACKEND_RESULT"),
 	("sonarqube-frontend", "SONAR_FRONTEND_RESULT"),
 	("sonarqube-blockchain", "SONAR_BLOCKCHAIN_RESULT"),
