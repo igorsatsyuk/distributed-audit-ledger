@@ -108,7 +108,7 @@ export class AuthService {
   private static readonly ALLOWED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['AUDITOR', 'ADMIN', 'USER']);
 
   private static isAllowedRole(role: unknown): role is UserRole {
-    return role === 'AUDITOR' || role === 'ADMIN' || role === 'USER';
+    return typeof role === 'string' && AuthService.ALLOWED_ROLES.has(role as UserRole);
   }
 
   private scheduleAutoLogout(session: AuthSession | null): void {
