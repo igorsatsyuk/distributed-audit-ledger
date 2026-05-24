@@ -35,6 +35,13 @@ public class ReconciliationQuartzJob extends QuartzJobBean {
         this.reconciliationProperties = reconciliationProperties;
     }
 
+    @Autowired
+    void setDependencies(ReconciliationReportService reconciliationReportService,
+                         ReconciliationProperties reconciliationProperties) {
+        this.reconciliationReportService = reconciliationReportService;
+        this.reconciliationProperties = reconciliationProperties;
+    }
+
     @Override
     protected void executeInternal(@NonNull JobExecutionContext context) throws JobExecutionException {
         if (reconciliationReportService == null || reconciliationProperties == null) {
