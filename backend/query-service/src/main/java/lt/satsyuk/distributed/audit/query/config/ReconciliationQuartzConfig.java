@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 public class ReconciliationQuartzConfig {
 
     @Bean
-    @ConditionalOnProperty(prefix = "reconciliation.schedule", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "reconciliation.schedule", name = "enabled", havingValue = "true")
     JobDetail reconciliationJobDetail() {
         return JobBuilder.newJob(ReconciliationQuartzJob.class)
                 .withIdentity("reconciliationJob")
@@ -23,7 +23,7 @@ public class ReconciliationQuartzConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "reconciliation.schedule", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "reconciliation.schedule", name = "enabled", havingValue = "true")
     Trigger reconciliationTrigger(JobDetail reconciliationJobDetail, ReconciliationProperties properties) {
         return TriggerBuilder.newTrigger()
                 .forJob(reconciliationJobDetail)

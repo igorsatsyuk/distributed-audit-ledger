@@ -4,6 +4,8 @@ import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
 import lt.satsyuk.distributed.audit.query.model.AuditEventRecord;
 import lt.satsyuk.distributed.audit.query.repository.AuditLogQueryRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -13,6 +15,8 @@ import java.util.List;
 
 @Service
 public class BatchIntegrityChecker {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BatchIntegrityChecker.class);
 
     private final AuditLogQueryRepository auditLogQueryRepository;
     private final AuditLedgerBlockchainClient blockchainClient;
@@ -28,11 +32,15 @@ public class BatchIntegrityChecker {
             return Mono.error(new QueryValidationException("reconciliation.batch-size must be > 0"));
         }
 
-        return runBatch(batchSize, 0L, new BatchAccumulator());
+        return auditLogQueryRepository.findMaxEventId()
+                .flatMap(maxId -> runBatch(batchSize, 0L, maxId, new BatchAccumulator()));
     }
 
-    private Mono<BatchIntegrityCheckResult> runBatch(int batchSize, long offset, BatchAccumulator accumulator) {
-        return auditLogQueryRepository.findReconciliationBatch(batchSize, offset)
+    private Mono<BatchIntegrityCheckResult> runBatch(int batchSize,
+                                                     long lastSeenId,
+                                                     long maxIdInclusive,
+                                                     BatchAccumulator accumulator) {
+        return auditLogQueryRepository.findReconciliationBatch(batchSize, lastSeenId, maxIdInclusive)
                 .collectList()
                 .flatMap(records -> {
                     if (records.isEmpty()) {
@@ -42,12 +50,12 @@ public class BatchIntegrityChecker {
                     return Flux.fromIterable(records)
                             .concatMap(this::evaluateRecord)
                             .doOnNext(accumulator::add)
-                            .then(Mono.defer(() -> {
-                                if (records.size() < batchSize) {
-                                    return Mono.just(accumulator.toResult());
-                                }
-                                return runBatch(batchSize, offset + records.size(), accumulator);
-                            }));
+                            .then(Mono.defer(() -> runBatch(
+                                    batchSize,
+                                    records.getLast().getId(),
+                                    maxIdInclusive,
+                                    accumulator
+                            )));
                 });
     }
 
@@ -59,13 +67,17 @@ public class BatchIntegrityChecker {
 
         return blockchainClient.inspectEventHash(eventHash)
                 .map(blockchainRecord -> mapBlockchainResult(eventRecord, eventHash, blockchainRecord))
-                .onErrorResume(error -> Mono.just(RecordOutcome.mismatch(new ReconciliationMismatch(
-                        eventRecord.getId(),
-                        eventRecord.getEventId(),
-                        eventHash,
-                        "MISMATCH",
-                        "BLOCKCHAIN_CHECK_FAILED: " + error.getMessage()
-                ))));
+                .onErrorResume(error -> {
+                    LOGGER.warn("Blockchain reconciliation check failed for auditLogId={} eventId={}",
+                            eventRecord.getId(), eventRecord.getEventId(), error);
+                    return Mono.just(RecordOutcome.mismatch(new ReconciliationMismatch(
+                            eventRecord.getId(),
+                            eventRecord.getEventId(),
+                            eventHash,
+                            "MISMATCH",
+                            "BLOCKCHAIN_CHECK_FAILED"
+                    )));
+                });
     }
 
     private RecordOutcome mapBlockchainResult(AuditEventRecord eventRecord,

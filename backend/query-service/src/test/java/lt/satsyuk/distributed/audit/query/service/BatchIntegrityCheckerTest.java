@@ -42,8 +42,10 @@ class BatchIntegrityCheckerTest {
         AuditEventRecord pending = buildEventRecord(2L, "evt-2", " ");
         AuditEventRecord mismatch = buildEventRecord(3L, "evt-3", HASH_2);
 
-        when(auditLogQueryRepository.findReconciliationBatch(2, 0L)).thenReturn(Flux.just(onChain, pending));
-        when(auditLogQueryRepository.findReconciliationBatch(2, 2L)).thenReturn(Flux.just(mismatch));
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(3L));
+        when(auditLogQueryRepository.findReconciliationBatch(2, 0L, 3L)).thenReturn(Flux.just(onChain, pending));
+        when(auditLogQueryRepository.findReconciliationBatch(2, 2L, 3L)).thenReturn(Flux.just(mismatch));
+        when(auditLogQueryRepository.findReconciliationBatch(2, 3L, 3L)).thenReturn(Flux.empty());
 
         when(blockchainClient.inspectEventHash(HASH_1))
                 .thenReturn(Mono.just(new AuditIntegrityCheckResponse.BlockchainRecord(true, "0xabc", 1L, 2L)));
@@ -67,7 +69,9 @@ class BatchIntegrityCheckerTest {
     void runCheckMarksBlockchainErrorsAsMismatch() {
         AuditEventRecord event = buildEventRecord(9L, "evt-9", HASH_1);
 
-        when(auditLogQueryRepository.findReconciliationBatch(5, 0L)).thenReturn(Flux.just(event));
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(9L));
+        when(auditLogQueryRepository.findReconciliationBatch(5, 0L, 9L)).thenReturn(Flux.just(event));
+        when(auditLogQueryRepository.findReconciliationBatch(5, 9L, 9L)).thenReturn(Flux.empty());
         when(blockchainClient.inspectEventHash(HASH_1)).thenReturn(Mono.error(new IllegalStateException("rpc down")));
 
         BatchIntegrityCheckResult result = checker.runCheck(5).block();
@@ -76,7 +80,7 @@ class BatchIntegrityCheckerTest {
         assertThat(result.checkedEvents()).isEqualTo(1);
         assertThat(result.mismatchEvents()).isEqualTo(1);
         assertThat(result.mismatches()).hasSize(1);
-        assertThat(result.mismatches().getFirst().reason()).contains("BLOCKCHAIN_CHECK_FAILED");
+        assertThat(result.mismatches().getFirst().reason()).isEqualTo("BLOCKCHAIN_CHECK_FAILED");
     }
 
     @Test
@@ -93,15 +97,38 @@ class BatchIntegrityCheckerTest {
 
     @Test
     void runCheckStopsWhenFirstBatchIsEmpty() {
-        when(auditLogQueryRepository.findReconciliationBatch(10, 0L)).thenReturn(Flux.empty());
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(0L));
+        when(auditLogQueryRepository.findReconciliationBatch(10, 0L, 0L)).thenReturn(Flux.empty());
 
         BatchIntegrityCheckResult result = checker.runCheck(10).block();
 
         assertThat(result).isNotNull();
         assertThat(result.checkedEvents()).isZero();
         assertThat(result.mismatches()).isEmpty();
-        verify(auditLogQueryRepository).findReconciliationBatch(10, 0L);
+        verify(auditLogQueryRepository).findReconciliationBatch(10, 0L, 0L);
         verifyNoInteractions(blockchainClient);
+    }
+
+    @Test
+    void runCheckUsesMaxIdSnapshotAndSkipsRowsInsertedAfterStart() {
+        AuditEventRecord first = buildEventRecord(1L, "evt-1", HASH_1);
+        AuditEventRecord second = buildEventRecord(2L, "evt-2", HASH_2);
+
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(2L));
+        when(auditLogQueryRepository.findReconciliationBatch(1, 0L, 2L)).thenReturn(Flux.just(first));
+        when(auditLogQueryRepository.findReconciliationBatch(1, 1L, 2L)).thenReturn(Flux.just(second));
+        when(auditLogQueryRepository.findReconciliationBatch(1, 2L, 2L)).thenReturn(Flux.empty());
+
+        when(blockchainClient.inspectEventHash(HASH_1))
+                .thenReturn(Mono.just(new AuditIntegrityCheckResponse.BlockchainRecord(true, "0xaaa", 1L, 2L)));
+        when(blockchainClient.inspectEventHash(HASH_2))
+                .thenReturn(Mono.just(new AuditIntegrityCheckResponse.BlockchainRecord(false, null, null, null)));
+
+        BatchIntegrityCheckResult result = checker.runCheck(1).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.checkedEvents()).isEqualTo(2);
+        assertThat(result.mismatchEvents()).isEqualTo(1);
     }
 
     private AuditEventRecord buildEventRecord(Long id, String eventId, String hash) {

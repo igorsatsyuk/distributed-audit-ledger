@@ -21,7 +21,7 @@ public class ReconciliationProperties {
     }
 
     public static class Schedule {
-        private boolean enabled = true;
+        private boolean enabled = false;
         private String cron = "0 0/30 * * * ?";
 
         public boolean isEnabled() {
