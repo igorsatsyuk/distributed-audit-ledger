@@ -492,6 +492,15 @@ describe('AuditDashboardComponent', () => {
     );
   });
 
+  it('normalizeCsvValue falls back safely for circular objects', async () => {
+    await init();
+
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+
+    expect((component as any).normalizeCsvValue(circular)).toBe('[unserializable]');
+  });
+
   it('parseEventData parses valid JSON string', async () => {
     await init();
     const result = component.parseEventData({ ...MOCK_LOG, eventDataJson: '{"userId":"u1"}' });

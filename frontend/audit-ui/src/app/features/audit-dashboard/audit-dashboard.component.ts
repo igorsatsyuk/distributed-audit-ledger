@@ -604,7 +604,7 @@ export class AuditDashboardComponent implements OnDestroy {
       return JSON.stringify(value) ?? '';
     } catch (error: unknown) {
       console.debug('Failed to stringify CSV value:', error);
-      return String(value);
+      return '[unserializable]';
     }
   }
 }
