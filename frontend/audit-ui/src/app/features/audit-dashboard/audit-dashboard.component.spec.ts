@@ -75,6 +75,7 @@ describe('AuditDashboardComponent', () => {
     options: Partial<{
       initialQueryParams: Params;
       localStorageState: unknown;
+      navigateResult: boolean | 'reject';
     }> = {},
   ) {
     localStorage.clear();
@@ -90,7 +91,10 @@ describe('AuditDashboardComponent', () => {
     routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate']);
     routerSpy.navigate.and.callFake(async (_commands: readonly unknown[], extras?: { queryParams?: Params }) => {
       routeStub.setQueryParams(extras?.queryParams ?? {});
-      return true;
+      if (options.navigateResult === 'reject') {
+        throw new Error('navigation failed');
+      }
+      return options.navigateResult ?? true;
     });
 
     serviceSpy = spy;
@@ -230,6 +234,56 @@ describe('AuditDashboardComponent', () => {
         search: 'stored-search',
         limit: 51,
         offset: 100,
+      }),
+    );
+  });
+
+  it('restores filter state from localStorage when initial navigation is ignored', async () => {
+    await init(makeServiceSpy(), {
+      localStorageState: {
+        userId: 'stored-user',
+        eventType: 'USER_LOGGED_IN',
+        search: 'stored-search',
+        from: '2026-05-05T00:00:00.000Z',
+        to: '2026-05-08T23:59:59.999Z',
+        page: 2,
+        pageSize: 50,
+      },
+      navigateResult: false,
+    });
+
+    expect(routerSpy.navigate).toHaveBeenCalled();
+    expect(component.userIdControl.value).toBe('stored-user');
+    expect(component.pageIndex()).toBe(2);
+    expect(component.pageSize()).toBe(50);
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        userId: 'stored-user',
+        eventType: 'USER_LOGGED_IN',
+        search: 'stored-search',
+        limit: 51,
+        offset: 100,
+      }),
+    );
+  });
+
+  it('restores filter state from localStorage when initial navigation fails', async () => {
+    await init(makeServiceSpy(), {
+      localStorageState: {
+        userId: 'stored-user',
+        page: 1,
+        pageSize: 20,
+      },
+      navigateResult: 'reject',
+    });
+
+    expect(component.userIdControl.value).toBe('stored-user');
+    expect(component.pageIndex()).toBe(1);
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        userId: 'stored-user',
+        limit: 21,
+        offset: 20,
       }),
     );
   });
@@ -499,6 +553,14 @@ describe('AuditDashboardComponent', () => {
     circular.self = circular;
 
     expect((component as any).normalizeCsvValue(circular)).toBe('[unserializable]');
+  });
+
+  it('normalizeCsvValue serializes plain objects and nullish values', async () => {
+    await init();
+
+    expect((component as any).normalizeCsvValue({ foo: 'bar' })).toBe('{"foo":"bar"}');
+    expect((component as any).normalizeCsvValue(null)).toBe('');
+    expect((component as any).normalizeCsvValue(undefined)).toBe('');
   });
 
   it('parseEventData parses valid JSON string', async () => {
