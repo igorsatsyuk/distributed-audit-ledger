@@ -24,13 +24,21 @@ Use lowercase kebab-case names and keep files in PNG format:
 
 ## Runtime Regeneration
 
+Prerequisites:
+
+```pwsh
+pip install Pillow
+```
+
+Requires a running local stack (`deploy/docker-compose.yml`) and all four backend services on ports `8081`–`8084`. Credentials are read from env vars `DEMO_USERNAME` (default: `admin`) and `DEMO_PASSWORD` (default: `admin123!`).
+
 Use the generator to refresh screenshots from live local services:
 
 ```pwsh
 python docs/screenshots/generate_runtime_screenshots.py
 ```
 
-The script stores raw capture data in `docs/screenshots/runtime/capture.json`.
+The script stores raw capture data in `docs/screenshots/runtime/capture.json` (gitignored).
 
 ## Current Status
 

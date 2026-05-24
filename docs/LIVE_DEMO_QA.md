@@ -34,10 +34,18 @@ curl http://localhost:8084/actuator/health
 
 ## Demo Script (Core Path)
 
+### Step 0: Obtain JWT token
+
+```pwsh
+$TOKEN = (curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123!"}' | jq -r '.accessToken')
+```
+
 ### Step 1: Send one command
 
 ```pwsh
-curl -X POST http://localhost:8081/commands/user/login -H "Content-Type: application/json" -d '{"userId":"demo.user@example.com"}'
+$CMD = (curl -s -X POST http://localhost:8081/commands/user/login -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"userId":"demo.user@example.com"}')
+$CMD
+$EVENT_ID = ($CMD | jq -r '.eventId')
 ```
 
 Expected: response contains `success=true` and `eventId`.
@@ -45,7 +53,7 @@ Expected: response contains `success=true` and `eventId`.
 ### Step 2: Read events from query service
 
 ```pwsh
-curl "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=5"
+curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=5" -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected:
@@ -55,8 +63,10 @@ Expected:
 
 ### Step 3: Resolve audit ID for integrity check
 
+Use the `eventId` captured in Step 1 to find the exact record:
+
 ```pwsh
-$AUDIT_ID = (curl "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=5" | jq -r '.[0].id')
+$AUDIT_ID = (curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=20" -H "Authorization: Bearer $TOKEN" | jq -r --arg eid "$EVENT_ID" '.[] | select(.eventId == $eid) | .id')
 $AUDIT_ID
 ```
 
@@ -65,7 +75,7 @@ Expected: numeric ID (for example `42`).
 ### Step 4: Run integrity check
 
 ```pwsh
-curl "http://localhost:8084/api/audit-logs/$AUDIT_ID/integrity-check"
+curl -s "http://localhost:8084/api/audit-logs/$AUDIT_ID/integrity-check" -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected: `status` eventually becomes `ON_CHAIN`.

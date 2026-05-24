@@ -130,10 +130,12 @@ def main():
     out = {}
 
     # 1) Auth token
+    import os
+    password = os.environ.get("DEMO_PASSWORD", "admin123!")
     _, _, auth_obj = http_json(
         "POST",
         "http://localhost:8081/auth/login",
-        {"username": "admin", "password": "admin123"},
+        {"username": os.environ.get("DEMO_USERNAME", "admin"), "password": password},
     )
     token = auth_obj["accessToken"]
     out["auth"] = auth_obj
@@ -231,7 +233,9 @@ def main():
         frontend["error"] = str(ex)
     out["frontend"] = frontend
 
-    (RUNTIME_DIR / "capture.json").write_text(pretty(out), encoding="utf-8")
+    import tempfile, os
+    capture_path = Path(os.environ.get("CAPTURE_OUTPUT", str(RUNTIME_DIR / "capture.json")))
+    capture_path.write_text(pretty(out), encoding="utf-8")
 
     render(
         SCREEN_DIR / "01-command-accepted.png",
@@ -249,7 +253,7 @@ def main():
         SCREEN_DIR / "03-integrity-on-chain.png",
         "Integrity Check: ON_CHAIN",
         f"GET /api/audit-logs/{audit_id}/integrity-check",
-        "$ curl http://localhost:8084/api/audit-logs/{id}/integrity-check ...\n" + pretty(integrity_obj),
+        "$ curl http://localhost:8084/api/audit-logs/{audit_id}/integrity-check ...\n" + pretty(integrity_obj),
     )
     render(
         SCREEN_DIR / "04-integrity-mismatch.png",
