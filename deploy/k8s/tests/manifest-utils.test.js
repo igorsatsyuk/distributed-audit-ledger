@@ -33,6 +33,11 @@ describe("platform manifests", () => {
     expect(() => indexByKindAndName(duplicated)).toThrow("Duplicate resource key");
   });
 
+  test("indexByKindAndName fails with descriptive error on missing metadata.name", () => {
+    const invalid = [{ kind: "Service", metadata: { namespace: "dal" } }];
+    expect(() => indexByKindAndName(invalid)).toThrow("missing metadata.name");
+  });
+
   test("required backend and frontend deployments exist", () => {
     const docs = loadManifestDocuments(manifestPath);
     const deployments = getResourcesByKind(docs, "Deployment");
@@ -71,6 +76,9 @@ describe("platform manifests", () => {
     expect(backendServiceNames).toEqual(
       expect.arrayContaining(["audit-ui", "command-service", "query-service"]),
     );
+
+    const routePaths = ingress.spec.rules[0].http.paths.map((p) => p.path);
+    expect(routePaths).toEqual(expect.arrayContaining(["/auth"]));
   });
 });
 

@@ -1,15 +1,18 @@
+{{ $ns := include "dal.namespace" . }}
+{{ if .Values.createNamespace }}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.namespace }}
+  name: {{ $ns }}
   labels:
     {{- include "dal.labels" . | nindent 4 }}
 ---
+{{ end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: dal-config
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 data:
   KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafkaBootstrapServers | quote }}
   R2DBC_URL: {{ .Values.config.r2dbcUrl | quote }}
@@ -25,20 +28,20 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: dal-secrets
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 type: Opaque
 stringData:
-  DB_USERNAME: {{ .Values.secrets.dbUsername | quote }}
-  DB_PASSWORD: {{ .Values.secrets.dbPassword | quote }}
-  AUTH_JWT_SECRET: {{ .Values.secrets.jwtSecret | quote }}
+  DB_USERNAME: {{ required "secrets.dbUsername is required" .Values.secrets.dbUsername | quote }}
+  DB_PASSWORD: {{ required "secrets.dbPassword is required" .Values.secrets.dbPassword | quote }}
+  AUTH_JWT_SECRET: {{ required "secrets.jwtSecret is required" .Values.secrets.jwtSecret | quote }}
   AUTH_JWT_ISSUER: {{ .Values.secrets.jwtIssuer | quote }}
   AUTH_JWT_EXPIRATION: {{ .Values.secrets.jwtExpiration | quote }}
-  AUTH_ADMIN_USERNAME: {{ .Values.secrets.authAdminUsername | quote }}
-  AUTH_ADMIN_PASSWORD: {{ .Values.secrets.authAdminPassword | quote }}
-  AUTH_AUDITOR_USERNAME: {{ .Values.secrets.authAuditorUsername | quote }}
-  AUTH_AUDITOR_PASSWORD: {{ .Values.secrets.authAuditorPassword | quote }}
-  AUTH_USER_USERNAME: {{ .Values.secrets.authUserUsername | quote }}
-  AUTH_USER_PASSWORD: {{ .Values.secrets.authUserPassword | quote }}
+  AUTH_ADMIN_USERNAME: {{ required "secrets.authAdminUsername is required" .Values.secrets.authAdminUsername | quote }}
+  AUTH_ADMIN_PASSWORD: {{ required "secrets.authAdminPassword is required" .Values.secrets.authAdminPassword | quote }}
+  AUTH_AUDITOR_USERNAME: {{ required "secrets.authAuditorUsername is required" .Values.secrets.authAuditorUsername | quote }}
+  AUTH_AUDITOR_PASSWORD: {{ required "secrets.authAuditorPassword is required" .Values.secrets.authAuditorPassword | quote }}
+  AUTH_USER_USERNAME: {{ required "secrets.authUserUsername is required" .Values.secrets.authUserUsername | quote }}
+  AUTH_USER_PASSWORD: {{ required "secrets.authUserPassword is required" .Values.secrets.authUserPassword | quote }}
   AUDIT_LEDGER_CONTRACT_ADDRESS: {{ .Values.secrets.auditLedgerContractAddress | quote }}
   AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
   GANACHE_PRIVATE_KEY: {{ .Values.secrets.ganachePrivateKey | quote }}
@@ -47,7 +50,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dal-postgres
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   serviceName: dal-postgres
   replicas: 1
@@ -80,6 +83,10 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+          {{ with .Values.resources.postgres }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
@@ -93,7 +100,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dal-postgres
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: dal-postgres
@@ -106,7 +113,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dal-zookeeper
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   serviceName: dal-zookeeper
   replicas: 1
@@ -131,6 +138,10 @@ spec:
           volumeMounts:
             - name: zookeeper-data
               mountPath: /var/lib/zookeeper/data
+          {{ with .Values.resources.zookeeper }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
   volumeClaimTemplates:
     - metadata:
         name: zookeeper-data
@@ -144,7 +155,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dal-zookeeper
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: dal-zookeeper
@@ -157,7 +168,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dal-kafka
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   serviceName: dal-kafka
   replicas: 1
@@ -194,6 +205,10 @@ spec:
           volumeMounts:
             - name: kafka-data
               mountPath: /var/lib/kafka/data
+          {{ with .Values.resources.kafka }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
   volumeClaimTemplates:
     - metadata:
         name: kafka-data
@@ -207,7 +222,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dal-kafka
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: dal-kafka
@@ -220,7 +235,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: command-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   replicas: 1
   selector:
@@ -241,6 +256,10 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
+          {{ with .Values.resources.commandService }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -258,7 +277,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: command-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: command-service
@@ -271,7 +290,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: event-store-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   replicas: 1
   selector:
@@ -292,6 +311,10 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
+          {{ with .Values.resources.eventStoreService }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -309,7 +332,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: event-store-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: event-store-service
@@ -322,7 +345,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: audit-writer-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   replicas: 1
   selector:
@@ -343,6 +366,10 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
+          {{ with .Values.resources.auditWriterService }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -360,7 +387,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: audit-writer-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: audit-writer-service
@@ -373,7 +400,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: query-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   replicas: 1
   selector:
@@ -394,6 +421,10 @@ spec:
                 name: dal-config
             - secretRef:
                 name: dal-secrets
+          {{ with .Values.resources.queryService }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -411,7 +442,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: query-service
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: query-service
@@ -424,7 +455,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: audit-ui
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   replicas: 1
   selector:
@@ -446,12 +477,16 @@ spec:
                 configMapKeyRef:
                   name: dal-config
                   key: QUERY_SERVICE_BASE_URL
+          {{ with .Values.resources.auditUi }}
+          resources:
+{{ toYaml . | nindent 12 }}
+          {{ end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: audit-ui
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   selector:
     app: audit-ui
@@ -459,13 +494,13 @@ spec:
     - name: http
       port: 80
       targetPort: 80
-{{- if .Values.ingress.enabled }}
+{{ if .Values.ingress.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dal-ingress
-  namespace: {{ .Values.namespace }}
+  namespace: {{ $ns }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
@@ -486,6 +521,13 @@ spec:
                 name: command-service
                 port:
                   number: 8081
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: command-service
+                port:
+                  number: 8081
           - path: /api/audit-logs
             pathType: Prefix
             backend:
@@ -500,5 +542,5 @@ spec:
                 name: query-service
                 port:
                   number: 8084
-{{- end }}
+{{ end }}
 

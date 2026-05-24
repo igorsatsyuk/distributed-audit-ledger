@@ -26,17 +26,17 @@ metadata:
   namespace: dal
 type: Opaque
 stringData:
-  DB_USERNAME: postgres
-  DB_PASSWORD: postgres
-  AUTH_JWT_SECRET: change-me-in-production
+  DB_USERNAME: "__SET_DB_USERNAME__"
+  DB_PASSWORD: "__SET_DB_PASSWORD__"
+  AUTH_JWT_SECRET: "__SET_AUTH_JWT_SECRET__"
   AUTH_JWT_ISSUER: distributed-audit-ledger
   AUTH_JWT_EXPIRATION: PT1H
-  AUTH_ADMIN_USERNAME: admin
-  AUTH_ADMIN_PASSWORD: admin123
-  AUTH_AUDITOR_USERNAME: auditor
-  AUTH_AUDITOR_PASSWORD: auditor123
-  AUTH_USER_USERNAME: user
-  AUTH_USER_PASSWORD: user123
+  AUTH_ADMIN_USERNAME: "__SET_AUTH_ADMIN_USERNAME__"
+  AUTH_ADMIN_PASSWORD: "__SET_AUTH_ADMIN_PASSWORD__"
+  AUTH_AUDITOR_USERNAME: "__SET_AUTH_AUDITOR_USERNAME__"
+  AUTH_AUDITOR_PASSWORD: "__SET_AUTH_AUDITOR_PASSWORD__"
+  AUTH_USER_USERNAME: "__SET_AUTH_USER_USERNAME__"
+  AUTH_USER_PASSWORD: "__SET_AUTH_USER_PASSWORD__"
   AUDIT_LEDGER_CONTRACT_ADDRESS: ""
   AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: "0"
   GANACHE_PRIVATE_KEY: ""
@@ -477,6 +477,13 @@ spec:
                 port:
                   number: 80
           - path: /commands
+            pathType: Prefix
+            backend:
+              service:
+                name: command-service
+                port:
+                  number: 8081
+          - path: /auth
             pathType: Prefix
             backend:
               service:

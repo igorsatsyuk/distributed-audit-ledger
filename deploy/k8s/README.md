@@ -22,9 +22,13 @@ helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace
 
 ```bash
 cd deploy/k8s/tests
-npm install
+npm ci
 npm test
 ```
+
+## CI validation
+
+Kubernetes manifest tests are executed in GitHub Actions (`.github/workflows/ci.yml`) in job `k8s-manifests`.
 
 ## Notes
 

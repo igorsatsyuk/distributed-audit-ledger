@@ -1,4 +1,5 @@
-namespace: dal
+namespaceOverride: ""
+createNamespace: false
 
 images:
   commandService: ghcr.io/distributed-audit-ledger/command-service:latest
@@ -22,17 +23,17 @@ config:
   queryServiceBaseUrl: http://query-service:8084
 
 secrets:
-  dbUsername: postgres
-  dbPassword: postgres
-  jwtSecret: change-me-in-production
+  dbUsername: ""
+  dbPassword: ""
+  jwtSecret: ""
   jwtIssuer: distributed-audit-ledger
   jwtExpiration: PT1H
-  authAdminUsername: admin
-  authAdminPassword: admin123
-  authAuditorUsername: auditor
-  authAuditorPassword: auditor123
-  authUserUsername: user
-  authUserPassword: user123
+  authAdminUsername: ""
+  authAdminPassword: ""
+  authAuditorUsername: ""
+  authAuditorPassword: ""
+  authUserUsername: ""
+  authUserPassword: ""
   auditLedgerContractAddress: ""
   auditLedgerContractDeploymentBlock: "0"
   ganachePrivateKey: ""
@@ -42,7 +43,15 @@ ingress:
   className: nginx
   host: dal.local
 
-resources: {}
+resources:
+  postgres: {}
+  zookeeper: {}
+  kafka: {}
+  commandService: {}
+  eventStoreService: {}
+  auditWriterService: {}
+  queryService: {}
+  auditUi: {}
 
 persistence:
   postgresSize: 10Gi

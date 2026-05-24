@@ -18,6 +18,13 @@ function indexByKindAndName(documents) {
   const index = new Map();
 
   for (const document of documents) {
+    if (!document?.kind) {
+      throw new Error("Invalid resource: missing kind");
+    }
+    if (!document?.metadata?.name) {
+      throw new Error(`Invalid resource ${document.kind}: missing metadata.name`);
+    }
+
     const namespace = document?.metadata?.namespace || "";
     const key = `${document.kind}/${namespace}/${document.metadata.name}`;
 
