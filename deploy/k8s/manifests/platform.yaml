@@ -12,6 +12,7 @@ data:
   KAFKA_BOOTSTRAP_SERVERS: dal-kafka:9092
   R2DBC_URL: r2dbc:postgresql://dal-postgres:5432/audit_ledger
   DB_URL: jdbc:postgresql://dal-postgres:5432/audit_ledger
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
   GANACHE_RPC_URL: http://ganache-rpc.default.svc.cluster.local:8545
   RECONCILIATION_BATCH_SIZE: "200"
   RECONCILIATION_SCHEDULE_ENABLED: "false"
@@ -284,13 +285,13 @@ spec:
                 name: dal-secrets
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8081
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8081
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -335,13 +336,13 @@ spec:
                 name: dal-secrets
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8082
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8082
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -386,13 +387,13 @@ spec:
                 name: dal-secrets
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8083
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8083
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -437,13 +438,13 @@ spec:
                 name: dal-secrets
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8084
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8084
             initialDelaySeconds: 30
             periodSeconds: 15

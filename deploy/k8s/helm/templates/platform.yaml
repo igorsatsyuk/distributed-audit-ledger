@@ -26,6 +26,7 @@ data:
   KAFKA_BOOTSTRAP_SERVERS: {{ default (printf "%s:9092" $kafkaName) .Values.config.kafkaBootstrapServers | quote }}
   R2DBC_URL: {{ default (printf "r2dbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.r2dbcUrl | quote }}
   DB_URL: {{ default (printf "jdbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.dbUrl | quote }}
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: {{ .Values.config.managementEndpointHealthProbesEnabled | quote }}
   GANACHE_RPC_URL: {{ .Values.config.ganacheRpcUrl | quote }}
   RECONCILIATION_BATCH_SIZE: {{ .Values.config.reconciliationBatchSize | quote }}
   RECONCILIATION_SCHEDULE_ENABLED: {{ .Values.config.reconciliationScheduleEnabled | quote }}
@@ -51,8 +52,8 @@ stringData:
   AUTH_AUDITOR_PASSWORD: {{ required "secrets.authAuditorPassword is required" .Values.secrets.authAuditorPassword | quote }}
   AUTH_USER_USERNAME: {{ required "secrets.authUserUsername is required" .Values.secrets.authUserUsername | quote }}
   AUTH_USER_PASSWORD: {{ required "secrets.authUserPassword is required" .Values.secrets.authUserPassword | quote }}
-  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ required "secrets.auditLedgerContractAddress is required for query-service integrity endpoints" .Values.secrets.auditLedgerContractAddress | quote }}
-  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ required "secrets.auditLedgerContractDeploymentBlock is required for query-service integrity endpoints" .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
+  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ .Values.secrets.auditLedgerContractAddress | quote }}
+  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
   GANACHE_PRIVATE_KEY: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.ganachePrivateKey is required when components.auditWriter.enabled=true" .Values.secrets.ganachePrivateKey | quote }}{{ else }}{{ .Values.secrets.ganachePrivateKey | quote }}{{ end }}
 ---
 {{ end }}
@@ -306,13 +307,13 @@ spec:
 {{ toYaml .Values.resources.commandService | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8081
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8081
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -359,13 +360,13 @@ spec:
 {{ toYaml .Values.resources.eventStoreService | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8082
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8082
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -413,13 +414,13 @@ spec:
 {{ toYaml .Values.resources.auditWriterService | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8083
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8083
             initialDelaySeconds: 30
             periodSeconds: 15
@@ -467,13 +468,13 @@ spec:
 {{ toYaml .Values.resources.queryService | nindent 12 }}
           readinessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/readiness
               port: 8084
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /actuator/health
+              path: /actuator/health/liveness
               port: 8084
             initialDelaySeconds: 30
             periodSeconds: 15
