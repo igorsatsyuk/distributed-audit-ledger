@@ -102,7 +102,7 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
         return value != null && !value.isBlank();
     }
 
-    private String escapeLikePattern(String value) {
+    String escapeLikePattern(String value) {
         return value
                 .replace("\\", "\\\\")
                 .replace("%", "\\%")
