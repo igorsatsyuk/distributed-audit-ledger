@@ -3,6 +3,7 @@
 -- instead of a sequential scan, keeping search performant as audit.events grows.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_events_payload_trgm
+-- Flyway runs SQL migrations in a transaction by default; avoid CONCURRENTLY here.
+CREATE INDEX IF NOT EXISTS idx_audit_events_payload_trgm
     ON audit.events USING GIN ((payload::text) gin_trgm_ops);
 
