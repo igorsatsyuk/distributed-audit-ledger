@@ -20,6 +20,7 @@ public class BatchIntegrityChecker {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BatchIntegrityChecker.class);
     private static final Pattern HEX_64_PATTERN = Pattern.compile("^[0-9a-fA-F]{64}$");
+    private static final String STATUS_MISMATCH = "MISMATCH";
 
     private final AuditLogQueryRepository auditLogQueryRepository;
     private final AuditLedgerBlockchainClient blockchainClient;
@@ -81,7 +82,7 @@ public class BatchIntegrityChecker {
                     eventRecord.getId(),
                     eventRecord.getEventId(),
                     eventHash,
-                    "MISMATCH",
+                    STATUS_MISMATCH,
                     "INVALID_EVENT_HASH_FORMAT"
             )));
         }
@@ -97,7 +98,7 @@ public class BatchIntegrityChecker {
                             eventRecord.getId(),
                             eventRecord.getEventId(),
                             eventHash,
-                            "MISMATCH",
+                            STATUS_MISMATCH,
                             "BLOCKCHAIN_CHECK_FAILED"
                     )));
                 });
@@ -113,7 +114,7 @@ public class BatchIntegrityChecker {
                 eventRecord.getId(),
                 eventRecord.getEventId(),
                 eventHash,
-                "MISMATCH",
+                STATUS_MISMATCH,
                 "HASH_NOT_FOUND_ON_CHAIN"
         ));
     }
