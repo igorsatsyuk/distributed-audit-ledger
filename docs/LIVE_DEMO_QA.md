@@ -22,10 +22,11 @@ This document is an interview-ready script for demonstrating the Distributed Aud
 - Backend services are running on ports `8081`-`8084`.
 - `AUDIT_LEDGER_CONTRACT_ADDRESS` is configured for blockchain-aware services.
 - Tools: `curl`, `jq`.
+- Optional (for Steps 5–6): `docker` CLI, `psql` client.
 
 Quick health check:
 
-```pwsh
+```bash
 curl http://localhost:8081/actuator/health
 curl http://localhost:8082/actuator/health
 curl http://localhost:8083/actuator/health
@@ -36,24 +37,30 @@ curl http://localhost:8084/actuator/health
 
 ### Step 0: Obtain JWT token
 
-```pwsh
-$TOKEN = (curl -s -X POST http://localhost:8081/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123!"}' | jq -r '.accessToken')
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8081/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123!"}' | jq -r '.accessToken')
 ```
 
 ### Step 1: Send one command
 
-```pwsh
-$CMD = (curl -s -X POST http://localhost:8081/commands/user/login -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"userId":"demo.user@example.com"}')
-$CMD
-$EVENT_ID = ($CMD | jq -r '.eventId')
+```bash
+CMD=$(curl -s -X POST http://localhost:8081/commands/user/login \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"userId":"demo.user@example.com"}')
+echo "$CMD"
+EVENT_ID=$(echo "$CMD" | jq -r '.eventId')
 ```
 
 Expected: response contains `success=true` and `eventId`.
 
 ### Step 2: Read events from query service
 
-```pwsh
-curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=5" -H "Authorization: Bearer $TOKEN"
+```bash
+curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=5" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected:
@@ -65,17 +72,19 @@ Expected:
 
 Use the `eventId` captured in Step 1 to find the exact record:
 
-```pwsh
-$AUDIT_ID = (curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=20" -H "Authorization: Bearer $TOKEN" | jq -r --arg eid "$EVENT_ID" '.[] | select(.eventId == $eid) | .id')
-$AUDIT_ID
+```bash
+AUDIT_ID=$(curl -s "http://localhost:8084/api/audit-logs?userId=demo.user@example.com&limit=20" \
+  -H "Authorization: Bearer $TOKEN" | jq -r --arg eid "$EVENT_ID" '.[] | select(.eventId == $eid) | .id')
+echo "$AUDIT_ID"
 ```
 
 Expected: numeric ID (for example `42`).
 
 ### Step 4: Run integrity check
 
-```pwsh
-curl -s "http://localhost:8084/api/audit-logs/$AUDIT_ID/integrity-check" -H "Authorization: Bearer $TOKEN"
+```bash
+curl -s "http://localhost:8084/api/audit-logs/$AUDIT_ID/integrity-check" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 Expected: `status` eventually becomes `ON_CHAIN`.
@@ -84,7 +93,7 @@ If `MISMATCH` appears immediately after command, wait a few seconds and retry (a
 
 ### Step 5: Show Kafka flow proof (optional)
 
-```pwsh
+```bash
 docker exec dal-kafka kafka-topics --bootstrap-server localhost:9092 --list
 ```
 
@@ -92,8 +101,9 @@ Expected topics include `user.login.events`.
 
 ### Step 6: Show DB evidence (optional)
 
-```pwsh
-psql -h localhost -U postgres -d audit_ledger -c "SELECT id, event_id, event_type, user_id, event_hash, created_at FROM audit.events ORDER BY id DESC LIMIT 5;"
+```bash
+psql -h localhost -U postgres -d audit_ledger \
+  -c "SELECT id, event_id, event_type, user_id, event_hash, created_at FROM audit.events ORDER BY id DESC LIMIT 5;"
 ```
 
 Expected: latest event row with non-empty `event_hash`.
@@ -145,7 +155,7 @@ Use screenshot pack and/or running Angular app:
 
 ### 4) What does `PENDING` mean?
 
-`PENDING` means the `event_hash` column for this record is null or blank in the database — the hash has not been written yet (e.g., the event processor hasn't completed). `PENDING` is **not** returned when the blockchain is unreachable; that scenario results in an error response instead.
+`PENDING` means the `event_hash` column is null or blank in `audit.events` — the row exists but has no hash value. This is a legacy or corrupt-row condition, **not** expected eventual consistency: the event-store service writes `event_hash` synchronously during event persistence, so a blank hash indicates the row was never properly processed. `PENDING` is **not** returned when the blockchain is unreachable; that scenario results in an error response instead.
 
 ### 5) What does `MISMATCH` mean?
 

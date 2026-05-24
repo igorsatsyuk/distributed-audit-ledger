@@ -14,6 +14,10 @@ SCREEN_DIR = ROOT / "docs" / "screenshots"
 RUNTIME_DIR = SCREEN_DIR / "runtime"
 RUNTIME_DIR.mkdir(exist_ok=True)
 
+POSTGRES_CONTAINER = os.environ.get("POSTGRES_CONTAINER", "dal-postgres")
+POSTGRES_DB = os.environ.get("POSTGRES_DB", "audit_ledger")
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+
 W, H = 1366, 768
 BG = (9, 15, 25)
 FG = (236, 239, 244)
@@ -50,17 +54,9 @@ def run_cmd(args: List[str]) -> str:
 
 def psql(sql: str) -> str:
     return run_cmd([
-        "docker",
-        "exec",
-        "dal-postgres",
-        "psql",
-        "-U",
-        "postgres",
-        "-d",
-        "audit_ledger",
-        "-At",
-        "-c",
-        sql,
+        "docker", "exec", POSTGRES_CONTAINER,
+        "psql", "-U", POSTGRES_USER, "-d", POSTGRES_DB,
+        "-At", "-c", sql,
     ])
 
 
@@ -156,6 +152,8 @@ def main():
         token=token,
     )
     event_id = cmd_obj.get("eventId")
+    if not event_id:
+        raise RuntimeError(f"Command did not return an eventId (success={cmd_obj.get('success')}). Response: {cmd_obj}")
     out["command"] = cmd_obj
 
     # 3) Poll query list
@@ -174,7 +172,12 @@ def main():
     if not logs:
         raise RuntimeError("No audit logs returned by query-service")
 
-    selected = next((r for r in logs if r.get("eventId") == event_id), logs[0])
+    selected = next((r for r in logs if r.get("eventId") == event_id), None)
+    if selected is None:
+        raise RuntimeError(
+            f"Event {event_id} not found in query-service after polling. "
+            "Check event-store consumer lag and query-service connectivity."
+        )
     audit_id = int(selected["id"])
     out["list"] = logs
     out["selectedAuditId"] = audit_id
@@ -204,8 +207,11 @@ def main():
         )
         out["integrityMismatch"] = mismatch_obj
     finally:
+        # Always restore — use NULL when original hash was blank to avoid permanent corruption
         if original_hash:
             psql(f"UPDATE audit.events SET event_hash='{original_hash}' WHERE id={audit_id};")
+        else:
+            psql(f"UPDATE audit.events SET event_hash=NULL WHERE id={audit_id};")
 
     # 6) Kafka topics
     topics = run_cmd([
