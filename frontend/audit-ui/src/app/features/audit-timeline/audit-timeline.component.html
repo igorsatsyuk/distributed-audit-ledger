@@ -42,7 +42,7 @@
                       [attr.aria-label]="'Open event ' + event.id + ' (' + event.eventType + ')'"
                       (click)="selectLog(event)"
                     >
-                      <span class="timeline-event__time">{{ event.occurredAt | date : 'shortTime' }}</span>
+                      <span class="timeline-event__time">{{ event.occurredAt | date : 'shortTime' : 'UTC' }}</span>
                       <span class="timeline-event__title">{{ event.eventType }}</span>
                       <span class="timeline-event__meta">{{ event.userId ?? '—' }}</span>
                       <span class="timeline-event__hash">{{ event.eventHash ?? 'No hash yet' }}</span>

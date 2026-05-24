@@ -77,6 +77,7 @@
             mat-stroked-button
             type="button"
             [class.view-switcher__button--active]="viewMode() === 'table'"
+            [attr.aria-pressed]="viewMode() === 'table'"
             (click)="setViewMode('table')"
           >
             Table
@@ -85,6 +86,7 @@
             mat-stroked-button
             type="button"
             [class.view-switcher__button--active]="viewMode() === 'timeline'"
+            [attr.aria-pressed]="viewMode() === 'timeline'"
             (click)="setViewMode('timeline')"
           >
             Timeline
