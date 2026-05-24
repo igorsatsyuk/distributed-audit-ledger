@@ -244,7 +244,10 @@ def main():
     out["frontend"] = frontend
 
     capture_path = Path(os.environ.get("CAPTURE_OUTPUT", str(RUNTIME_DIR / "capture.json")))
-    capture_path.write_text(pretty(out), encoding="utf-8")
+    # Redact auth tokens before persisting to avoid accidental credential disclosure
+    safe_out = {**out, "auth": {k: "[REDACTED]" if "token" in k.lower() or "Token" in k else v
+                                for k, v in out.get("auth", {}).items()}}
+    capture_path.write_text(pretty(safe_out), encoding="utf-8")
 
     render(
         SCREEN_DIR / "01-command-accepted.png",

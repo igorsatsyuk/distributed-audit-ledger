@@ -145,8 +145,7 @@ Use screenshot pack and/or running Angular app:
 
 ### 4) What does `PENDING` mean?
 
-- Hash is not present in DB row (or not yet available for check).
-- Event exists, but blockchain verification is not currently possible.
+`PENDING` means the `event_hash` column for this record is null or blank in the database — the hash has not been written yet (e.g., the event processor hasn't completed). `PENDING` is **not** returned when the blockchain is unreachable; that scenario results in an error response instead.
 
 ### 5) What does `MISMATCH` mean?
 
