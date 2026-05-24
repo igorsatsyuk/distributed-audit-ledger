@@ -31,11 +31,20 @@ describe("platform manifests", () => {
 
   test("indexByKindAndName rejects duplicates", () => {
     const duplicated = [
-      { kind: "Service", metadata: { name: "same", namespace: "dal" } },
-      { kind: "Service", metadata: { name: "same", namespace: "dal" } },
+      { apiVersion: "v1", kind: "Service", metadata: { name: "same", namespace: "dal" } },
+      { apiVersion: "v1", kind: "Service", metadata: { name: "same", namespace: "dal" } },
     ];
 
     expect(() => indexByKindAndName(duplicated)).toThrow("Duplicate resource key");
+  });
+
+  test("indexByKindAndName allows same kind/name across different apiVersion", () => {
+    const differentApiVersions = [
+      { apiVersion: "group1/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
+      { apiVersion: "group2/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
+    ];
+
+    expect(() => indexByKindAndName(differentApiVersions)).not.toThrow();
   });
 
   test("indexByKindAndName fails with descriptive error on missing metadata.name", () => {

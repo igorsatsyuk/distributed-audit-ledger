@@ -25,8 +25,9 @@ function indexByKindAndName(documents) {
       throw new Error(`Invalid resource ${document.kind}: missing metadata.name`);
     }
 
+    const apiVersion = document?.apiVersion || "";
     const namespace = document?.metadata?.namespace || "";
-    const key = `${document.kind}/${namespace}/${document.metadata.name}`;
+    const key = `${apiVersion}/${document.kind}/${namespace}/${document.metadata.name}`;
 
     if (index.has(key)) {
       throw new Error(`Duplicate resource key: ${key}`);

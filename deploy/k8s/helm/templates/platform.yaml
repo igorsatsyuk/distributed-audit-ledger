@@ -10,7 +10,10 @@
 {{ $queryServiceName := include "dal.queryServiceName" . }}
 {{ $auditUiName := include "dal.auditUiName" . }}
 {{ $ingressName := include "dal.ingressName" . }}
-{{ $secretRefName := ternary $secretsName (required "secrets.existingSecretName is required when secrets.create=false" .Values.secrets.existingSecretName) .Values.secrets.create }}
+{{- $secretRefName := $secretsName -}}
+{{- if not .Values.secrets.create -}}
+{{- $secretRefName = required "secrets.existingSecretName is required when secrets.create=false" .Values.secrets.existingSecretName -}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
