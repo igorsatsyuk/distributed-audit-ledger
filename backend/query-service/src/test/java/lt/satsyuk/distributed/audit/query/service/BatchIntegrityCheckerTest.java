@@ -113,7 +113,7 @@ class BatchIntegrityCheckerTest {
                 BlockchainIntegrityException.ErrorType.CONFIGURATION
         )));
 
-        assertThatThrownBy(() -> checker.runCheck(5).block())
+        assertThatThrownBy(this::blockConfigErrorRun)
                 .isInstanceOf(BlockchainIntegrityException.class)
                 .hasMessage("web3j.contract-address is malformed");
     }
@@ -176,6 +176,10 @@ class BatchIntegrityCheckerTest {
 
     private void blockInvalidBatchRun() {
         checker.runCheck(0).block();
+    }
+
+    private void blockConfigErrorRun() {
+        checker.runCheck(5).block();
     }
 }
 

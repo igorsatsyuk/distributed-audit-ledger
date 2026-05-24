@@ -28,6 +28,7 @@ public class ReconciliationQuartzJob extends QuartzJobBean {
     public ReconciliationQuartzJob() {
     }
 
+    @Autowired
     public ReconciliationQuartzJob(ReconciliationReportService reconciliationReportService,
                                    ReconciliationProperties reconciliationProperties) {
         this.reconciliationReportService = reconciliationReportService;
