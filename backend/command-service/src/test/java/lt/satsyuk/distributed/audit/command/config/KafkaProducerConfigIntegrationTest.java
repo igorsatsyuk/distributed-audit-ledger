@@ -1,13 +1,18 @@
 package lt.satsyuk.distributed.audit.command.config;
 
-import lt.satsyuk.distributed.audit.event.AuditEvent;
 import lt.satsyuk.distributed.audit.command.service.AuditCommandPublisher;
+import lt.satsyuk.distributed.audit.event.AuditEvent;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.TestPropertySource;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,7 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EmbeddedKafka(partitions = 1, topics = {"user.login.events"})
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
-        "spring.kafka.producer.bootstrap-servers=${spring.embedded.kafka.brokers}"
+        "spring.kafka.properties.client.id=command-service-it",
+        "spring.kafka.producer.properties.acks=all"
 })
 class KafkaProducerConfigIntegrationTest {
 
@@ -28,7 +34,14 @@ class KafkaProducerConfigIntegrationTest {
     private KafkaTemplate<String, AuditEvent> auditEventKafkaTemplate;
 
     @Autowired
+    private DefaultKafkaProducerFactory<String, AuditEvent> auditEventProducerFactory;
+
+    @Autowired
     private AuditCommandPublisher auditCommandPublisher;
+
+    @Autowired
+    @Value("${spring.embedded.kafka.brokers}")
+    private String embeddedKafkaBrokers;
 
     @Test
     void auditEventKafkaTemplateBeanIsCreated() {
@@ -38,6 +51,22 @@ class KafkaProducerConfigIntegrationTest {
     @Test
     void auditCommandPublisherBeanIsCreated() {
         assertThat(auditCommandPublisher).isNotNull();
+    }
+
+    @Test
+    void producerFactoryPicksUpSpringKafkaOverrides() {
+        Map<String, Object> configurationProperties =
+                auditEventProducerFactory.getConfigurationProperties();
+
+        assertThat(configurationProperties)
+                .containsEntry(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, embeddedKafkaBrokers)
+                .containsEntry(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                        "org.apache.kafka.common.serialization.StringSerializer")
+                .containsEntry(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                        "org.springframework.kafka.support.serializer.JsonSerializer")
+                .containsEntry("spring.json.add.type.headers", "false")
+                .containsEntry("client.id", "command-service-it")
+                .containsEntry("acks", "all");
     }
 }
 
