@@ -1,9 +1,11 @@
 import json
+import os
 import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib import request, error
+from typing import List, Optional
+from urllib import request
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -23,7 +25,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def http_json(method: str, url: str, body=None, token: str | None = None):
+def http_json(method: str, url: str, body=None, token: Optional[str] = None):
     payload = None if body is None else json.dumps(body).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if token:
@@ -41,7 +43,7 @@ def http_text(url: str):
         return resp.status, text
 
 
-def run_cmd(args: list[str]) -> str:
+def run_cmd(args: List[str]) -> str:
     result = subprocess.run(args, check=True, capture_output=True, text=True)
     return result.stdout.strip()
 
@@ -64,8 +66,15 @@ def psql(sql: str) -> str:
 
 def font(size: int, bold: bool = False):
     candidates = [
+        # Windows
         "C:/Windows/Fonts/consolab.ttf" if bold else "C:/Windows/Fonts/consola.ttf",
         "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+        # Linux (DejaVu / Liberation)
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+        # macOS
+        "/System/Library/Fonts/Supplemental/Menlo Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Menlo.ttc",
+        "/Library/Fonts/Courier New Bold.ttf" if bold else "/Library/Fonts/Courier New.ttf",
     ]
     for c in candidates:
         p = Path(c)
@@ -74,7 +83,7 @@ def font(size: int, bold: bool = False):
     return ImageFont.load_default()
 
 
-def wrap_text(draw: ImageDraw.ImageDraw, text: str, fnt, width: int) -> list[str]:
+def wrap_text(draw: ImageDraw.ImageDraw, text: str, fnt, width: int) -> List[str]:
     lines = []
     for raw in text.splitlines() or [""]:
         current = ""
@@ -130,7 +139,6 @@ def main():
     out = {}
 
     # 1) Auth token
-    import os
     password = os.environ.get("DEMO_PASSWORD", "admin123!")
     _, _, auth_obj = http_json(
         "POST",
@@ -184,18 +192,20 @@ def main():
         time.sleep(1)
     out["integrityOnChain"] = integrity_obj
 
-    # 5) Tamper to force mismatch and then restore
+    # 5) Tamper to force mismatch and then restore (always restore in finally)
     original_hash = psql(f"SELECT event_hash FROM audit.events WHERE id={audit_id};")
     tampered = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     psql(f"UPDATE audit.events SET event_hash='{tampered}' WHERE id={audit_id};")
-    _, _, mismatch_obj = http_json(
-        "GET",
-        f"http://localhost:8084/api/audit-logs/{audit_id}/integrity-check",
-        token=token,
-    )
-    out["integrityMismatch"] = mismatch_obj
-    if original_hash:
-        psql(f"UPDATE audit.events SET event_hash='{original_hash}' WHERE id={audit_id};")
+    try:
+        _, _, mismatch_obj = http_json(
+            "GET",
+            f"http://localhost:8084/api/audit-logs/{audit_id}/integrity-check",
+            token=token,
+        )
+        out["integrityMismatch"] = mismatch_obj
+    finally:
+        if original_hash:
+            psql(f"UPDATE audit.events SET event_hash='{original_hash}' WHERE id={audit_id};")
 
     # 6) Kafka topics
     topics = run_cmd([
@@ -233,7 +243,6 @@ def main():
         frontend["error"] = str(ex)
     out["frontend"] = frontend
 
-    import tempfile, os
     capture_path = Path(os.environ.get("CAPTURE_OUTPUT", str(RUNTIME_DIR / "capture.json")))
     capture_path.write_text(pretty(out), encoding="utf-8")
 

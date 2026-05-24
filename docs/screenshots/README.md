@@ -30,7 +30,7 @@ Prerequisites:
 pip install Pillow
 ```
 
-Requires a running local stack (`deploy/docker-compose.yml`) and all four backend services on ports `8081`–`8084`. Credentials are read from env vars `DEMO_USERNAME` (default: `admin`) and `DEMO_PASSWORD` (default: `admin123!`).
+Requires **Python 3.9+**, a running local stack (`deploy/docker-compose.yml`) and all four backend services on ports `8081`–`8084`. Credentials are read from env vars `DEMO_USERNAME` (default: `admin`) and `DEMO_PASSWORD` (default: `admin123!`).
 
 Use the generator to refresh screenshots from live local services:
 
