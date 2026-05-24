@@ -20,6 +20,8 @@
 - `CREATE EXTENSION IF NOT EXISTS pg_trgm;` may require elevated DB privileges depending on your PostgreSQL setup.
 - If your Flyway role is restricted in production, pre-enable `pg_trgm` at database provisioning time:
   `CREATE EXTENSION IF NOT EXISTS pg_trgm;`
+- `V4__add_payload_trgm_index.sql` is marked with `-- flyway:executeInTransaction=false`
+  so Flyway can run `CREATE INDEX CONCURRENTLY` and avoid long blocking locks on `audit.events`.
 - Ensure the runtime role has enough permissions to create indexes in schema `audit`.
 
 ## `event_hash` compatibility
