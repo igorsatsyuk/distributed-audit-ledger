@@ -25,10 +25,13 @@ Use this file as the single entry point for project setup and work planning.
 
 ## 4) Current status
 
-- MVP Phase 1 is complete (Issues #1–#13)
-- Next open implementation item is Issue #14 (additional event types)
+- MVP Phase 1 is complete (Issues #1-#13)
+- Phase 2 items (#14-#20) are complete in roadmap; use docs below for demo preparation and next planning
 
 ## 5) Next action
 
-Confirm local prerequisites from section 1, then start with the next open issue in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Confirm local prerequisites from section 1, then:
+
+1. Use [`docs/LIVE_DEMO_QA.md`](docs/LIVE_DEMO_QA.md) for interview-ready demo flow.
+2. Use [`docs/ROADMAP.md`](docs/ROADMAP.md) to plan the next issue beyond phase 2.
 

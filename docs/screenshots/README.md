@@ -22,6 +22,37 @@ Use lowercase kebab-case names and keep files in PNG format:
 - Keep terminal width wide enough so commands/results are readable
 - Prefer one screenshot per scenario outcome
 
+## Runtime Regeneration
+
+Prerequisites:
+
+```pwsh
+pip install Pillow
+```
+
+Requires **Python 3.9+**, a running local stack (`deploy/docker-compose.yml`) and all four backend services on ports `8081`–`8084`. Credentials are read from env vars `DEMO_USERNAME` (default: `admin`) and `DEMO_PASSWORD` (default: `admin123!`).
+
+The script connects to Docker containers and PostgreSQL using the following env vars (shown with defaults matching `deploy/docker-compose.yml`):
+
+| Env var               | Default        | Purpose                            |
+|-----------------------|----------------|------------------------------------|
+| `DEMO_USERNAME`       | `admin`        | Auth login username                |
+| `DEMO_PASSWORD`       | `admin123!`    | Auth login password                |
+| `POSTGRES_CONTAINER`  | `dal-postgres` | Docker container name for psql     |
+| `POSTGRES_DB`         | `audit_ledger` | Database name                      |
+| `POSTGRES_USER`       | `postgres`     | PostgreSQL user                    |
+| `KAFKA_CONTAINER`     | `dal-kafka`    | Docker container name for Kafka    |
+| `SCREENSHOT_TIMESTAMP`| `1`            | Set `0` for deterministic PNGs     |
+| `CAPTURE_OUTPUT`      | `docs/screenshots/runtime/capture.json` | Path for `capture.json` output     |
+
+Use the generator to refresh screenshots from live local services:
+
+```pwsh
+python docs/screenshots/generate_runtime_screenshots.py
+```
+
+The script stores raw capture data in `docs/screenshots/runtime/capture.json` (gitignored).
+
 ## Current Status
 
 The screenshot pack files are present in this folder:
@@ -36,4 +67,8 @@ The screenshot pack files are present in this folder:
 - `08-angular-dashboard.png`
 
 If needed for final demo polish, replace generated images with runtime-captured screenshots while keeping the same filenames.
+
+Note for `08-angular-dashboard.png`:
+- If Angular app on `http://localhost:4200` is running, the screenshot will include a live frontend probe result.
+- If frontend is not running, the file captures the probe error so the demo pack still remains complete and reproducible.
 

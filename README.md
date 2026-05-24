@@ -188,15 +188,15 @@ See [**START_HERE.md**](START_HERE.md) for guided navigation.
 - [x] **#12** — Architecture documentation
 - [x] **#13** — CI/CD pipeline (GitHub Actions + SonarQube + Telegram notifications)
 
-### 🚀 Phase 2 — Active/Planned (Issues #14–#20)
+### ✅ Phase 2 — Completed (Issues #14–#20)
 
 - [x] **#14** — Support additional event types (`UserProfileChanged`, `EntityCreated`, `EntityUpdated`, `DataDeleted`)
 - [x] **#15** — Authentication & Authorization (JWT + Spring Security + RBAC)
 - [x] **#16** — Advanced filtering, search, date range picker, CSV export
 - [x] **#17** — Event timeline visualization
-- [ ] **#18** — Reconciliation Service (batch integrity checking + Quartz scheduler)
-- [ ] **#19** — Kubernetes manifests + Helm chart
-- [ ] **#20** — Live demo scenario + Q&A documentation
+- [x] **#18** — Reconciliation Service (batch integrity checking + Quartz scheduler)
+- [x] **#19** — Kubernetes manifests + Helm chart
+- [x] **#20** — Live demo scenario + Q&A documentation
 
 **Full roadmap and issue tracking:** [**docs/ROADMAP.md**](docs/ROADMAP.md)
 
@@ -226,6 +226,7 @@ All documentation is located in the `docs/` directory:
 | [**docs/DEPLOYMENT.md**](docs/DEPLOYMENT.md) | Quickstart + environment setup |
 | [**docs/ROADMAP.md**](docs/ROADMAP.md) | Complete GitHub Issues roadmap (Phase 1–4) |
 | [**docs/TESTING_SCENARIOS.md**](docs/TESTING_SCENARIOS.md) | Live demo scenarios + curl commands + screenshots |
+| [**docs/LIVE_DEMO_QA.md**](docs/LIVE_DEMO_QA.md) | Interview-ready live demo script + architecture Q&A |
 | [**docs/EVENT_HASH_CANONICAL_MIGRATION.md**](docs/EVENT_HASH_CANONICAL_MIGRATION.md) | Event hash canonicalization + recovery procedures |
 | [**CONTRIBUTING.md**](CONTRIBUTING.md) | Contribution workflow, PR guidelines |
 

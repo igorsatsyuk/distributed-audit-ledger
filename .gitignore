@@ -30,3 +30,6 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
+# Screenshot generator runtime output
+docs/screenshots/runtime/
+
