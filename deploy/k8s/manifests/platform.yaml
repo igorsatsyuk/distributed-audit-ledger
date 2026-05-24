@@ -47,7 +47,7 @@ metadata:
   name: dal-postgres
   namespace: dal
 spec:
-  serviceName: dal-postgres-headless-headless
+  serviceName: dal-postgres-headless
   replicas: 1
   selector:
     matchLabels:

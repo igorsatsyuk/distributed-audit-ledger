@@ -80,6 +80,21 @@ describe("platform manifests", () => {
     }
   });
 
+  test("statefulsets use their governing headless service names", () => {
+    const docs = loadManifestDocuments(manifestPath);
+    const expectations = [
+      ["dal-postgres", "dal-postgres-headless"],
+      ["dal-zookeeper", "dal-zookeeper-headless"],
+      ["dal-kafka", "dal-kafka-headless"],
+    ];
+
+    for (const [statefulSetName, serviceName] of expectations) {
+      const statefulSet = getResource(docs, "StatefulSet", statefulSetName);
+      expect(statefulSet).not.toBeNull();
+      expect(statefulSet.spec.serviceName).toBe(serviceName);
+    }
+  });
+
   test("ingress routes api traffic to command/query services", () => {
     const docs = loadManifestDocuments(manifestPath);
     const ingress = getResource(docs, "Ingress", "dal-ingress");
