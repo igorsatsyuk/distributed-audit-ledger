@@ -29,6 +29,7 @@ secrets:
   authUserUsername: user
   authUserPassword: change-me
   auditLedgerContractAddress: "0x..."
+  auditLedgerContractDeploymentBlock: "12345"
   ganachePrivateKey: "0x..."
 ```
 
@@ -36,11 +37,15 @@ secrets:
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml
 ```
 
-If blockchain is not ready yet, disable audit writer and omit blockchain secrets:
+If blockchain is not ready yet, disable audit writer:
 
 ```bash
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml --set components.auditWriter.enabled=false
 ```
+
+Important: disabling `audit-writer-service` does **not** disable query-service blockchain integrity features.
+`/api/audit-logs/{id}/integrity-check` and reconciliation endpoints still require
+`auditLedgerContractAddress` and `auditLedgerContractDeploymentBlock` to be set.
 
 ## Run manifest tests
 
@@ -60,5 +65,6 @@ Kubernetes manifest tests are executed in GitHub Actions (`.github/workflows/ci.
 - Secrets are defined via `stringData` in manifests for local bootstrap convenience.
   For production, use external secret management (Sealed Secrets, Vault, etc.).
 - Raw manifest placeholders (`__SET_*__`) must be replaced before running traffic.
+- For non-local RPC endpoints, set `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` explicitly (do not keep it at `0`).
 - `GANACHE_RPC_URL` points to an external endpoint by default; change it for your target cluster.
 

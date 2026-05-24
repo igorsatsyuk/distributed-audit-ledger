@@ -33,8 +33,8 @@ stringData:
   AUTH_AUDITOR_PASSWORD: {{ required "secrets.authAuditorPassword is required" .Values.secrets.authAuditorPassword | quote }}
   AUTH_USER_USERNAME: {{ required "secrets.authUserUsername is required" .Values.secrets.authUserUsername | quote }}
   AUTH_USER_PASSWORD: {{ required "secrets.authUserPassword is required" .Values.secrets.authUserPassword | quote }}
-  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.auditLedgerContractAddress is required when components.auditWriter.enabled=true" .Values.secrets.auditLedgerContractAddress | quote }}{{ else }}{{ .Values.secrets.auditLedgerContractAddress | quote }}{{ end }}
-  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
+  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ required "secrets.auditLedgerContractAddress is required for query-service integrity endpoints" .Values.secrets.auditLedgerContractAddress | quote }}
+  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ required "secrets.auditLedgerContractDeploymentBlock is required for query-service integrity endpoints" .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
   GANACHE_PRIVATE_KEY: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.ganachePrivateKey is required when components.auditWriter.enabled=true" .Values.secrets.ganachePrivateKey | quote }}{{ else }}{{ .Values.secrets.ganachePrivateKey | quote }}{{ end }}
 ---
 apiVersion: apps/v1
