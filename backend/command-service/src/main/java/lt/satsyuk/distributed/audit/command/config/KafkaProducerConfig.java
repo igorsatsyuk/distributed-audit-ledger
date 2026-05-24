@@ -37,7 +37,7 @@ public class KafkaProducerConfig {
     ) {
         Map<String, Object> props = new HashMap<>();
         mergeKafkaOverrides(props, environment);
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         props.putIfAbsent(JSON_ADD_TYPE_HEADERS_CONFIG, false);
