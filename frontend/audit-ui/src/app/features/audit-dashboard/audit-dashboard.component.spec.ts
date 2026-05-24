@@ -433,11 +433,16 @@ describe('AuditDashboardComponent', () => {
 
     const anchor = document.createElement('a');
     spyOn(document, 'createElement').and.returnValue(anchor);
+    spyOn(document.body, 'appendChild');
+    spyOn(document.body, 'removeChild');
     spyOn(anchor, 'click');
     const createObjectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:csv');
     const revokeObjectUrlSpy = spyOn(URL, 'revokeObjectURL');
 
     component.exportCsv();
+
+    // revokeObjectURL is called inside setTimeout(..., 0); flush via a real microtask tick.
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
 
     expect(anchor.download).toContain('audit-logs-');
     expect(anchor.href).toBe('blob:csv');

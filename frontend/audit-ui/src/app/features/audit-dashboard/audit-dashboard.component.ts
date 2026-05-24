@@ -181,8 +181,12 @@ export class AuditDashboardComponent implements OnDestroy {
     const anchor = document.createElement('a');
     anchor.href = objectUrl;
     anchor.download = this.buildCsvFilename();
+    document.body.appendChild(anchor);
     anchor.click();
-    URL.revokeObjectURL(objectUrl);
+    document.body.removeChild(anchor);
+    // Defer revocation so the browser has time to start the download before
+    // the blob URL is invalidated (immediate revoke can cause empty downloads).
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
   }
 
   integrityClass(status: string): string {
@@ -430,12 +434,15 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   private persistState(state: DashboardQueryState): void {
-    if (this.isDefaultState(state)) {
-      globalThis.localStorage?.removeItem(AuditDashboardComponent.STORAGE_KEY);
-      return;
+    try {
+      if (this.isDefaultState(state)) {
+        globalThis.localStorage?.removeItem(AuditDashboardComponent.STORAGE_KEY);
+        return;
+      }
+      globalThis.localStorage?.setItem(AuditDashboardComponent.STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Quota exceeded, private mode, or storage disabled — fail silently.
     }
-
-    globalThis.localStorage?.setItem(AuditDashboardComponent.STORAGE_KEY, JSON.stringify(state));
   }
 
   private isDefaultState(state: DashboardQueryState): boolean {
@@ -538,9 +545,12 @@ export class AuditDashboardComponent implements OnDestroy {
 
   private escapeCsvValue(value: unknown): string {
     const normalized = String(value ?? '');
-    return /[",\r\n]/.test(normalized)
-      ? `"${normalized.replace(/"/g, '""')}"`
-      : normalized;
+    // Guard against CSV/spreadsheet formula injection (Excel, Google Sheets).
+    // Fields starting with =, +, -, @ can be interpreted as formulas.
+    const safe = /^[=+\-@]/.test(normalized) ? `'${normalized}` : normalized;
+    return /[",\r\n]/.test(safe)
+      ? `"${safe.replace(/"/g, '""')}"`
+      : safe;
   }
 
   private buildCsvFilename(): string {
