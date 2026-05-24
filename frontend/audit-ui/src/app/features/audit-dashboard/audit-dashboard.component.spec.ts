@@ -479,4 +479,17 @@ describe('AuditDashboardComponent', () => {
 
     expect(component.logs$.value).toEqual([]);
   });
+
+  it('applyFilters reloads when navigation is ignored for the same URL', async () => {
+    await init();
+    (serviceSpy.getAuditLogs as jasmine.Spy).calls.reset();
+
+    routerSpy.navigate.and.returnValue(Promise.resolve(false));
+
+    component.applyFilters();
+    await fixture.whenStable();
+
+    expect(routerSpy.navigate).toHaveBeenCalled();
+    expect(serviceSpy.getAuditLogs).toHaveBeenCalledTimes(1);
+  });
 });

@@ -353,6 +353,14 @@ export class AuditDashboardComponent implements OnDestroy {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.toQueryParams(state),
+    }).then((navigated: boolean) => {
+      // Angular may ignore same-URL navigation; force reload in that case.
+      if (!navigated) {
+        this.loadTrigger$.next();
+      }
+    }).catch(() => {
+      // Best-effort fallback: if navigation fails, still refresh the table.
+      this.loadTrigger$.next();
     });
   }
 
@@ -557,3 +565,5 @@ export class AuditDashboardComponent implements OnDestroy {
     return `audit-logs-${new Date().toISOString().replace(/[:]/g, '-')}.csv`;
   }
 }
+
+
