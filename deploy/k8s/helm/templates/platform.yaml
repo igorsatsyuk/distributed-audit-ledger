@@ -58,11 +58,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dal-postgres
+      app: {{ $postgresName }}
   template:
     metadata:
       labels:
-        app: dal-postgres
+        app: {{ $postgresName }}
     spec:
       containers:
         - name: postgres
@@ -75,12 +75,12 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: dal-secrets
+                  name: {{ $secretsName }}
                   key: DB_USERNAME
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: dal-secrets
+                  name: {{ $secretsName }}
                   key: DB_PASSWORD
           volumeMounts:
             - name: postgres-data
@@ -103,7 +103,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: dal-postgres
+    app: {{ $postgresName }}
   ports:
     - name: postgres
       port: 5432
@@ -119,11 +119,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dal-zookeeper
+      app: {{ $zookeeperName }}
   template:
     metadata:
       labels:
-        app: dal-zookeeper
+        app: {{ $zookeeperName }}
     spec:
       containers:
         - name: zookeeper
@@ -156,7 +156,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: dal-zookeeper
+    app: {{ $zookeeperName }}
   ports:
     - name: client
       port: 2181
@@ -172,11 +172,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dal-kafka
+      app: {{ $kafkaName }}
   template:
     metadata:
       labels:
-        app: dal-kafka
+        app: {{ $kafkaName }}
     spec:
       containers:
         - name: kafka
@@ -221,7 +221,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: dal-kafka
+    app: {{ $kafkaName }}
   ports:
     - name: kafka
       port: 9092
@@ -236,11 +236,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: command-service
+      app: {{ $commandServiceName }}
   template:
     metadata:
       labels:
-        app: command-service
+        app: {{ $commandServiceName }}
     spec:
       containers:
         - name: command-service
@@ -274,7 +274,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: command-service
+    app: {{ $commandServiceName }}
   ports:
     - name: http
       port: 8081
@@ -289,11 +289,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: event-store-service
+      app: {{ $eventStoreServiceName }}
   template:
     metadata:
       labels:
-        app: event-store-service
+        app: {{ $eventStoreServiceName }}
     spec:
       containers:
         - name: event-store-service
@@ -327,7 +327,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: event-store-service
+    app: {{ $eventStoreServiceName }}
   ports:
     - name: http
       port: 8082
@@ -343,11 +343,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: audit-writer-service
+      app: {{ $auditWriterServiceName }}
   template:
     metadata:
       labels:
-        app: audit-writer-service
+        app: {{ $auditWriterServiceName }}
     spec:
       containers:
         - name: audit-writer-service
@@ -381,7 +381,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: audit-writer-service
+    app: {{ $auditWriterServiceName }}
   ports:
     - name: http
       port: 8083
@@ -397,11 +397,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: query-service
+      app: {{ $queryServiceName }}
   template:
     metadata:
       labels:
-        app: query-service
+        app: {{ $queryServiceName }}
     spec:
       containers:
         - name: query-service
@@ -435,7 +435,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: query-service
+    app: {{ $queryServiceName }}
   ports:
     - name: http
       port: 8084
@@ -450,11 +450,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: audit-ui
+      app: {{ $auditUiName }}
   template:
     metadata:
       labels:
-        app: audit-ui
+        app: {{ $auditUiName }}
     spec:
       containers:
         - name: audit-ui
@@ -477,7 +477,7 @@ metadata:
   namespace: {{ $ns }}
 spec:
   selector:
-    app: audit-ui
+    app: {{ $auditUiName }}
   ports:
     - name: http
       port: 80
