@@ -461,6 +461,7 @@ CREATE TABLE audit.events (
 **ID:** #17  
 **Labels:** `frontend`  
 **Depends on:** #16  
+**Status:** ✅ Done  
 **Description:**
 Добавить timeline view событий.
 
@@ -470,11 +471,18 @@ CREATE TABLE audit.events (
 - Интерактивные точки на timeline
 - Быстрый переход между событиями
 
+**Acceptance Criteria:**
+- Timeline view отображает события текущего набора результатов, сгруппированные по дням и часам
+- Клик по событию открывает drawer с деталями и проверкой целостности
+- Layout остаётся удобным на мобильных устройствах
+- Покрытие тестами для нового/изменённого frontend-кода составляет не менее 80%
+
 **Subtasks:**
-- [ ] #17.1 - Timeline component
-- [ ] #17.2 - Event grouping logic
-- [ ] #17.3 - Styling и animations
-- [ ] #17.4 - Responsive на мобильных
+- [x] #17.1 - Timeline component
+- [x] #17.2 - Event grouping logic
+- [x] #17.3 - Styling и animations
+- [x] #17.4 - Responsive на мобильных
+- [x] #17.5 - Unit tests and coverage >= 80%
 
 **Expected PR:** PR-17 (Timeline visualization)
 

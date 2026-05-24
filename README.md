@@ -190,10 +190,10 @@ See [**START_HERE.md**](START_HERE.md) for guided navigation.
 
 ### 🚀 Phase 2 — Active/Planned (Issues #14–#20)
 
-- [ ] **#14** — Support additional event types (`UserProfileChanged`, `EntityCreated`, `EntityUpdated`, `DataDeleted`)
-- [ ] **#15** — Authentication & Authorization (JWT + Spring Security + RBAC)
-- [ ] **#16** — Advanced filtering, search, date range picker, CSV export
-- [ ] **#17** — Event timeline visualization
+- [x] **#14** — Support additional event types (`UserProfileChanged`, `EntityCreated`, `EntityUpdated`, `DataDeleted`)
+- [x] **#15** — Authentication & Authorization (JWT + Spring Security + RBAC)
+- [x] **#16** — Advanced filtering, search, date range picker, CSV export
+- [x] **#17** — Event timeline visualization
 - [ ] **#18** — Reconciliation Service (batch integrity checking + Quartz scheduler)
 - [ ] **#19** — Kubernetes manifests + Helm chart
 - [ ] **#20** — Live demo scenario + Q&A documentation

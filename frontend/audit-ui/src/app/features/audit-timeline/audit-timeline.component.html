@@ -1,0 +1,60 @@
+<section class="timeline">
+  <header class="timeline__header">
+    <div>
+      <h3>Event timeline</h3>
+      <p>Grouped by UTC day and hour for the current result set.</p>
+    </div>
+    <span class="timeline__count">{{ timelineGroups.length }} day groups</span>
+  </header>
+
+  @if (timelineGroups.length === 0) {
+    <div class="timeline__empty" data-testid="timeline-empty">
+      No audit events found for the current filters.
+    </div>
+  } @else {
+    <div class="timeline-track">
+      @for (day of timelineGroups; track day.key) {
+        <article class="timeline-day" [attr.data-testid]="'timeline-day-' + day.key">
+          <div class="timeline-day__rail"></div>
+          <div class="timeline-day__content">
+            <div class="timeline-day__headline">
+              <h4>{{ day.label }}</h4>
+              <span>{{ day.total }} events</span>
+            </div>
+
+            @for (hour of day.hours; track hour.key) {
+              <section class="timeline-hour" [attr.data-testid]="'timeline-hour-' + hour.key">
+                <div class="timeline-hour__label">
+                  <span class="timeline-hour__marker" aria-hidden="true"></span>
+                  <span>{{ hour.label }}</span>
+                  <span class="timeline-hour__count">{{ hour.total }}</span>
+                </div>
+
+                <div class="timeline-hour__events">
+                  @for (event of hour.events; track event.id) {
+                    <button
+                      type="button"
+                      class="timeline-event"
+                      [class.timeline-event--selected]="isSelected(event)"
+                      [ngClass]="statusClass(event.integrityStatus)"
+                      [attr.data-testid]="'timeline-event-' + event.id"
+                      [attr.aria-current]="isSelected(event) ? 'true' : null"
+                      [attr.aria-label]="'Open event ' + event.id + ' (' + event.eventType + ')'"
+                      (click)="selectLog(event)"
+                    >
+                      <span class="timeline-event__time">{{ event.occurredAt | date : 'shortTime' : 'UTC' }}</span>
+                      <span class="timeline-event__title">{{ event.eventType }}</span>
+                      <span class="timeline-event__meta">{{ event.userId ?? '—' }}</span>
+                      <span class="timeline-event__hash">{{ event.eventHash ?? 'No hash yet' }}</span>
+                    </button>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>
+

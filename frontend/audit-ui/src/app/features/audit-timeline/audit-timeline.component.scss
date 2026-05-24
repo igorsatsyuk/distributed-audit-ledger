@@ -1,0 +1,239 @@
+:host {
+  display: block;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.timeline__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0;
+    color: rgba(0, 0, 0, 0.62);
+  }
+}
+
+.timeline__count {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: #eef3fb;
+  color: #2457c5;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.timeline__empty {
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f5f7fa;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.timeline-track {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.timeline-day {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.timeline-day__rail {
+  position: absolute;
+  left: 0.55rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(26, 115, 232, 0.45), rgba(26, 115, 232, 0.08));
+}
+
+.timeline-day__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeline-day__headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h4 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  span {
+    color: rgba(0, 0, 0, 0.58);
+    font-size: 13px;
+  }
+}
+
+.timeline-hour {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.timeline-hour__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(0, 0, 0, 0.66);
+  font-size: 13px;
+  font-weight: 600;
+  padding-top: 0.5rem;
+}
+
+.timeline-hour__marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #1a73e8;
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.12);
+  flex: 0 0 auto;
+}
+
+.timeline-hour__count {
+  margin-left: auto;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #d2e3fc;
+  color: #174ea6;
+  font-size: 12px;
+}
+
+.timeline-hour__events {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.timeline-event {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.25rem 0.75rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.timeline-event:hover,
+.timeline-event:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.12);
+}
+
+.timeline-event--selected {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.12);
+}
+
+.timeline-event__time {
+  grid-column: 1;
+  color: rgba(0, 0, 0, 0.56);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.timeline-event__title {
+  grid-column: 2;
+  font-weight: 600;
+}
+
+.timeline-event__meta {
+  grid-column: 3;
+  color: rgba(0, 0, 0, 0.56);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.timeline-event__hash {
+  grid-column: 1 / -1;
+  color: rgba(0, 0, 0, 0.58);
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.timeline-event--on-chain {
+  border-color: #c8e6c9;
+  background: #f3fbf4;
+}
+
+.timeline-event--mismatch {
+  border-color: #f5c2c7;
+  background: #fdf2f2;
+}
+
+.timeline-event--pending {
+  border-color: #ffe08a;
+  background: #fff8e1;
+}
+
+.timeline-event--unknown {
+  border-color: #d0d7de;
+  background: #f8fafc;
+}
+
+.timeline-event:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .timeline-hour {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-hour__label {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .timeline__header,
+  .timeline-day__headline {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .timeline-day {
+    padding-left: 1rem;
+  }
+
+  .timeline-event {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-event__time,
+  .timeline-event__title,
+  .timeline-event__meta,
+  .timeline-event__hash {
+    grid-column: 1;
+  }
+}
+

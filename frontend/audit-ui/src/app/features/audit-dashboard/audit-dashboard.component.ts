@@ -18,8 +18,10 @@ import { BehaviorSubject, EMPTY, Subject, catchError, finalize, map, switchMap, 
 import { AuditLog, AuditLogFilters, IntegrityCheckResponse, IntegrityStatus } from '../../models/audit-log.model';
 import { AuditLogService } from '../../services/audit-log.service';
 import { ApproximatePaginatorIntl } from './approximate-paginator-intl';
+import { AuditTimelineComponent } from '../audit-timeline/audit-timeline.component';
 
 type DisplayIntegrityStatus = IntegrityStatus | 'UNKNOWN';
+type DashboardViewMode = 'table' | 'timeline';
 
 interface DashboardQueryState {
   userId: string;
@@ -53,6 +55,7 @@ interface DashboardQueryState {
     MatSidenavModule,
     MatTableModule,
     MatTooltipModule,
+    AuditTimelineComponent,
   ],
   templateUrl: './audit-dashboard.component.html',
   styleUrl: './audit-dashboard.component.scss',
@@ -79,6 +82,7 @@ export class AuditDashboardComponent implements OnDestroy {
   readonly integrityLoading = signal(false);
   readonly integrityCheckResult = signal<IntegrityCheckResponse | null>(null);
   readonly integrityCheckError = signal<string | null>(null);
+  readonly viewMode = signal<DashboardViewMode>('table');
 
   readonly userIdControl = new FormControl('', { nonNullable: true });
   readonly eventTypeControl = new FormControl('', { nonNullable: true });
@@ -130,6 +134,10 @@ export class AuditDashboardComponent implements OnDestroy {
   applyFilters(): void {
     this.pageIndex.set(0);
     this.syncUrlWithCurrentState();
+  }
+
+  setViewMode(mode: DashboardViewMode): void {
+    this.viewMode.set(mode);
   }
 
   clearFilters(): void {

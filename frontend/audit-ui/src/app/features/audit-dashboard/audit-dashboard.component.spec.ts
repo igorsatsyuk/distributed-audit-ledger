@@ -127,6 +127,43 @@ describe('AuditDashboardComponent', () => {
     expect(el.textContent).toContain('Export CSV');
   });
 
+  it('shows the table view by default and can switch to timeline view', async () => {
+    await init();
+
+    let el = fixture.nativeElement as HTMLElement;
+    const tableButton = el.querySelector('[aria-pressed]') as HTMLButtonElement | null;
+    const timelineButton = el.querySelectorAll('[aria-pressed]')[1] as HTMLButtonElement | undefined;
+    expect(el.querySelector('table')).toBeTruthy();
+    expect(el.querySelector('app-audit-timeline')).toBeFalsy();
+    expect(tableButton?.getAttribute('aria-pressed')).toBe('true');
+    expect(timelineButton?.getAttribute('aria-pressed')).toBe('false');
+
+    component.setViewMode('timeline');
+    fixture.detectChanges();
+
+    el = fixture.nativeElement as HTMLElement;
+    expect((el.querySelectorAll('[aria-pressed]')[0] as HTMLButtonElement | undefined)?.getAttribute('aria-pressed')).toBe('false');
+    expect((el.querySelectorAll('[aria-pressed]')[1] as HTMLButtonElement | undefined)?.getAttribute('aria-pressed')).toBe('true');
+    expect(el.querySelector('app-audit-timeline')).toBeTruthy();
+    expect(el.querySelector('table')).toBeFalsy();
+  });
+
+  it('opens details when a timeline event is selected', async () => {
+    await init();
+
+    component.setViewMode('timeline');
+    fixture.detectChanges();
+
+    const timelineButton = fixture.nativeElement.querySelector('[data-testid="timeline-event-1"]') as HTMLButtonElement;
+    expect(timelineButton).toBeTruthy();
+
+    timelineButton.click();
+    await fixture.whenStable();
+
+    expect(component.selectedAuditLog()).toEqual(MOCK_LOG);
+    expect(serviceSpy.checkIntegrity).toHaveBeenCalledWith(MOCK_LOG.id);
+  });
+
   it('calls getAuditLogs on init with default page size and offset 0', async () => {
     await init();
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
