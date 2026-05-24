@@ -15,6 +15,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -81,11 +82,28 @@ class ReconciliationReportServiceTest {
 
         ReconciliationAlreadyRunningException exception = assertThrows(
                 ReconciliationAlreadyRunningException.class,
-                () -> reconciliationReportService.runManual().block()
+                this::blockSecondManualRun
         );
 
         assertThat(exception.getMessage()).isEqualTo("Reconciliation run is already in progress");
         delayedResult.tryEmitValue(new BatchIntegrityCheckResult(0, 0, 0, 0, List.of()));
+    }
+
+    @Test
+    void runManualIsLazyUntilSubscription() {
+        when(batchIntegrityChecker.runCheck(5)).thenReturn(Mono.just(new BatchIntegrityCheckResult(0, 0, 0, 0, List.of())));
+
+        Mono<ReconciliationReportResponse> run = reconciliationReportService.runManual();
+
+        verifyNoInteractions(batchIntegrityChecker);
+
+        run.block();
+
+        verify(batchIntegrityChecker).runCheck(5);
+    }
+
+    private void blockSecondManualRun() {
+        reconciliationReportService.runManual().block();
     }
 }
 

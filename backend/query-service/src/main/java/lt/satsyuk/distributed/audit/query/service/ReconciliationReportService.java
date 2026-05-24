@@ -7,6 +7,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class ReconciliationReportService {
@@ -15,7 +16,7 @@ public class ReconciliationReportService {
     private final ReconciliationProperties reconciliationProperties;
     private final AtomicBoolean runInProgress = new AtomicBoolean(false);
 
-    private volatile ReconciliationReportResponse latestReport;
+    private final AtomicReference<ReconciliationReportResponse> latestReport = new AtomicReference<>();
 
     public ReconciliationReportService(BatchIntegrityChecker batchIntegrityChecker,
                                        ReconciliationProperties reconciliationProperties) {
@@ -32,19 +33,21 @@ public class ReconciliationReportService {
     }
 
     public Mono<ReconciliationReportResponse> latestReport() {
-        return Mono.justOrEmpty(latestReport);
+        return Mono.justOrEmpty(latestReport.get());
     }
 
     private Mono<ReconciliationReportResponse> run(String trigger) {
-        if (!runInProgress.compareAndSet(false, true)) {
-            return Mono.error(new ReconciliationAlreadyRunningException());
-        }
+        return Mono.defer(() -> {
+            if (!runInProgress.compareAndSet(false, true)) {
+                return Mono.error(new ReconciliationAlreadyRunningException());
+            }
 
-        Instant startedAt = Instant.now();
-        return batchIntegrityChecker.runCheck(reconciliationProperties.getBatchSize())
-                .map(result -> toReport(trigger, startedAt, Instant.now(), result))
-                .doOnNext(report -> latestReport = report)
-                .doFinally(ignored -> runInProgress.set(false));
+            Instant startedAt = Instant.now();
+            return batchIntegrityChecker.runCheck(reconciliationProperties.getBatchSize())
+                    .map(result -> toReport(trigger, startedAt, Instant.now(), result))
+                    .doOnNext(latestReport::set)
+                    .doFinally(ignored -> runInProgress.set(false));
+        });
     }
 
     private ReconciliationReportResponse toReport(String trigger,
