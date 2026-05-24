@@ -30,11 +30,13 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def http_json(method: str, url: str, body=None, token: Optional[str] = None):
+def http_json(method: str, url: str, body=None, token: Optional[str] = None, user_agent: Optional[str] = None):
     payload = None if body is None else json.dumps(body).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if user_agent:
+        headers["User-Agent"] = user_agent
     req = request.Request(url=url, data=payload, headers=headers, method=method)
     with request.urlopen(req, timeout=15) as resp:
         text = resp.read().decode("utf-8")
@@ -151,6 +153,7 @@ def main():
         "http://localhost:8081/commands/user/login",
         {"userId": "demo.user@example.com", "ipAddress": "127.0.0.1", "userAgent": "runtime-capture"},
         token=token,
+        user_agent="runtime-capture",
     )
     event_id = cmd_obj.get("eventId")
     if not event_id:
@@ -246,6 +249,7 @@ def main():
     out["frontend"] = frontend
 
     capture_path = Path(os.environ.get("CAPTURE_OUTPUT", str(RUNTIME_DIR / "capture.json")))
+    capture_path.parent.mkdir(parents=True, exist_ok=True)
     # Redact auth tokens before persisting to avoid accidental credential disclosure
     safe_out = {**out, "auth": {k: "[REDACTED]" if "token" in k.lower() else v
                                 for k, v in out.get("auth", {}).items()}}
