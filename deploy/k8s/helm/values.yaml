@@ -21,6 +21,8 @@ config:
   reconciliationScheduleTimeout: PT15M
 
 secrets:
+  create: true
+  existingSecretName: ""
   dbUsername: ""
   dbPassword: ""
   jwtSecret: ""

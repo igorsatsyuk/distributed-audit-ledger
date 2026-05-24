@@ -37,6 +37,16 @@ secrets:
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml
 ```
 
+For production, prefer an existing Kubernetes Secret (so sensitive values are not passed via Helm values):
+
+```bash
+helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace \
+  --set secrets.create=false \
+  --set secrets.existingSecretName=dal-runtime-secrets
+```
+
+The existing Secret must contain keys used by services (`DB_USERNAME`, `DB_PASSWORD`, `AUTH_JWT_SECRET`, auth user/password keys, blockchain keys).
+
 If blockchain is not ready yet, disable audit writer:
 
 ```bash
@@ -64,6 +74,7 @@ Kubernetes manifest tests are executed in GitHub Actions (`.github/workflows/ci.
 - Image names are placeholders and should be replaced with real registry tags.
 - Secrets are defined via `stringData` in manifests for local bootstrap convenience.
   For production, use external secret management (Sealed Secrets, Vault, etc.).
+- Helm resource names use the pattern `<release>-<chart>-<component>` and are truncated to 63 chars when needed.
 - Raw manifest placeholders (`__SET_*__`) must be replaced before running traffic.
 - For non-local RPC endpoints, set `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` explicitly (do not keep it at `0`).
 - `GANACHE_RPC_URL` points to an external endpoint by default; change it for your target cluster.

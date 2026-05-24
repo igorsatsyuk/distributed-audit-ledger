@@ -10,6 +10,7 @@
 {{ $queryServiceName := include "dal.queryServiceName" . }}
 {{ $auditUiName := include "dal.auditUiName" . }}
 {{ $ingressName := include "dal.ingressName" . }}
+{{ $secretRefName := ternary $secretsName (required "secrets.existingSecretName is required when secrets.create=false" .Values.secrets.existingSecretName) .Values.secrets.create }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -25,6 +26,7 @@ data:
   RECONCILIATION_SCHEDULE_CRON: {{ .Values.config.reconciliationScheduleCron | quote }}
   RECONCILIATION_SCHEDULE_TIMEOUT: {{ .Values.config.reconciliationScheduleTimeout | quote }}
 ---
+{{ if .Values.secrets.create }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -47,6 +49,7 @@ stringData:
   AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ required "secrets.auditLedgerContractDeploymentBlock is required for query-service integrity endpoints" .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
   GANACHE_PRIVATE_KEY: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.ganachePrivateKey is required when components.auditWriter.enabled=true" .Values.secrets.ganachePrivateKey | quote }}{{ else }}{{ .Values.secrets.ganachePrivateKey | quote }}{{ end }}
 ---
+{{ end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -74,12 +77,12 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ $secretsName }}
+                  name: {{ $secretRefName }}
                   key: DB_USERNAME
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ $secretsName }}
+                  name: {{ $secretRefName }}
                   key: DB_PASSWORD
           volumeMounts:
             - name: postgres-data
@@ -292,7 +295,7 @@ spec:
             - configMapRef:
                 name: {{ $configName }}
             - secretRef:
-                name: {{ $secretsName }}
+                name: {{ $secretRefName }}
           resources:
 {{ toYaml .Values.resources.commandService | nindent 12 }}
           readinessProbe:
@@ -345,7 +348,7 @@ spec:
             - configMapRef:
                 name: {{ $configName }}
             - secretRef:
-                name: {{ $secretsName }}
+                name: {{ $secretRefName }}
           resources:
 {{ toYaml .Values.resources.eventStoreService | nindent 12 }}
           readinessProbe:
@@ -399,7 +402,7 @@ spec:
             - configMapRef:
                 name: {{ $configName }}
             - secretRef:
-                name: {{ $secretsName }}
+                name: {{ $secretRefName }}
           resources:
 {{ toYaml .Values.resources.auditWriterService | nindent 12 }}
           readinessProbe:
@@ -453,7 +456,7 @@ spec:
             - configMapRef:
                 name: {{ $configName }}
             - secretRef:
-                name: {{ $secretsName }}
+                name: {{ $secretRefName }}
           resources:
 {{ toYaml .Values.resources.queryService | nindent 12 }}
           readinessProbe:

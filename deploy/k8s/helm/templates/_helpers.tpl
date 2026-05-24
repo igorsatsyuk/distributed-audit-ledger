@@ -3,7 +3,7 @@ distributed-audit-ledger
 {{- end -}}
 
 {{- define "dal.fullname" -}}
-{{- printf "%s-%s" .Release.Name "dal" | trunc 63 | trimSuffix "-" -}}
+{{- printf "%s-%s" .Release.Name .Chart.Name | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 
