@@ -1,5 +1,6 @@
 package lt.satsyuk.distributed.audit.command.config;
 
+import lt.satsyuk.distributed.audit.command.CommandServiceIntegrationTest;
 import lt.satsyuk.distributed.audit.command.service.AuditCommandPublisher;
 import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -7,11 +8,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.Map;
@@ -23,8 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code KafkaTemplate<String, AuditEvent>} bean and that {@link AuditCommandPublisher}
  * is wired successfully from the real application context.
  */
-@SpringBootTest
-@EmbeddedKafka(partitions = 1, topics = {"user.login.events"})
+@CommandServiceIntegrationTest
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
         "spring.kafka.properties.client.id=command-service-it",

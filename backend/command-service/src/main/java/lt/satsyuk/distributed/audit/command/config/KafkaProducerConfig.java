@@ -13,6 +13,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -26,8 +27,6 @@ import java.util.HashMap;
 @Configuration
 public class KafkaProducerConfig {
 
-    private static final String JSON_SERIALIZER_FQCN =
-            "org.springframework.kafka.support.serializer.JsonSerializer";
     private static final String JSON_ADD_TYPE_HEADERS_CONFIG = "spring.json.add.type.headers";
 
     @Bean
@@ -40,7 +39,7 @@ public class KafkaProducerConfig {
         mergeKafkaOverrides(props, environment);
         props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JSON_SERIALIZER_FQCN);
+        props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         props.putIfAbsent(JSON_ADD_TYPE_HEADERS_CONFIG, false);
         return new DefaultKafkaProducerFactory<>(props);
     }
