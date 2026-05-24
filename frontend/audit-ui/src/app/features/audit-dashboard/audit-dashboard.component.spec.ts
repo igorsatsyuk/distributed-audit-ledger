@@ -90,11 +90,16 @@ describe('AuditDashboardComponent', () => {
 
     routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate']);
     routerSpy.navigate.and.callFake(async (_commands: readonly unknown[], extras?: { queryParams?: Params }) => {
-      routeStub.setQueryParams(extras?.queryParams ?? {});
       if (options.navigateResult === 'reject') {
         throw new Error('navigation failed');
       }
-      return options.navigateResult ?? true;
+
+      const navigationResult = options.navigateResult ?? true;
+      if (navigationResult) {
+        routeStub.setQueryParams(extras?.queryParams ?? {});
+      }
+
+      return navigationResult;
     });
 
     serviceSpy = spy;
