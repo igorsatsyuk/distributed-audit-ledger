@@ -47,7 +47,7 @@ metadata:
   name: dal-postgres
   namespace: dal
 spec:
-  serviceName: dal-postgres
+  serviceName: dal-postgres-headless-headless
   replicas: 1
   selector:
     matchLabels:
@@ -90,6 +90,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: dal-postgres-headless
+  namespace: dal
+spec:
+  clusterIP: None
+  selector:
+    app: dal-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: dal-postgres
   namespace: dal
 spec:
@@ -106,7 +120,7 @@ metadata:
   name: dal-zookeeper
   namespace: dal
 spec:
-  serviceName: dal-zookeeper
+  serviceName: dal-zookeeper-headless
   replicas: 1
   selector:
     matchLabels:
@@ -141,6 +155,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: dal-zookeeper-headless
+  namespace: dal
+spec:
+  clusterIP: None
+  selector:
+    app: dal-zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: dal-zookeeper
   namespace: dal
 spec:
@@ -157,7 +185,7 @@ metadata:
   name: dal-kafka
   namespace: dal
 spec:
-  serviceName: dal-kafka
+  serviceName: dal-kafka-headless
   replicas: 1
   selector:
     matchLabels:
@@ -200,6 +228,20 @@ spec:
         resources:
           requests:
             storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dal-kafka-headless
+  namespace: dal
+spec:
+  clusterIP: None
+  selector:
+    app: dal-kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
 ---
 apiVersion: v1
 kind: Service

@@ -53,7 +53,7 @@ metadata:
   name: {{ $postgresName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $postgresName }}
+  serviceName: {{ $postgresName }}-headless
   replicas: 1
   selector:
     matchLabels:
@@ -98,6 +98,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: {{ $postgresName }}-headless
+  namespace: {{ $ns }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ $postgresName }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: {{ $postgresName }}
   namespace: {{ $ns }}
 spec:
@@ -114,7 +128,7 @@ metadata:
   name: {{ $zookeeperName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $zookeeperName }}
+  serviceName: {{ $zookeeperName }}-headless
   replicas: 1
   selector:
     matchLabels:
@@ -151,6 +165,20 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: {{ $zookeeperName }}-headless
+  namespace: {{ $ns }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ $zookeeperName }}
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: {{ $zookeeperName }}
   namespace: {{ $ns }}
 spec:
@@ -167,7 +195,7 @@ metadata:
   name: {{ $kafkaName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $kafkaName }}
+  serviceName: {{ $kafkaName }}-headless
   replicas: 1
   selector:
     matchLabels:
@@ -212,6 +240,20 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.kafkaSize }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $kafkaName }}-headless
+  namespace: {{ $ns }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ $kafkaName }}
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
 ---
 apiVersion: v1
 kind: Service

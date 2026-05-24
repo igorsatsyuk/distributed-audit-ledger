@@ -70,6 +70,16 @@ describe("platform manifests", () => {
     expect(kafka.spec.volumeClaimTemplates.length).toBeGreaterThan(0);
   });
 
+  test("statefulset governing services are headless", () => {
+    const docs = loadManifestDocuments(manifestPath);
+    const headlessServiceNames = ["dal-postgres-headless", "dal-zookeeper-headless", "dal-kafka-headless"];
+    for (const name of headlessServiceNames) {
+      const svc = getResource(docs, "Service", name);
+      expect(svc).not.toBeNull();
+      expect(svc.spec.clusterIP).toBe("None");
+    }
+  });
+
   test("ingress routes api traffic to command/query services", () => {
     const docs = loadManifestDocuments(manifestPath);
     const ingress = getResource(docs, "Ingress", "dal-ingress");
