@@ -1,24 +1,35 @@
 {{ $ns := include "dal.namespace" . }}
+{{ $configName := include "dal.configName" . }}
+{{ $secretsName := include "dal.secretsName" . }}
+{{ $postgresName := include "dal.postgresName" . }}
+{{ $zookeeperName := include "dal.zookeeperName" . }}
+{{ $kafkaName := include "dal.kafkaName" . }}
+{{ $commandServiceName := include "dal.commandServiceName" . }}
+{{ $eventStoreServiceName := include "dal.eventStoreServiceName" . }}
+{{ $auditWriterServiceName := include "dal.auditWriterServiceName" . }}
+{{ $queryServiceName := include "dal.queryServiceName" . }}
+{{ $auditUiName := include "dal.auditUiName" . }}
+{{ $ingressName := include "dal.ingressName" . }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: dal-config
+  name: {{ $configName }}
   namespace: {{ $ns }}
 data:
-  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafkaBootstrapServers | quote }}
-  R2DBC_URL: {{ .Values.config.r2dbcUrl | quote }}
-  DB_URL: {{ .Values.config.dbUrl | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ default (printf "%s:9092" $kafkaName) .Values.config.kafkaBootstrapServers | quote }}
+  R2DBC_URL: {{ default (printf "r2dbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.r2dbcUrl | quote }}
+  DB_URL: {{ default (printf "jdbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.dbUrl | quote }}
   GANACHE_RPC_URL: {{ .Values.config.ganacheRpcUrl | quote }}
   RECONCILIATION_BATCH_SIZE: {{ .Values.config.reconciliationBatchSize | quote }}
   RECONCILIATION_SCHEDULE_ENABLED: {{ .Values.config.reconciliationScheduleEnabled | quote }}
   RECONCILIATION_SCHEDULE_CRON: {{ .Values.config.reconciliationScheduleCron | quote }}
   RECONCILIATION_SCHEDULE_TIMEOUT: {{ .Values.config.reconciliationScheduleTimeout | quote }}
-  QUERY_SERVICE_BASE_URL: {{ .Values.config.queryServiceBaseUrl | quote }}
+  QUERY_SERVICE_BASE_URL: {{ default (printf "http://%s:8084" $queryServiceName) .Values.config.queryServiceBaseUrl | quote }}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: dal-secrets
+  name: {{ $secretsName }}
   namespace: {{ $ns }}
 type: Opaque
 stringData:
@@ -40,10 +51,10 @@ stringData:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dal-postgres
+  name: {{ $postgresName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: dal-postgres
+  serviceName: {{ $postgresName }}
   replicas: 1
   selector:
     matchLabels:
@@ -88,7 +99,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dal-postgres
+  name: {{ $postgresName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -101,10 +112,10 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dal-zookeeper
+  name: {{ $zookeeperName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: dal-zookeeper
+  serviceName: {{ $zookeeperName }}
   replicas: 1
   selector:
     matchLabels:
@@ -141,7 +152,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dal-zookeeper
+  name: {{ $zookeeperName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -154,10 +165,10 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dal-kafka
+  name: {{ $kafkaName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: dal-kafka
+  serviceName: {{ $kafkaName }}
   replicas: 1
   selector:
     matchLabels:
@@ -176,11 +187,11 @@ spec:
             - name: KAFKA_BROKER_ID
               value: "1"
             - name: KAFKA_ZOOKEEPER_CONNECT
-              value: dal-zookeeper:2181
+              value: {{ printf "%s:2181" $zookeeperName | quote }}
             - name: KAFKA_LISTENERS
               value: PLAINTEXT://0.0.0.0:9092
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: PLAINTEXT://dal-kafka:9092
+              value: {{ printf "PLAINTEXT://%s:9092" $kafkaName | quote }}
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
               value: "1"
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
@@ -206,7 +217,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: dal-kafka
+  name: {{ $kafkaName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -219,7 +230,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: command-service
+  name: {{ $commandServiceName }}
   namespace: {{ $ns }}
 spec:
   replicas: 1
@@ -238,9 +249,9 @@ spec:
             - containerPort: 8081
           envFrom:
             - configMapRef:
-                name: dal-config
+                name: {{ $configName }}
             - secretRef:
-                name: dal-secrets
+                name: {{ $secretsName }}
           resources:
 {{ toYaml .Values.resources.commandService | nindent 12 }}
           readinessProbe:
@@ -259,7 +270,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: command-service
+  name: {{ $commandServiceName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -272,7 +283,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: event-store-service
+  name: {{ $eventStoreServiceName }}
   namespace: {{ $ns }}
 spec:
   replicas: 1
@@ -291,9 +302,9 @@ spec:
             - containerPort: 8082
           envFrom:
             - configMapRef:
-                name: dal-config
+                name: {{ $configName }}
             - secretRef:
-                name: dal-secrets
+                name: {{ $secretsName }}
           resources:
 {{ toYaml .Values.resources.eventStoreService | nindent 12 }}
           readinessProbe:
@@ -312,7 +323,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: event-store-service
+  name: {{ $eventStoreServiceName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -326,7 +337,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: audit-writer-service
+  name: {{ $auditWriterServiceName }}
   namespace: {{ $ns }}
 spec:
   replicas: 1
@@ -345,9 +356,9 @@ spec:
             - containerPort: 8083
           envFrom:
             - configMapRef:
-                name: dal-config
+                name: {{ $configName }}
             - secretRef:
-                name: dal-secrets
+                name: {{ $secretsName }}
           resources:
 {{ toYaml .Values.resources.auditWriterService | nindent 12 }}
           readinessProbe:
@@ -366,7 +377,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: audit-writer-service
+  name: {{ $auditWriterServiceName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -380,7 +391,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: query-service
+  name: {{ $queryServiceName }}
   namespace: {{ $ns }}
 spec:
   replicas: 1
@@ -399,9 +410,9 @@ spec:
             - containerPort: 8084
           envFrom:
             - configMapRef:
-                name: dal-config
+                name: {{ $configName }}
             - secretRef:
-                name: dal-secrets
+                name: {{ $secretsName }}
           resources:
 {{ toYaml .Values.resources.queryService | nindent 12 }}
           readinessProbe:
@@ -420,7 +431,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: query-service
+  name: {{ $queryServiceName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -433,7 +444,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: audit-ui
+  name: {{ $auditUiName }}
   namespace: {{ $ns }}
 spec:
   replicas: 1
@@ -454,7 +465,7 @@ spec:
             - name: QUERY_SERVICE_BASE_URL
               valueFrom:
                 configMapKeyRef:
-                  name: dal-config
+                  name: {{ $configName }}
                   key: QUERY_SERVICE_BASE_URL
           resources:
 {{ toYaml .Values.resources.auditUi | nindent 12 }}
@@ -462,7 +473,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: audit-ui
+  name: {{ $auditUiName }}
   namespace: {{ $ns }}
 spec:
   selector:
@@ -476,7 +487,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dal-ingress
+  name: {{ $ingressName }}
   namespace: {{ $ns }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
@@ -488,35 +499,35 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: audit-ui
+                name: {{ $auditUiName }}
                 port:
                   number: 80
           - path: /commands
             pathType: Prefix
             backend:
               service:
-                name: command-service
+                name: {{ $commandServiceName }}
                 port:
                   number: 8081
           - path: /auth
             pathType: Prefix
             backend:
               service:
-                name: command-service
+                name: {{ $commandServiceName }}
                 port:
                   number: 8081
           - path: /api/audit-logs
             pathType: Prefix
             backend:
               service:
-                name: query-service
+                name: {{ $queryServiceName }}
                 port:
                   number: 8084
           - path: /api/reconciliation
             pathType: Prefix
             backend:
               service:
-                name: query-service
+                name: {{ $queryServiceName }}
                 port:
                   number: 8084
 {{ end }}

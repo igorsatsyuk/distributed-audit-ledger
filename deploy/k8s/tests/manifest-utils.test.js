@@ -24,6 +24,11 @@ describe("platform manifests", () => {
     expect(namespace).not.toBeNull();
   });
 
+  test("platform manifest has no duplicate kind/namespace/name resources", () => {
+    const docs = loadManifestDocuments(manifestPath);
+    expect(() => indexByKindAndName(docs)).not.toThrow();
+  });
+
   test("indexByKindAndName rejects duplicates", () => {
     const duplicated = [
       { kind: "Service", metadata: { name: "same", namespace: "dal" } },

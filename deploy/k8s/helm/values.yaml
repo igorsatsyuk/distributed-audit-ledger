@@ -11,15 +11,15 @@ images:
   kafka: confluentinc/cp-kafka:7.6.1
 
 config:
-  kafkaBootstrapServers: dal-kafka:9092
-  r2dbcUrl: r2dbc:postgresql://dal-postgres:5432/audit_ledger
-  dbUrl: jdbc:postgresql://dal-postgres:5432/audit_ledger
+  kafkaBootstrapServers: ""
+  r2dbcUrl: ""
+  dbUrl: ""
   ganacheRpcUrl: http://ganache-rpc.default.svc.cluster.local:8545
   reconciliationBatchSize: "200"
   reconciliationScheduleEnabled: "false"
   reconciliationScheduleCron: "0 0/30 * * * ?"
   reconciliationScheduleTimeout: PT15M
-  queryServiceBaseUrl: http://query-service:8084
+  queryServiceBaseUrl: ""
 
 secrets:
   dbUsername: ""
