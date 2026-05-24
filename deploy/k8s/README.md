@@ -8,6 +8,10 @@ This directory contains:
 
 ## Quick apply (raw manifests)
 
+Before applying, edit `deploy/k8s/manifests/platform.yaml` and replace all `__SET_*__` placeholders in `Secret.stringData`.
+At minimum, set DB/auth values and `AUDIT_LEDGER_CONTRACT_ADDRESS`/`GANACHE_PRIVATE_KEY` for blockchain writes.
+`AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` is numeric by default (`"0"`); for non-local RPC endpoints set the real contract deployment block.
+
 ```bash
 kubectl apply -f deploy/k8s/manifests/platform.yaml
 ```

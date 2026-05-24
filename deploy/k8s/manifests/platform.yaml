@@ -38,7 +38,8 @@ stringData:
   AUTH_USER_PASSWORD: "__SET_AUTH_USER_PASSWORD__"
   # Set blockchain values before producing events, otherwise audit-writer will fail writes.
   AUDIT_LEDGER_CONTRACT_ADDRESS: "__SET_AUDIT_LEDGER_CONTRACT_ADDRESS__"
-  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: "__SET_AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK__"
+  # Keep numeric for Spring binding; override with real deployment block for non-local RPC.
+  AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: "0"
   GANACHE_PRIVATE_KEY: "__SET_GANACHE_PRIVATE_KEY__"
 ---
 apiVersion: apps/v1
