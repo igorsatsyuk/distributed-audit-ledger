@@ -37,8 +37,10 @@ secrets:
   ganachePrivateKey: "0x..."
 ```
 
-`auditLedgerContractAddress` and `auditLedgerContractDeploymentBlock` are optional for chart installation,
-but required if you want query-service blockchain integrity/reconciliation endpoints to work.
+`auditLedgerContractAddress` is required when `components.auditWriter.enabled=true` (default).
+If audit-writer is disabled, `auditLedgerContractAddress` can be left empty, but query-service
+blockchain integrity/reconciliation endpoints require both `auditLedgerContractAddress` and a valid
+`auditLedgerContractDeploymentBlock`.
 
 ```bash
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml

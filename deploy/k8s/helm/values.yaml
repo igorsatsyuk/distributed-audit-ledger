@@ -36,7 +36,7 @@ secrets:
   authUserUsername: ""
   authUserPassword: ""
   auditLedgerContractAddress: ""
-  auditLedgerContractDeploymentBlock: ""
+  auditLedgerContractDeploymentBlock: "0"
   ganachePrivateKey: ""
 
 ingress:
