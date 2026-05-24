@@ -317,13 +317,21 @@ export class AuditDashboardComponent implements OnDestroy {
           this.storageRestoreHandled = true;
           const storedState = this.readStoredState();
           if (storedState) {
-            this.router.navigate([], {
-              relativeTo: this.route,
-              queryParams: this.toQueryParams(storedState),
-            }).catch(() => {
+            const restoreStoredState = () => {
               this.applyState(storedState);
               this.persistState(storedState);
               this.loadTrigger$.next();
+            };
+
+            this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: this.toQueryParams(storedState),
+            }).then((navigated: boolean) => {
+              if (!navigated) {
+                restoreStoredState();
+              }
+            }).catch(() => {
+              restoreStoredState();
             });
             return;
           }
@@ -564,13 +572,7 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   private escapeCsvValue(value: unknown): string {
-    const normalized = typeof value === 'string'
-      ? value
-      : value == null
-        ? ''
-        : typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint'
-          ? String(value)
-          : JSON.stringify(value) ?? '';
+    const normalized = this.normalizeCsvValue(value);
     // Guard against CSV/spreadsheet formula injection (Excel, Google Sheets).
     // Strip leading whitespace/control chars before checking for formula prefixes so
     // values like "\t=CMD" or " =1+1" are also caught (not just bare leading chars).
@@ -583,6 +585,27 @@ export class AuditDashboardComponent implements OnDestroy {
 
   private buildCsvFilename(): string {
     return `audit-logs-${new Date().toISOString().replaceAll(':', '-')}.csv`;
+  }
+
+  private normalizeCsvValue(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (value == null) {
+      return '';
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+      return String(value);
+    }
+
+    try {
+      return JSON.stringify(value) ?? '';
+    } catch (error: unknown) {
+      console.debug('Failed to stringify CSV value:', error);
+      return String(value);
+    }
   }
 }
 
