@@ -10,6 +10,7 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.quartz.QuartzJobBean;
 import org.springframework.stereotype.Component;
 
@@ -21,8 +22,11 @@ public class ReconciliationQuartzJob extends QuartzJobBean {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReconciliationQuartzJob.class);
 
-    private final ReconciliationReportService reconciliationReportService;
-    private final ReconciliationProperties reconciliationProperties;
+    private ReconciliationReportService reconciliationReportService;
+    private ReconciliationProperties reconciliationProperties;
+
+    public ReconciliationQuartzJob() {
+    }
 
     public ReconciliationQuartzJob(ReconciliationReportService reconciliationReportService,
                                    ReconciliationProperties reconciliationProperties) {
@@ -30,8 +34,18 @@ public class ReconciliationQuartzJob extends QuartzJobBean {
         this.reconciliationProperties = reconciliationProperties;
     }
 
+    @Autowired
+    void setDependencies(ReconciliationReportService reconciliationReportService,
+                         ReconciliationProperties reconciliationProperties) {
+        this.reconciliationReportService = reconciliationReportService;
+        this.reconciliationProperties = reconciliationProperties;
+    }
+
     @Override
     protected void executeInternal(@NonNull JobExecutionContext context) throws JobExecutionException {
+        if (reconciliationReportService == null || reconciliationProperties == null) {
+            throw new JobExecutionException("ReconciliationQuartzJob dependencies are not initialized");
+        }
         try {
             ReconciliationReportResponse report = reconciliationReportService.runScheduled()
                     .block(resolveTimeout());

@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.query.service;
 
 import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
+import lt.satsyuk.distributed.audit.query.api.BlockchainIntegrityException;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
 import lt.satsyuk.distributed.audit.query.model.AuditEventRecord;
 import lt.satsyuk.distributed.audit.query.repository.AuditLogQueryRepository;
@@ -12,11 +13,13 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 public class BatchIntegrityChecker {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BatchIntegrityChecker.class);
+    private static final Pattern HEX_64_PATTERN = Pattern.compile("^[0-9a-fA-F]{64}$");
 
     private final AuditLogQueryRepository auditLogQueryRepository;
     private final AuditLedgerBlockchainClient blockchainClient;
@@ -73,15 +76,31 @@ public class BatchIntegrityChecker {
             return Mono.just(RecordOutcome.pending());
         }
 
+        if (!isValidEventHash(eventHash)) {
+            return Mono.just(RecordOutcome.mismatch(new ReconciliationMismatch(
+                    eventRecord.getId(),
+                    eventRecord.getEventId(),
+                    eventHash,
+                    "MISMATCH",
+                    "INVALID_EVENT_HASH_FORMAT"
+            )));
+        }
+
         return blockchainClient.inspectEventHash(eventHash)
                 .map(blockchainRecord -> mapBlockchainResult(eventRecord, eventHash, blockchainRecord))
-                .onErrorResume(ignored -> Mono.just(RecordOutcome.blockchainCheckFailed(new ReconciliationMismatch(
+                .onErrorResume(error -> {
+                    if (error instanceof BlockchainIntegrityException blockchainException
+                            && blockchainException.getErrorType() == BlockchainIntegrityException.ErrorType.CONFIGURATION) {
+                        return Mono.error(blockchainException);
+                    }
+                    return Mono.just(RecordOutcome.blockchainCheckFailed(new ReconciliationMismatch(
                             eventRecord.getId(),
                             eventRecord.getEventId(),
                             eventHash,
                             "MISMATCH",
                             "BLOCKCHAIN_CHECK_FAILED"
-                    ))));
+                    )));
+                });
     }
 
     private RecordOutcome mapBlockchainResult(AuditEventRecord eventRecord,
@@ -104,6 +123,13 @@ public class BatchIntegrityChecker {
             return null;
         }
         return eventHash.trim();
+    }
+
+    private boolean isValidEventHash(String eventHash) {
+        String normalized = eventHash.startsWith("0x") || eventHash.startsWith("0X")
+                ? eventHash.substring(2)
+                : eventHash;
+        return HEX_64_PATTERN.matcher(normalized).matches();
     }
 
     private static final class BatchAccumulator {

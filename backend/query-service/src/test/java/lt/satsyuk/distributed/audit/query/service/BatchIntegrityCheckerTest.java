@@ -1,6 +1,7 @@
 package lt.satsyuk.distributed.audit.query.service;
 
 import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
+import lt.satsyuk.distributed.audit.query.api.BlockchainIntegrityException;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
 import lt.satsyuk.distributed.audit.query.model.AuditEventRecord;
 import lt.satsyuk.distributed.audit.query.repository.AuditLogQueryRepository;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -81,6 +83,39 @@ class BatchIntegrityCheckerTest {
         assertThat(result.mismatchEvents()).isEqualTo(1);
         assertThat(result.mismatches()).hasSize(1);
         assertThat(result.mismatches().getFirst().reason()).isEqualTo("BLOCKCHAIN_CHECK_FAILED");
+    }
+
+    @Test
+    void runCheckMarksInvalidHashFormatAsMismatchWithoutBlockchainCall() {
+        AuditEventRecord event = buildEventRecord(10L, "evt-10", "not-a-hex-hash");
+
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(10L));
+        when(auditLogQueryRepository.findReconciliationBatch(5, 0L, 10L)).thenReturn(Flux.just(event));
+        when(auditLogQueryRepository.findReconciliationBatch(5, 10L, 10L)).thenReturn(Flux.empty());
+
+        BatchIntegrityCheckResult result = checker.runCheck(5).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.checkedEvents()).isEqualTo(1);
+        assertThat(result.mismatchEvents()).isEqualTo(1);
+        assertThat(result.mismatches().getFirst().reason()).isEqualTo("INVALID_EVENT_HASH_FORMAT");
+        verifyNoInteractions(blockchainClient);
+    }
+
+    @Test
+    void runCheckPropagatesConfigurationErrorsFromBlockchainClient() {
+        AuditEventRecord event = buildEventRecord(11L, "evt-11", HASH_1);
+
+        when(auditLogQueryRepository.findMaxEventId()).thenReturn(Mono.just(11L));
+        when(auditLogQueryRepository.findReconciliationBatch(5, 0L, 11L)).thenReturn(Flux.just(event));
+        when(blockchainClient.inspectEventHash(HASH_1)).thenReturn(Mono.error(new BlockchainIntegrityException(
+                "web3j.contract-address is malformed",
+                BlockchainIntegrityException.ErrorType.CONFIGURATION
+        )));
+
+        assertThatThrownBy(() -> checker.runCheck(5).block())
+                .isInstanceOf(BlockchainIntegrityException.class)
+                .hasMessage("web3j.contract-address is malformed");
     }
 
     @Test
