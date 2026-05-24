@@ -517,6 +517,7 @@ CREATE TABLE audit.events (
 **ID:** #19  
 **Labels:** `infra`  
 **Depends on:** #13  
+**Status:** ✅ Done  
 **Description:**
 Создать K8s Deployments для production развертывания.
 
@@ -527,11 +528,11 @@ CREATE TABLE audit.events (
 - Ingress конфигурация
 
 **Subtasks:**
-- [ ] #19.1 - K8s deployments для backend сервисов
-- [ ] #19.2 - K8s deployments для frontend
-- [ ] #19.3 - ConfigMaps и StatefulSets для Kafka/PostgreSQL
-- [ ] #19.4 - Helm chart
-- [ ] #19.5 - Ingress setup
+- [x] #19.1 - K8s deployments для backend сервисов
+- [x] #19.2 - K8s deployments для frontend
+- [x] #19.3 - ConfigMaps и StatefulSets для Kafka/PostgreSQL
+- [x] #19.4 - Helm chart
+- [x] #19.5 - Ingress setup
 
 **Expected PR:** PR-19 (Kubernetes deployment)
 
