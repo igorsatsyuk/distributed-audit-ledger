@@ -69,6 +69,20 @@ describe('AuditLogService', () => {
     req.flush([]);
   });
 
+  it('adds search query param', () => {
+    service.getAuditLogs({ search: '10.0.0.5' }).subscribe((result) => {
+      expect(result).toEqual([]);
+    });
+
+    const req = httpMock.expectOne(
+      (r) =>
+        r.method === 'GET' &&
+        r.url === BASE &&
+        r.params.get('search') === '10.0.0.5',
+    );
+    req.flush([]);
+  });
+
   it('does not add params for undefined filter fields', () => {
     service.getAuditLogs({}).subscribe();
 

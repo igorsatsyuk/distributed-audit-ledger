@@ -33,6 +33,7 @@ public class AuditLogQueryService {
             EventType eventType,
             Instant from,
             Instant to,
+            String search,
             Integer limit,
             Long offset
     ) {
@@ -41,7 +42,7 @@ public class AuditLogQueryService {
         int resolvedLimit = resolveLimit(limit);
         long resolvedOffset = resolveOffset(offset);
 
-        AuditLogFilter filter = new AuditLogFilter(userId, eventType, from, to, resolvedLimit, resolvedOffset);
+        AuditLogFilter filter = new AuditLogFilter(userId, eventType, from, to, normalizeSearch(search), resolvedLimit, resolvedOffset);
         return auditLogQueryRepository.findByFilter(filter)
                 .map(mapper::toDto);
     }
@@ -79,5 +80,14 @@ public class AuditLogQueryService {
             throw new QueryValidationException("Query parameter 'offset' must be greater than or equal to 0");
         }
         return offset;
+    }
+
+    private String normalizeSearch(String search) {
+        if (search == null) {
+            return null;
+        }
+
+        String trimmed = search.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

@@ -31,6 +31,7 @@ export interface AuditLogFilters {
   eventType?: string;
   from?: string;
   to?: string;
+  search?: string;
   limit?: number;
   offset?: number;
 }

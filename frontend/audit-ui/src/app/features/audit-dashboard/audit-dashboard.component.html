@@ -68,26 +68,55 @@
     <mat-card>
       <mat-card-header>
         <mat-card-title>Audit log</mat-card-title>
-        <mat-card-subtitle>Live data from Query Service</mat-card-subtitle>
+        <mat-card-subtitle>Advanced filtering, URL state and CSV export</mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
         <section class="filter-row">
+          <mat-form-field appearance="outline" class="filter-field filter-field--wide">
+            <mat-label>Payload search</mat-label>
+            <input
+              matInput
+              [formControl]="searchControl"
+              placeholder="Search event payload text"
+              (keyup.enter)="applyFilters()"
+            />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+
           <mat-form-field appearance="outline">
             <mat-label>Event type</mat-label>
-            <input matInput [formControl]="eventTypeControl" placeholder="USER_LOGGED_IN" />
+            <input matInput [formControl]="eventTypeControl" placeholder="USER_LOGGED_IN" (keyup.enter)="applyFilters()" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>User ID</mat-label>
-            <input matInput [formControl]="userIdControl" placeholder="user1" />
+            <input matInput [formControl]="userIdControl" placeholder="user1" (keyup.enter)="applyFilters()" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field filter-field--wide">
+            <mat-label>Date range</mat-label>
+            <mat-date-range-input [formGroup]="dateRangeForm" [rangePicker]="rangePicker">
+              <input matStartDate formControlName="from" placeholder="From date" />
+              <input matEndDate formControlName="to" placeholder="To date" />
+            </mat-date-range-input>
+            <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
+            <mat-date-range-picker #rangePicker></mat-date-range-picker>
           </mat-form-field>
 
           <div class="actions">
             <button mat-flat-button color="primary" type="button" (click)="applyFilters()">Apply</button>
             <button mat-button type="button" (click)="clearFilters()">Clear</button>
+            <button mat-stroked-button type="button" (click)="exportCsv()">
+              <mat-icon>download</mat-icon>
+              Export CSV
+            </button>
           </div>
         </section>
+
+        <p class="filter-hint">
+          Filter state is synced to the URL and restored from local storage when you return.
+        </p>
 
         @if (errorMessage()) {
           <div class="error-block" role="alert" data-testid="audit-load-error">

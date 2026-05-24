@@ -42,6 +42,9 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
         if (filter.to() != null) {
             sql.append(" AND created_at <= :toTs");
         }
+        if (hasText(filter.search())) {
+            sql.append(" AND payload::text ILIKE :searchPattern ESCAPE '\\'");
+        }
 
         sql.append(" ORDER BY created_at DESC, id DESC");
         sql.append(" LIMIT :limit OFFSET :offset");
@@ -59,6 +62,9 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
         }
         if (filter.to() != null) {
             executeSpec = executeSpec.bind("toTs", LocalDateTime.ofInstant(filter.to(), ZoneOffset.UTC));
+        }
+        if (hasText(filter.search())) {
+            executeSpec = executeSpec.bind("searchPattern", "%" + escapeLikePattern(filter.search()) + "%");
         }
         executeSpec = executeSpec.bind("limit", filter.limit());
         executeSpec = executeSpec.bind("offset", filter.offset());
@@ -94,5 +100,12 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String escapeLikePattern(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }
