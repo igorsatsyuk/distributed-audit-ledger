@@ -317,9 +317,13 @@ export class AuditDashboardComponent implements OnDestroy {
           this.storageRestoreHandled = true;
           const storedState = this.readStoredState();
           if (storedState) {
-            void this.router.navigate([], {
+            this.router.navigate([], {
               relativeTo: this.route,
               queryParams: this.toQueryParams(storedState),
+            }).catch(() => {
+              this.applyState(storedState);
+              this.persistState(storedState);
+              this.loadTrigger$.next();
             });
             return;
           }
@@ -358,7 +362,7 @@ export class AuditDashboardComponent implements OnDestroy {
   private syncUrlWithCurrentState(): void {
     const state = this.currentState();
     this.persistState(state);
-    void this.router.navigate([], {
+    this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.toQueryParams(state),
     }).then((navigated: boolean) => {
@@ -560,11 +564,17 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   private escapeCsvValue(value: unknown): string {
-    const normalized = String(value ?? '');
+    const normalized = typeof value === 'string'
+      ? value
+      : value == null
+        ? ''
+        : typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint'
+          ? String(value)
+          : JSON.stringify(value) ?? '';
     // Guard against CSV/spreadsheet formula injection (Excel, Google Sheets).
     // Strip leading whitespace/control chars before checking for formula prefixes so
     // values like "\t=CMD" or " =1+1" are also caught (not just bare leading chars).
-    const trimmedForCheck = normalized.replace(/^[\s\x00-\x1F]+/, '');
+    const trimmedForCheck = normalized.replace(/^[\s\x00-\x08\x0E-\x1F]+/, '');
     const safe = /^[=+\-@]/.test(trimmedForCheck) ? `'${normalized}` : normalized;
     return /[",\r\n]/.test(safe)
       ? `"${safe.replace(/"/g, '""')}"`
@@ -572,7 +582,7 @@ export class AuditDashboardComponent implements OnDestroy {
   }
 
   private buildCsvFilename(): string {
-    return `audit-logs-${new Date().toISOString().replace(/[:]/g, '-')}.csv`;
+    return `audit-logs-${new Date().toISOString().replaceAll(':', '-')}.csv`;
   }
 }
 
