@@ -4,3 +4,8 @@ auth:
     issuer: distributed-audit-ledger-test
     expiration: PT1H
 
+reconciliation:
+  batch-size: 2
+  schedule:
+    enabled: false
+

@@ -13,6 +13,9 @@ spring:
   flyway:
     enabled: false   # Query service does NOT run migrations — event-store owns the schema
 
+  quartz:
+    job-store-type: memory
+
 auth:
   jwt:
     secret: ${AUTH_JWT_SECRET}
@@ -23,6 +26,12 @@ web3j:
   client-address: ${GANACHE_RPC_URL:http://localhost:8545}
   contract-address: ${AUDIT_LEDGER_CONTRACT_ADDRESS:}
   contract-deployment-block: ${AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK:0}
+
+reconciliation:
+  batch-size: ${RECONCILIATION_BATCH_SIZE:200}
+  schedule:
+    enabled: ${RECONCILIATION_SCHEDULE_ENABLED:true}
+    cron: "${RECONCILIATION_SCHEDULE_CRON:0 0/30 * * * ?}"
 
 management:
   endpoints:

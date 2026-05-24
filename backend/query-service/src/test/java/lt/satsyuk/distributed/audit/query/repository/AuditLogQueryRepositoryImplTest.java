@@ -12,9 +12,12 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,6 +87,7 @@ class AuditLogQueryRepositoryImplTest {
                 repository.findByFilter(filter).collectList().block();
 
         // Assert
+        assertNotNull(result);
         assertEquals(0, result.size());
         // Verify that bind was called with the expected search pattern
         verify(execSpec).bind("searchPattern", "%10.0.0.5%");
@@ -110,6 +114,29 @@ class AuditLogQueryRepositoryImplTest {
         repository.findByFilter(filter).collectList().block();
 
         verify(execSpec).bind("searchPattern", "%100\\%\\_done%");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findByFilter_withoutSearch_doesNotBindSearchPattern() {
+        DatabaseClient.GenericExecuteSpec execSpec = mock(DatabaseClient.GenericExecuteSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(execSpec);
+        when(execSpec.bind(anyString(), any())).thenReturn(execSpec);
+
+        org.springframework.r2dbc.core.RowsFetchSpec<lt.satsyuk.distributed.audit.query.model.AuditEventRecord> rowsSpec =
+                mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        when(execSpec.map(any(java.util.function.BiFunction.class))).thenReturn(rowsSpec);
+        when(rowsSpec.all()).thenReturn(Flux.empty());
+
+        AuditLogFilter filter = new AuditLogFilter(
+                null, null, null, null,
+                "   ",
+                10, 0L
+        );
+
+        repository.findByFilter(filter).collectList().block();
+
+        verify(execSpec, never()).bind(eq("searchPattern"), any());
     }
 }
 

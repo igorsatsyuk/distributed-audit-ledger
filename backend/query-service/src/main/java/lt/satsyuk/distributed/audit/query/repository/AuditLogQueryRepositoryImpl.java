@@ -85,6 +85,20 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
                 .one();
     }
 
+    @Override
+    public Flux<AuditEventRecord> findReconciliationBatch(int limit, long offset) {
+        return databaseClient.sql("""
+                        SELECT id, event_id, aggregate_id, event_type, user_id, payload::text AS payload_text, event_hash, created_at
+                        FROM audit.events
+                        ORDER BY id ASC
+                        LIMIT :limit OFFSET :offset
+                        """)
+                .bind("limit", limit)
+                .bind("offset", offset)
+                .map(this::mapRow)
+                .all();
+    }
+
     private AuditEventRecord mapRow(Row row, RowMetadata metadata) {
         AuditEventRecord eventRecord = new AuditEventRecord();
         eventRecord.setId(row.get("id", Long.class));

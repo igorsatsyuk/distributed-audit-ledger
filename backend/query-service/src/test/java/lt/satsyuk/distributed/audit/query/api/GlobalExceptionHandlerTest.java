@@ -2,6 +2,7 @@ package lt.satsyuk.distributed.audit.query.api;
 
 import lt.satsyuk.distributed.audit.query.service.AuditLogNotFoundException;
 import lt.satsyuk.distributed.audit.query.service.QueryValidationException;
+import lt.satsyuk.distributed.audit.query.service.ReconciliationAlreadyRunningException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,14 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isEqualTo(new ApiErrorResponse("bad filter"));
+    }
+
+    @Test
+    void mapsReconciliationConflictTo409() {
+        ResponseEntity<ApiErrorResponse> response = handler.handleReconciliationConflict(new ReconciliationAlreadyRunningException());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).isEqualTo(new ApiErrorResponse("Reconciliation run is already in progress"));
     }
 
     @Test

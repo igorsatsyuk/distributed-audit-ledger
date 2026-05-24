@@ -191,7 +191,7 @@ export class AuditDashboardComponent implements OnDestroy {
     anchor.download = this.buildCsvFilename();
     document.body.appendChild(anchor);
     anchor.click();
-    document.body.removeChild(anchor);
+    anchor.remove();
     // Defer revocation so the browser has time to start the download before
     // the blob URL is invalidated (immediate revoke can cause empty downloads).
     setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
@@ -579,7 +579,7 @@ export class AuditDashboardComponent implements OnDestroy {
     const trimmedForCheck = normalized.replace(/^[\s\x00-\x08\x0E-\x1F]+/, '');
     const safe = /^[=+\-@]/.test(trimmedForCheck) ? `'${normalized}` : normalized;
     return /[",\r\n]/.test(safe)
-      ? `"${safe.replace(/"/g, '""')}"`
+      ? `"${safe.replaceAll('"', '""')}"`
       : safe;
   }
 

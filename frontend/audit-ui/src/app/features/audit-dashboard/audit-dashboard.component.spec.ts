@@ -530,7 +530,7 @@ describe('AuditDashboardComponent', () => {
     const anchor = document.createElement('a');
     spyOn(document, 'createElement').and.returnValue(anchor);
     spyOn(document.body, 'appendChild');
-    spyOn(document.body, 'removeChild');
+    spyOn(anchor, 'remove');
     spyOn(anchor, 'click');
     const createObjectUrlSpy = spyOn(URL, 'createObjectURL').and.returnValue('blob:csv');
     const revokeObjectUrlSpy = spyOn(URL, 'revokeObjectURL');
