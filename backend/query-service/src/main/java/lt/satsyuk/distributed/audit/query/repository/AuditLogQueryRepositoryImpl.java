@@ -85,6 +85,42 @@ public class AuditLogQueryRepositoryImpl implements AuditLogQueryRepository {
                 .one();
     }
 
+    @Override
+    public Mono<Long> findMaxEventId() {
+        return databaseClient.sql("SELECT COALESCE(MAX(id), 0) AS max_id FROM audit.events")
+                .map((row, ignored) -> {
+                    Long maxId = row.get("max_id", Long.class);
+                    return maxId == null ? 0L : maxId;
+                })
+                .one()
+                .defaultIfEmpty(0L);
+    }
+
+    @Override
+    public Flux<AuditEventRecord> findReconciliationBatch(int limit, long lastSeenId, long maxIdInclusive) {
+        return databaseClient.sql("""
+                        SELECT id, event_id, event_hash
+                        FROM audit.events
+                        WHERE id > :lastSeenId
+                          AND id <= :maxIdInclusive
+                        ORDER BY id ASC
+                        LIMIT :limit
+                        """)
+                .bind("limit", limit)
+                .bind("lastSeenId", lastSeenId)
+                .bind("maxIdInclusive", maxIdInclusive)
+                .map(this::mapReconciliationRow)
+                .all();
+    }
+
+    private AuditEventRecord mapReconciliationRow(Row row, RowMetadata metadata) {
+        AuditEventRecord eventRecord = new AuditEventRecord();
+        eventRecord.setId(row.get("id", Long.class));
+        eventRecord.setEventId(row.get("event_id", String.class));
+        eventRecord.setEventHash(row.get("event_hash", String.class));
+        return eventRecord;
+    }
+
     private AuditEventRecord mapRow(Row row, RowMetadata metadata) {
         AuditEventRecord eventRecord = new AuditEventRecord();
         eventRecord.setId(row.get("id", Long.class));

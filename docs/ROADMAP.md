@@ -492,6 +492,7 @@ CREATE TABLE audit.events (
 **ID:** #18  
 **Labels:** `backend`  
 **Depends on:** #9, #14  
+**Status:** ✅ Done  
 **Description:**
 Создать сервис для проверки целостности всех записей и поиска "подорванных" данных.
 
@@ -502,11 +503,11 @@ CREATE TABLE audit.events (
 - Endpoint для ручной проверки
 
 **Subtasks:**
-- [ ] #18.1 - Batch integrity checker logic
-- [ ] #18.2 - Scheduled task setup (Quartz)
-- [ ] #18.3 - Reconciliation report service
-- [ ] #18.4 - REST endpoint для запуска проверки
-- [ ] #18.5 - Тесты
+- [x] #18.1 - Batch integrity checker logic
+- [x] #18.2 - Scheduled task setup (Quartz)
+- [x] #18.3 - Reconciliation report service
+- [x] #18.4 - REST endpoint для запуска проверки
+- [x] #18.5 - Тесты
 
 **Expected PR:** PR-18 (Reconciliation Service)
 

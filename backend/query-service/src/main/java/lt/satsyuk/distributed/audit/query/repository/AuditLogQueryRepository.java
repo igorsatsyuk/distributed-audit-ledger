@@ -10,4 +10,8 @@ public interface AuditLogQueryRepository {
     Flux<AuditEventRecord> findByFilter(AuditLogFilter filter);
 
     Mono<AuditEventRecord> findById(Long id);
+
+    Mono<Long> findMaxEventId();
+
+    Flux<AuditEventRecord> findReconciliationBatch(int limit, long lastSeenId, long maxIdInclusive);
 }

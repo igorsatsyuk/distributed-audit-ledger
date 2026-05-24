@@ -2,6 +2,7 @@ package lt.satsyuk.distributed.audit.query.api;
 
 import lt.satsyuk.distributed.audit.query.service.AuditLogNotFoundException;
 import lt.satsyuk.distributed.audit.query.service.QueryValidationException;
+import lt.satsyuk.distributed.audit.query.service.ReconciliationAlreadyRunningException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -22,6 +23,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(QueryValidationException.class)
     public ResponseEntity<ApiErrorResponse> handleQueryValidation(QueryValidationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ReconciliationAlreadyRunningException.class)
+    public ResponseEntity<ApiErrorResponse> handleReconciliationConflict(ReconciliationAlreadyRunningException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiErrorResponse(ex.getMessage()));
     }
 
