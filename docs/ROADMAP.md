@@ -542,6 +542,7 @@ CREATE TABLE audit.events (
 **ID:** #20  
 **Labels:** `docs`  
 **Depends on:** #12, #18  
+**Status:** ✅ Done  
 **Description:**
 Подготовить готовый сценарий для демонстрации на собеседовании.
 
@@ -553,12 +554,16 @@ CREATE TABLE audit.events (
 - Потенциальные вопросы и ответы
 
 **Subtasks:**
-- [ ] #20.1 - Написать guide
-- [ ] #20.2 - Prepare curl команды
-- [ ] #20.3 - Prepare скриншоты UI
-- [ ] #20.4 - Q&A документ
+- [x] #20.1 - Написать guide
+- [x] #20.2 - Prepare curl команды
+- [x] #20.3 - Prepare скриншоты UI
+- [x] #20.4 - Q&A документ
 
 **Expected PR:** PR-20 (Demo scenario documentation)
+
+**Deliverables:**
+- `docs/LIVE_DEMO_QA.md`
+- `docs/TESTING_SCENARIOS.md`
 
 ---
 
