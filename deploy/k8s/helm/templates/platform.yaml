@@ -27,7 +27,7 @@ data:
   R2DBC_URL: {{ default (printf "r2dbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.r2dbcUrl | quote }}
   DB_URL: {{ default (printf "jdbc:postgresql://%s:5432/audit_ledger" $postgresName) .Values.config.dbUrl | quote }}
   MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: {{ .Values.config.managementEndpointHealthProbesEnabled | quote }}
-  GANACHE_RPC_URL: {{ if .Values.components.auditWriter.enabled }}{{ required "config.ganacheRpcUrl is required when components.auditWriter.enabled=true" .Values.config.ganacheRpcUrl | quote }}{{ else }}{{ .Values.config.ganacheRpcUrl | quote }}{{ end }}
+  GANACHE_RPC_URL: {{ required "config.ganacheRpcUrl is required for blockchain-backed query-service endpoints" .Values.config.ganacheRpcUrl | quote }}
   RECONCILIATION_BATCH_SIZE: {{ .Values.config.reconciliationBatchSize | quote }}
   RECONCILIATION_SCHEDULE_ENABLED: {{ .Values.config.reconciliationScheduleEnabled | quote }}
   RECONCILIATION_SCHEDULE_CRON: {{ .Values.config.reconciliationScheduleCron | quote }}
@@ -52,7 +52,7 @@ stringData:
   AUTH_AUDITOR_PASSWORD: {{ required "secrets.authAuditorPassword is required" .Values.secrets.authAuditorPassword | quote }}
   AUTH_USER_USERNAME: {{ required "secrets.authUserUsername is required" .Values.secrets.authUserUsername | quote }}
   AUTH_USER_PASSWORD: {{ required "secrets.authUserPassword is required" .Values.secrets.authUserPassword | quote }}
-  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.auditLedgerContractAddress is required when components.auditWriter.enabled=true" .Values.secrets.auditLedgerContractAddress | quote }}{{ else }}{{ .Values.secrets.auditLedgerContractAddress | quote }}{{ end }}
+  AUDIT_LEDGER_CONTRACT_ADDRESS: {{ required "secrets.auditLedgerContractAddress is required for blockchain-backed query-service endpoints" .Values.secrets.auditLedgerContractAddress | quote }}
   AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK: {{ default "0" .Values.secrets.auditLedgerContractDeploymentBlock | quote }}
   GANACHE_PRIVATE_KEY: {{ if .Values.components.auditWriter.enabled }}{{ required "secrets.ganachePrivateKey is required when components.auditWriter.enabled=true" .Values.secrets.ganachePrivateKey | quote }}{{ else }}{{ .Values.secrets.ganachePrivateKey | quote }}{{ end }}
 ---

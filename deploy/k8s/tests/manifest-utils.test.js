@@ -38,7 +38,7 @@ describe("platform manifests", () => {
     expect(() => indexByKindAndName(duplicated)).toThrow("Duplicate resource key");
   });
 
-  test("indexByKindAndName allows same kind/name across different apiVersion", () => {
+  test("indexByKindAndName allows same kind/name across different API groups", () => {
     const differentGroups = [
       { apiVersion: "group1/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
       { apiVersion: "group2/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },

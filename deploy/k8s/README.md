@@ -23,6 +23,9 @@ The chart requires secret values. Create an override file first:
 
 ```yaml
 # deploy/k8s/helm/values.override.yaml
+config:
+  ganacheRpcUrl: http://ganache-rpc.dal.svc.cluster.local:8545
+
 secrets:
   dbUsername: postgres
   dbPassword: postgres
@@ -38,11 +41,10 @@ secrets:
   ganachePrivateKey: "0x..."
 ```
 
-`auditLedgerContractAddress` is required when `components.auditWriter.enabled=true` (default).
-If audit-writer is disabled, `auditLedgerContractAddress` can be left empty, but query-service
-blockchain integrity/reconciliation endpoints require both `auditLedgerContractAddress` and a valid
-`auditLedgerContractDeploymentBlock`.
-`config.ganacheRpcUrl` is also required when `components.auditWriter.enabled=true`.
+`auditLedgerContractAddress` and `config.ganacheRpcUrl` are required for chart rendering,
+because query-service blockchain integrity/reconciliation endpoints depend on them.
+`auditLedgerContractDeploymentBlock` defaults to `0`, but for non-local RPC endpoints
+set the real contract deployment block.
 
 ```bash
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml
@@ -88,5 +90,5 @@ Kubernetes manifest tests are executed in GitHub Actions (`.github/workflows/ci.
 - Helm resource names use the pattern `<release>-<chart>-<component>` and are truncated to 63 chars when needed.
 - Raw manifest placeholders (`__SET_*__`) must be replaced before running traffic.
 - For non-local RPC endpoints, set `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` explicitly (do not keep it at `0`).
-- `GANACHE_RPC_URL` points to an external endpoint by default; change it for your target cluster.
+- `GANACHE_RPC_URL` has no default in Helm and must be set explicitly in your override values.
 

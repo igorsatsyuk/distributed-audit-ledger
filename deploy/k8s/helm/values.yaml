@@ -1,11 +1,11 @@
 namespaceOverride: ""
 
 images:
-  commandService: ghcr.io/distributed-audit-ledger/command-service:latest
-  eventStoreService: ghcr.io/distributed-audit-ledger/event-store-service:latest
-  auditWriterService: ghcr.io/distributed-audit-ledger/audit-writer-service:latest
-  queryService: ghcr.io/distributed-audit-ledger/query-service:latest
-  auditUi: ghcr.io/distributed-audit-ledger/audit-ui:latest
+  commandService: ghcr.io/distributed-audit-ledger/command-service:0.1.0
+  eventStoreService: ghcr.io/distributed-audit-ledger/event-store-service:0.1.0
+  auditWriterService: ghcr.io/distributed-audit-ledger/audit-writer-service:0.1.0
+  queryService: ghcr.io/distributed-audit-ledger/query-service:0.1.0
+  auditUi: ghcr.io/distributed-audit-ledger/audit-ui:0.1.0
   postgres: postgres:16
   zookeeper: confluentinc/cp-zookeeper:7.6.1
   kafka: confluentinc/cp-kafka:7.6.1

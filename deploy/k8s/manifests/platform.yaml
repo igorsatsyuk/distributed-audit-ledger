@@ -275,7 +275,7 @@ spec:
     spec:
       containers:
         - name: command-service
-          image: ghcr.io/distributed-audit-ledger/command-service:latest
+          image: ghcr.io/distributed-audit-ledger/command-service:0.1.0
           ports:
             - containerPort: 8081
           envFrom:
@@ -326,7 +326,7 @@ spec:
     spec:
       containers:
         - name: event-store-service
-          image: ghcr.io/distributed-audit-ledger/event-store-service:latest
+          image: ghcr.io/distributed-audit-ledger/event-store-service:0.1.0
           ports:
             - containerPort: 8082
           envFrom:
@@ -377,7 +377,7 @@ spec:
     spec:
       containers:
         - name: audit-writer-service
-          image: ghcr.io/distributed-audit-ledger/audit-writer-service:latest
+          image: ghcr.io/distributed-audit-ledger/audit-writer-service:0.1.0
           ports:
             - containerPort: 8083
           envFrom:
@@ -428,7 +428,7 @@ spec:
     spec:
       containers:
         - name: query-service
-          image: ghcr.io/distributed-audit-ledger/query-service:latest
+          image: ghcr.io/distributed-audit-ledger/query-service:0.1.0
           ports:
             - containerPort: 8084
           envFrom:
@@ -479,7 +479,7 @@ spec:
     spec:
       containers:
         - name: audit-ui
-          image: ghcr.io/distributed-audit-ledger/audit-ui:latest
+          image: ghcr.io/distributed-audit-ledger/audit-ui:0.1.0
           ports:
             - containerPort: 80
 ---
