@@ -11,15 +11,15 @@ distributed-audit-ledger
 {{- default .Release.Namespace .Values.namespaceOverride -}}
 {{- end -}}
 
-{{- define "dal.configName" -}}{{ include "dal.fullname" . }}-config{{- end -}}
-{{- define "dal.secretsName" -}}{{ include "dal.fullname" . }}-secrets{{- end -}}
-{{- define "dal.postgresName" -}}{{ include "dal.fullname" . }}-postgres{{- end -}}
-{{- define "dal.zookeeperName" -}}{{ include "dal.fullname" . }}-zookeeper{{- end -}}
-{{- define "dal.kafkaName" -}}{{ include "dal.fullname" . }}-kafka{{- end -}}
-{{- define "dal.commandServiceName" -}}{{ include "dal.fullname" . }}-command-service{{- end -}}
-{{- define "dal.eventStoreServiceName" -}}{{ include "dal.fullname" . }}-event-store-service{{- end -}}
-{{- define "dal.auditWriterServiceName" -}}{{ include "dal.fullname" . }}-audit-writer-service{{- end -}}
-{{- define "dal.queryServiceName" -}}{{ include "dal.fullname" . }}-query-service{{- end -}}
-{{- define "dal.auditUiName" -}}{{ include "dal.fullname" . }}-audit-ui{{- end -}}
-{{- define "dal.ingressName" -}}{{ include "dal.fullname" . }}-ingress{{- end -}}
+{{- define "dal.configName" -}}{{ printf "%s-config" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.secretsName" -}}{{ printf "%s-secrets" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.postgresName" -}}{{ printf "%s-postgres" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.zookeeperName" -}}{{ printf "%s-zookeeper" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.kafkaName" -}}{{ printf "%s-kafka" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.commandServiceName" -}}{{ printf "%s-command-service" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.eventStoreServiceName" -}}{{ printf "%s-event-store-service" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.auditWriterServiceName" -}}{{ printf "%s-audit-writer-service" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.queryServiceName" -}}{{ printf "%s-query-service" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.auditUiName" -}}{{ printf "%s-audit-ui" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
+{{- define "dal.ingressName" -}}{{ printf "%s-ingress" (include "dal.fullname" .) | trunc 63 | trimSuffix "-" }}{{- end -}}
 
