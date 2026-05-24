@@ -39,12 +39,21 @@ describe("platform manifests", () => {
   });
 
   test("indexByKindAndName allows same kind/name across different apiVersion", () => {
-    const differentApiVersions = [
+    const differentGroups = [
       { apiVersion: "group1/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
       { apiVersion: "group2/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
     ];
 
-    expect(() => indexByKindAndName(differentApiVersions)).not.toThrow();
+    expect(() => indexByKindAndName(differentGroups)).not.toThrow();
+  });
+
+  test("indexByKindAndName rejects same group/kind/name across different versions", () => {
+    const sameGroupDifferentVersions = [
+      { apiVersion: "example.com/v1", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
+      { apiVersion: "example.com/v2", kind: "Widget", metadata: { name: "same", namespace: "dal" } },
+    ];
+
+    expect(() => indexByKindAndName(sameGroupDifferentVersions)).toThrow("Duplicate resource key");
   });
 
   test("indexByKindAndName fails with descriptive error on missing metadata.name", () => {

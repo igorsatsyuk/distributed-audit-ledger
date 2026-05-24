@@ -10,6 +10,9 @@
 {{ $queryServiceName := include "dal.queryServiceName" . }}
 {{ $auditUiName := include "dal.auditUiName" . }}
 {{ $ingressName := include "dal.ingressName" . }}
+{{ $postgresHeadlessName := printf "%s-headless" $postgresName | trunc 63 | trimSuffix "-" }}
+{{ $zookeeperHeadlessName := printf "%s-headless" $zookeeperName | trunc 63 | trimSuffix "-" }}
+{{ $kafkaHeadlessName := printf "%s-headless" $kafkaName | trunc 63 | trimSuffix "-" }}
 {{- $secretRefName := $secretsName -}}
 {{- if not .Values.secrets.create -}}
 {{- $secretRefName = required "secrets.existingSecretName is required when secrets.create=false" .Values.secrets.existingSecretName -}}
@@ -59,7 +62,7 @@ metadata:
   name: {{ $postgresName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $postgresName }}-headless
+  serviceName: {{ $postgresHeadlessName }}
   replicas: 1
   selector:
     matchLabels:
@@ -104,7 +107,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $postgresName }}-headless
+  name: {{ $postgresHeadlessName }}
   namespace: {{ $ns }}
 spec:
   clusterIP: None
@@ -134,7 +137,7 @@ metadata:
   name: {{ $zookeeperName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $zookeeperName }}-headless
+  serviceName: {{ $zookeeperHeadlessName }}
   replicas: 1
   selector:
     matchLabels:
@@ -171,7 +174,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $zookeeperName }}-headless
+  name: {{ $zookeeperHeadlessName }}
   namespace: {{ $ns }}
 spec:
   clusterIP: None
@@ -201,7 +204,7 @@ metadata:
   name: {{ $kafkaName }}
   namespace: {{ $ns }}
 spec:
-  serviceName: {{ $kafkaName }}-headless
+  serviceName: {{ $kafkaHeadlessName }}
   replicas: 1
   selector:
     matchLabels:
@@ -250,7 +253,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $kafkaName }}-headless
+  name: {{ $kafkaHeadlessName }}
   namespace: {{ $ns }}
 spec:
   clusterIP: None
