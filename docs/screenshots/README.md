@@ -43,7 +43,7 @@ The script connects to Docker containers and PostgreSQL using the following env 
 | `POSTGRES_USER`       | `postgres`     | PostgreSQL user                    |
 | `KAFKA_CONTAINER`     | `dal-kafka`    | Docker container name for Kafka    |
 | `SCREENSHOT_TIMESTAMP`| `1`            | Set `0` for deterministic PNGs     |
-| `CAPTURE_OUTPUT`      | *(runtime dir)*| Path for `capture.json` output     |
+| `CAPTURE_OUTPUT`      | `docs/screenshots/runtime/capture.json` | Path for `capture.json` output     |
 
 Use the generator to refresh screenshots from live local services:
 

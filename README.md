@@ -188,7 +188,7 @@ See [**START_HERE.md**](START_HERE.md) for guided navigation.
 - [x] **#12** — Architecture documentation
 - [x] **#13** — CI/CD pipeline (GitHub Actions + SonarQube + Telegram notifications)
 
-### 🚀 Phase 2 — Active/Planned (Issues #14–#20)
+### ✅ Phase 2 — Completed (Issues #14–#20)
 
 - [x] **#14** — Support additional event types (`UserProfileChanged`, `EntityCreated`, `EntityUpdated`, `DataDeleted`)
 - [x] **#15** — Authentication & Authorization (JWT + Spring Security + RBAC)
