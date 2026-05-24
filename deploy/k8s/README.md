@@ -8,8 +8,9 @@ This directory contains:
 
 ## Quick apply (raw manifests)
 
-Before applying, edit `deploy/k8s/manifests/platform.yaml` and replace all `__SET_*__` placeholders in `Secret.stringData`.
-At minimum, set DB/auth values and `AUDIT_LEDGER_CONTRACT_ADDRESS`/`GANACHE_PRIVATE_KEY` for blockchain writes.
+Before applying, edit `deploy/k8s/manifests/platform.yaml` and replace all `__SET_*__` placeholders in `Secret.stringData`
+and ConfigMap (`GANACHE_RPC_URL`).
+At minimum, set DB/auth values and `AUDIT_LEDGER_CONTRACT_ADDRESS`/`GANACHE_PRIVATE_KEY` plus `GANACHE_RPC_URL` for blockchain writes.
 `AUDIT_LEDGER_CONTRACT_DEPLOYMENT_BLOCK` is numeric by default (`"0"`); for non-local RPC endpoints set the real contract deployment block.
 
 ```bash
@@ -41,6 +42,7 @@ secrets:
 If audit-writer is disabled, `auditLedgerContractAddress` can be left empty, but query-service
 blockchain integrity/reconciliation endpoints require both `auditLedgerContractAddress` and a valid
 `auditLedgerContractDeploymentBlock`.
+`config.ganacheRpcUrl` is also required when `components.auditWriter.enabled=true`.
 
 ```bash
 helm upgrade --install dal deploy/k8s/helm -n dal --create-namespace -f deploy/k8s/helm/values.override.yaml

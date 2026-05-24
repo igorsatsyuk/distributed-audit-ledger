@@ -15,7 +15,7 @@ config:
   r2dbcUrl: ""
   dbUrl: ""
   managementEndpointHealthProbesEnabled: "true"
-  ganacheRpcUrl: http://ganache-rpc.default.svc.cluster.local:8545
+  ganacheRpcUrl: ""
   reconciliationBatchSize: "200"
   reconciliationScheduleEnabled: "false"
   reconciliationScheduleCron: "0 0/30 * * * ?"

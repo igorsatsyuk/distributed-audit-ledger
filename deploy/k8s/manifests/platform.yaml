@@ -13,7 +13,7 @@ data:
   R2DBC_URL: r2dbc:postgresql://dal-postgres:5432/audit_ledger
   DB_URL: jdbc:postgresql://dal-postgres:5432/audit_ledger
   MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
-  GANACHE_RPC_URL: http://ganache-rpc.default.svc.cluster.local:8545
+  GANACHE_RPC_URL: "__SET_GANACHE_RPC_URL__"
   RECONCILIATION_BATCH_SIZE: "200"
   RECONCILIATION_SCHEDULE_ENABLED: "false"
   RECONCILIATION_SCHEDULE_CRON: "0 0/30 * * * ?"
