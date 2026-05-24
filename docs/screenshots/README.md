@@ -34,14 +34,16 @@ Requires **Python 3.9+**, a running local stack (`deploy/docker-compose.yml`) an
 
 The script connects to Docker containers and PostgreSQL using the following env vars (shown with defaults matching `deploy/docker-compose.yml`):
 
-| Env var              | Default        | Purpose                        |
-|----------------------|----------------|--------------------------------|
-| `DEMO_USERNAME`      | `admin`        | Auth login username            |
-| `DEMO_PASSWORD`      | `admin123!`    | Auth login password            |
-| `POSTGRES_CONTAINER` | `dal-postgres` | Docker container name for psql |
-| `POSTGRES_DB`        | `audit_ledger` | Database name                  |
-| `POSTGRES_USER`      | `postgres`     | PostgreSQL user                |
-| `CAPTURE_OUTPUT`     | *(runtime dir)*| Path for `capture.json` output |
+| Env var               | Default        | Purpose                            |
+|-----------------------|----------------|------------------------------------|
+| `DEMO_USERNAME`       | `admin`        | Auth login username                |
+| `DEMO_PASSWORD`       | `admin123!`    | Auth login password                |
+| `POSTGRES_CONTAINER`  | `dal-postgres` | Docker container name for psql     |
+| `POSTGRES_DB`         | `audit_ledger` | Database name                      |
+| `POSTGRES_USER`       | `postgres`     | PostgreSQL user                    |
+| `KAFKA_CONTAINER`     | `dal-kafka`    | Docker container name for Kafka    |
+| `SCREENSHOT_TIMESTAMP`| `1`            | Set `0` for deterministic PNGs     |
+| `CAPTURE_OUTPUT`      | *(runtime dir)*| Path for `capture.json` output     |
 
 Use the generator to refresh screenshots from live local services:
 

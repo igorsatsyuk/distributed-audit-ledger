@@ -67,6 +67,7 @@ Expected:
 
 - At least one event with `eventType=USER_LOGGED_IN`.
 - `eventHash` is present.
+- Note: `integrityStatus` in the list always shows `PENDING` by default. The live on-chain status is resolved by the integrity-check endpoint (Step 4).
 
 ### Step 3: Resolve audit ID for integrity check
 

@@ -17,6 +17,7 @@ RUNTIME_DIR.mkdir(exist_ok=True)
 POSTGRES_CONTAINER = os.environ.get("POSTGRES_CONTAINER", "dal-postgres")
 POSTGRES_DB = os.environ.get("POSTGRES_DB", "audit_ledger")
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+KAFKA_CONTAINER = os.environ.get("KAFKA_CONTAINER", "dal-kafka")
 
 W, H = 1366, 768
 BG = (9, 15, 25)
@@ -110,8 +111,8 @@ def render(path: Path, title: str, subtitle: str, body: str):
     y += 66
 
     block = [
-        f"Distributed Audit Ledger - Runtime Screenshot Pack",
-        f"Generated: {now_iso()}",
+        "Distributed Audit Ledger - Runtime Screenshot Pack",
+        *([f"Generated: {now_iso()}"] if os.environ.get("SCREENSHOT_TIMESTAMP", "1") not in ("0", "false", "no") else []),
         f"File: {path.name}",
         "",
     ]
@@ -215,13 +216,8 @@ def main():
 
     # 6) Kafka topics
     topics = run_cmd([
-        "docker",
-        "exec",
-        "dal-kafka",
-        "kafka-topics",
-        "--bootstrap-server",
-        "localhost:9092",
-        "--list",
+        "docker", "exec", KAFKA_CONTAINER,
+        "kafka-topics", "--bootstrap-server", "localhost:9092", "--list",
     ]).splitlines()
     out["kafkaTopics"] = topics
 
@@ -282,8 +278,8 @@ def main():
     render(
         SCREEN_DIR / "05-kafka-topics.png",
         "Kafka Topics",
-        "docker exec dal-kafka kafka-topics --list",
-        "$ docker exec dal-kafka kafka-topics --bootstrap-server localhost:9092 --list\n" + "\n".join(topics),
+        f"docker exec {KAFKA_CONTAINER} kafka-topics --list",
+        f"$ docker exec {KAFKA_CONTAINER} kafka-topics --bootstrap-server localhost:9092 --list\n" + "\n".join(topics),
     )
     render(
         SCREEN_DIR / "06-postgres-audit-events.png",
