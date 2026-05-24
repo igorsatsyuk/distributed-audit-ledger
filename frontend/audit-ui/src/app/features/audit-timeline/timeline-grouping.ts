@@ -83,7 +83,8 @@ export function groupAuditLogsByTimeline(logs: readonly AuditLog[]): TimelineDay
   }));
 }
 
-function buildDayKey(date: Date): string {return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+function buildDayKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
 function buildHourKey(date: Date): string {
