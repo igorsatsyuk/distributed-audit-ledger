@@ -554,8 +554,10 @@ export class AuditDashboardComponent implements OnDestroy {
   private escapeCsvValue(value: unknown): string {
     const normalized = String(value ?? '');
     // Guard against CSV/spreadsheet formula injection (Excel, Google Sheets).
-    // Fields starting with =, +, -, @ can be interpreted as formulas.
-    const safe = /^[=+\-@]/.test(normalized) ? `'${normalized}` : normalized;
+    // Strip leading whitespace/control chars before checking for formula prefixes so
+    // values like "\t=CMD" or " =1+1" are also caught (not just bare leading chars).
+    const trimmedForCheck = normalized.replace(/^[\s\x00-\x1F]+/, '');
+    const safe = /^[=+\-@]/.test(trimmedForCheck) ? `'${normalized}` : normalized;
     return /[",\r\n]/.test(safe)
       ? `"${safe.replace(/"/g, '""')}"`
       : safe;
