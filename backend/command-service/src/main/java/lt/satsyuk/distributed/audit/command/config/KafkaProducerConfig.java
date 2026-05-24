@@ -37,11 +37,11 @@ public class KafkaProducerConfig {
             ConfigurableEnvironment environment
     ) {
         Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JSON_SERIALIZER_FQCN);
-        props.put(JSON_ADD_TYPE_HEADERS_CONFIG, false);
         mergeKafkaOverrides(props, environment);
+        props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JSON_SERIALIZER_FQCN);
+        props.putIfAbsent(JSON_ADD_TYPE_HEADERS_CONFIG, false);
         return new DefaultKafkaProducerFactory<>(props);
     }
 

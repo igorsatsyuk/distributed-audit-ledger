@@ -44,7 +44,6 @@ class KafkaProducerConfigIntegrationTest {
     @Autowired
     private AuditCommandPublisher auditCommandPublisher;
 
-    @Autowired
     @Value("${spring.embedded.kafka.brokers}")
     private String embeddedKafkaBrokers;
 
@@ -76,8 +75,14 @@ class KafkaProducerConfigIntegrationTest {
 
         assertThat(configurationProperties.get(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG))
                 .isIn(StringSerializer.class, StringSerializer.class.getName());
-        assertThat(configurationProperties.get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG))
-                .isIn(JSON_SERIALIZER_FQCN);
+        Object valueSerializer = configurationProperties.get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
+        assertThat(valueSerializer).satisfiesAnyOf(
+                serializer -> assertThat(serializer).isEqualTo(JSON_SERIALIZER_FQCN),
+                serializer -> assertThat(serializer)
+                        .isInstanceOf(Class.class)
+                        .extracting(candidate -> ((Class<?>) candidate).getName())
+                        .isEqualTo(JSON_SERIALIZER_FQCN)
+        );
         assertThat(configurationProperties.get("spring.json.add.type.headers"))
                 .isIn(false, "false");
     }
