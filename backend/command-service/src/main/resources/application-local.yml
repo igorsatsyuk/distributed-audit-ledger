@@ -1,0 +1,21 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET_LOCAL:local-dev-jwt-secret-change-me-1234567890}
+    issuer: ${AUTH_JWT_ISSUER_LOCAL:dal-local}
+    expiration: ${AUTH_JWT_EXPIRATION_LOCAL:PT15M}
+  users:
+    - username: ${AUTH_ADMIN_USERNAME_LOCAL:admin}
+      password: ${AUTH_ADMIN_PASSWORD_LOCAL:admin123!}
+      roles: [ADMIN, AUDITOR, USER]
+    - username: ${AUTH_AUDITOR_USERNAME_LOCAL:auditor}
+      password: ${AUTH_AUDITOR_PASSWORD_LOCAL:auditor123!}
+      roles: [AUDITOR]
+    - username: ${AUTH_USER_USERNAME_LOCAL:user}
+      password: ${AUTH_USER_PASSWORD_LOCAL:user123!}
+      roles: [USER]
+

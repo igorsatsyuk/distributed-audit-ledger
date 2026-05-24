@@ -420,12 +420,12 @@ CREATE TABLE audit.events (
 - Token-based requests
 
 **Subtasks:**
-- [ ] #15.1 - Spring Security setup
-- [ ] #15.2 - JWT token generation и validation
-- [ ] #15.3 - Login endpoint
-- [ ] #15.4 - Role-based access control
-- [ ] #15.5 - Frontend authentication service
-- [ ] #15.6 - Protected routes в Angular
+- [x] #15.1 - Spring Security setup
+- [x] #15.2 - JWT token generation и validation
+- [x] #15.3 - Login endpoint
+- [x] #15.4 - Role-based access control
+- [x] #15.5 - Frontend authentication service
+- [x] #15.6 - Protected routes в Angular
 
 **Expected PR:** PR-15 (Authentication & Authorization)
 

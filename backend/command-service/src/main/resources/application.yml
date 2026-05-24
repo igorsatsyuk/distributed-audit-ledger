@@ -18,6 +18,22 @@ kafka:
     audit-events: user.login.events
     user-login-events: user.login.events
 
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET}
+    issuer: ${AUTH_JWT_ISSUER}
+    expiration: ${AUTH_JWT_EXPIRATION}
+  users:
+    - username: ${AUTH_ADMIN_USERNAME}
+      password: ${AUTH_ADMIN_PASSWORD}
+      roles: [ADMIN, AUDITOR, USER]
+    - username: ${AUTH_AUDITOR_USERNAME}
+      password: ${AUTH_AUDITOR_PASSWORD}
+      roles: [AUDITOR]
+    - username: ${AUTH_USER_USERNAME}
+      password: ${AUTH_USER_PASSWORD}
+      roles: [USER]
+
 management:
   endpoints:
     web:

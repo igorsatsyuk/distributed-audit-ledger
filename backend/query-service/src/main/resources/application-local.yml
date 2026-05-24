@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET_LOCAL:local-dev-jwt-secret-change-me-1234567890}
+    issuer: ${AUTH_JWT_ISSUER_LOCAL:dal-local}
+    expiration: ${AUTH_JWT_EXPIRATION_LOCAL:PT15M}

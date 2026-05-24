@@ -1,0 +1,6 @@
+auth:
+  jwt:
+    secret: test-command-service-secret-1234567890
+    issuer: distributed-audit-ledger-test
+    expiration: PT1H
+

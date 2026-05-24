@@ -3,6 +3,12 @@ package lt.satsyuk.distributed.audit.contracts;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import lt.satsyuk.distributed.audit.contracts.auth.AuthLoginRequest;
+import lt.satsyuk.distributed.audit.contracts.auth.AuthTokenResponse;
+import lt.satsyuk.distributed.audit.contracts.auth.JwtClaims;
+import lt.satsyuk.distributed.audit.contracts.auth.JwtService;
+import lt.satsyuk.distributed.audit.contracts.auth.JwtValidationException;
+import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import lt.satsyuk.distributed.audit.contracts.command.DataDeletedCommand;
 import lt.satsyuk.distributed.audit.contracts.command.EntityCreatedCommand;
 import lt.satsyuk.distributed.audit.contracts.command.EntityUpdatedCommand;
@@ -15,8 +21,10 @@ import lt.satsyuk.distributed.audit.event.EventType;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +69,30 @@ class ContractsDtoAndMapperFactoryTest {
         assertThat(createdCommand.getEntityData()).containsEntry("amount", 5);
         assertThat(updatedCommand.getChangedFields()).containsEntry("status", "PAID");
         assertThat(deletedCommand.getReason()).isEqualTo("retention");
+    }
+
+    @Test
+    void authBuildersPopulateAllFields() {
+        Instant expiresAt = Instant.parse("2026-05-22T11:15:30Z");
+
+        AuthLoginRequest loginRequest = AuthLoginRequest.builder()
+                .username("auditor")
+                .password("secret")
+                .build();
+
+        AuthTokenResponse tokenResponse = AuthTokenResponse.builder()
+                .accessToken("jwt-token")
+                .tokenType("Bearer")
+                .expiresAt(expiresAt)
+                .username("auditor")
+                .roles(Set.of(UserRole.AUDITOR))
+                .build();
+
+        assertThat(loginRequest.getUsername()).isEqualTo("auditor");
+        assertThat(loginRequest.getPassword()).isEqualTo("secret");
+        assertThat(tokenResponse.getTokenType()).isEqualTo("Bearer");
+        assertThat(tokenResponse.getExpiresAt()).isEqualTo(expiresAt);
+        assertThat(tokenResponse.getRoles()).containsExactly(UserRole.AUDITOR);
     }
 
     @Test
@@ -112,6 +144,35 @@ class ContractsDtoAndMapperFactoryTest {
         String json = mapper.writeValueAsString(payload);
 
         assertThat(json).isEqualTo("{\"a\":\"2026-05-22T00:00:00Z\",\"b\":2}");
+    }
+
+    @Test
+    void jwtServiceGeneratesAndValidatesToken() {
+        JwtService jwtService = new JwtService("test-secret-value-1234567890abcd", "dal-test", Duration.ofMinutes(15));
+        Instant issuedAt = Instant.parse("2026-05-22T10:00:00Z");
+
+        String token = jwtService.generateToken("auditor", Set.of(UserRole.AUDITOR, UserRole.ADMIN), issuedAt);
+        JwtClaims claims = jwtService.parseAndValidate(token, issuedAt.plusSeconds(60));
+
+        assertThat(claims.subject()).isEqualTo("auditor");
+        assertThat(claims.issuer()).isEqualTo("dal-test");
+        assertThat(claims.issuedAt()).isEqualTo(issuedAt);
+        assertThat(claims.expiresAt()).isEqualTo(issuedAt.plus(Duration.ofMinutes(15)));
+        assertThat(claims.roles()).containsExactlyInAnyOrder(UserRole.AUDITOR, UserRole.ADMIN);
+    }
+
+    @Test
+    void jwtServiceRejectsExpiredToken() {
+        JwtService jwtService = new JwtService("test-secret-value-1234567890abcd", "dal-test", Duration.ofMinutes(1));
+        Instant issuedAt = Instant.parse("2026-05-22T10:00:00Z");
+        Instant validationTime = issuedAt.plus(Duration.ofMinutes(2));
+
+        String token = jwtService.generateToken("user", Set.of(UserRole.USER), issuedAt);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                JwtValidationException.class,
+                () -> jwtService.parseAndValidate(token, validationTime)
+        );
     }
 }
 

@@ -1,4 +1,16 @@
 {
+  "/auth": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "warn"
+  },
+  "/commands": {
+    "target": "http://localhost:8081",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "warn"
+  },
   "/api": {
     "target": "http://localhost:8084",
     "secure": false,
