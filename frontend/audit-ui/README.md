@@ -1,6 +1,14 @@
-# Audit UI (Issue #11)
+# Audit UI
 
 Angular 17 standalone UI for Distributed Audit Ledger with live backend integration.
+
+## Current scope
+
+- Table view for audit logs with filters, URL/local storage state, and CSV export.
+- Timeline view grouped by day/hour for the current result set.
+- Drawer-based integrity inspection for selected events.
+- Unit tests for the dashboard, timeline grouping logic, and component interactions.
+- Minimum coverage requirement for new frontend work: **80%+**.
 
 ## Implemented in this step
 
@@ -35,3 +43,10 @@ Open `http://localhost:4200`.
 ```bash
 npm run test:headless
 ```
+
+For coverage reports:
+
+```bash
+npm run test:coverage
+```
+

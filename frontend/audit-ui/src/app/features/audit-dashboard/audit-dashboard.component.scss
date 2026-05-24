@@ -24,6 +24,19 @@ mat-card {
   margin-bottom: 0.5rem;
 }
 
+.view-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.view-switcher__button--active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-color: #1a73e8;
+}
+
 .filter-field {
   width: 100%;
 }
@@ -64,6 +77,10 @@ mat-card {
 
 .table-wrapper {
   overflow-x: auto;
+}
+
+.timeline-host {
+  margin-top: 0.5rem;
 }
 
 table {
@@ -214,3 +231,14 @@ pre {
     grid-column: span 1;
   }
 }
+
+@media (max-width: 640px) {
+  .view-switcher {
+    width: 100%;
+  }
+
+  .view-switcher button {
+    flex: 1 1 140px;
+  }
+}
+

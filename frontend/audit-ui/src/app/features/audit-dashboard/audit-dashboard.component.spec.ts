@@ -127,6 +127,37 @@ describe('AuditDashboardComponent', () => {
     expect(el.textContent).toContain('Export CSV');
   });
 
+  it('shows the table view by default and can switch to timeline view', async () => {
+    await init();
+
+    let el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('table')).toBeTruthy();
+    expect(el.querySelector('app-audit-timeline')).toBeFalsy();
+
+    component.setViewMode('timeline');
+    fixture.detectChanges();
+
+    el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-audit-timeline')).toBeTruthy();
+    expect(el.querySelector('table')).toBeFalsy();
+  });
+
+  it('opens details when a timeline event is selected', async () => {
+    await init();
+
+    component.setViewMode('timeline');
+    fixture.detectChanges();
+
+    const timelineButton = fixture.nativeElement.querySelector('[data-testid="timeline-event-1"]') as HTMLButtonElement;
+    expect(timelineButton).toBeTruthy();
+
+    timelineButton.click();
+    await fixture.whenStable();
+
+    expect(component.selectedAuditLog()).toEqual(MOCK_LOG);
+    expect(serviceSpy.checkIntegrity).toHaveBeenCalledWith(MOCK_LOG.id);
+  });
+
   it('calls getAuditLogs on init with default page size and offset 0', async () => {
     await init();
     expect(serviceSpy.getAuditLogs).toHaveBeenCalledWith(
