@@ -9,13 +9,13 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @Testcontainers(disabledWithoutDocker = true)
 @SuppressWarnings({"SqlNoDataSourceInspection", "SqlResolve"})
 class EventStoreKafkaToPostgresIntegrationTest {
@@ -102,11 +103,14 @@ class EventStoreKafkaToPostgresIntegrationTest {
         }
     }
 
-    @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    EventStoreKafkaToPostgresIntegrationTest(KafkaTemplate<String, String> kafkaTemplate,
+                                             ObjectMapper objectMapper) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     @Test
     void userLoginEventIsPersistedToPostgresFromKafkaTopic() throws Exception {

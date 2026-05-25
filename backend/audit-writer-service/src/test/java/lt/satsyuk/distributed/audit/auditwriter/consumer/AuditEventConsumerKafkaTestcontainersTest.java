@@ -14,7 +14,6 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -23,6 +22,7 @@ import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -66,6 +66,7 @@ import static org.mockito.Mockito.verify;
  * of the module test suite.
  */
 @Testcontainers(disabledWithoutDocker = true)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @SpringBootTest(
         classes = AuditWriterServiceApplication.class,
         properties = {
@@ -113,13 +114,17 @@ class AuditEventConsumerKafkaTestcontainersTest {
     @MockitoBean
     private BlockchainWriterService blockchainWriterService;
 
+    private final KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+
+    AuditEventConsumerKafkaTestcontainersTest(KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry) {
+        this.kafkaListenerEndpointRegistry = kafkaListenerEndpointRegistry;
+    }
+
     @BeforeEach
     void resetMock() {
         reset(blockchainWriterService);
     }
 
-    @Autowired
-    private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
     // -------------------------------------------------------------------------
     // Helpers

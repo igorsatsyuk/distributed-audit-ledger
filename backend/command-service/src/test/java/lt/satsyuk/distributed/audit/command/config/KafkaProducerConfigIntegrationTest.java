@@ -6,11 +6,11 @@ import lt.satsyuk.distributed.audit.event.AuditEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.Map;
@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * is wired successfully from the real application context.
  */
 @CommandServiceIntegrationTest
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
         "spring.kafka.properties.client.id=command-service-it",
@@ -33,17 +34,20 @@ class KafkaProducerConfigIntegrationTest {
     private static final String JSON_SERIALIZER_FQCN =
             "org.springframework.kafka.support.serializer.JsonSerializer";
 
-    @Autowired
-    private KafkaTemplate<String, AuditEvent> auditEventKafkaTemplate;
+    private final KafkaTemplate<String, AuditEvent> auditEventKafkaTemplate;
+    private final ProducerFactory<String, AuditEvent> auditEventProducerFactory;
+    private final AuditCommandPublisher auditCommandPublisher;
+    private final String embeddedKafkaBrokers;
 
-    @Autowired
-    private ProducerFactory<String, AuditEvent> auditEventProducerFactory;
-
-    @Autowired
-    private AuditCommandPublisher auditCommandPublisher;
-
-    @Value("${spring.embedded.kafka.brokers}")
-    private String embeddedKafkaBrokers;
+    KafkaProducerConfigIntegrationTest(KafkaTemplate<String, AuditEvent> auditEventKafkaTemplate,
+                                       ProducerFactory<String, AuditEvent> auditEventProducerFactory,
+                                       AuditCommandPublisher auditCommandPublisher,
+                                       @Value("${spring.embedded.kafka.brokers}") String embeddedKafkaBrokers) {
+        this.auditEventKafkaTemplate = auditEventKafkaTemplate;
+        this.auditEventProducerFactory = auditEventProducerFactory;
+        this.auditCommandPublisher = auditCommandPublisher;
+        this.embeddedKafkaBrokers = embeddedKafkaBrokers;
+    }
 
     @Test
     void auditEventKafkaTemplateBeanIsCreated() {
