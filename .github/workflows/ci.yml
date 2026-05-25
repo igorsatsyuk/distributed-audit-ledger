@@ -342,7 +342,7 @@ jobs:
 
       - name: Run SonarQube analysis (frontend)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
         with:
@@ -450,7 +450,7 @@ jobs:
 
       - name: Run SonarQube analysis (blockchain)
         if: steps.sonar-check.outputs.sonar_enabled == 'true'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
         with:
