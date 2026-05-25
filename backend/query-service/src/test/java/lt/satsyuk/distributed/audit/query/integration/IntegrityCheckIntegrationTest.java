@@ -7,11 +7,11 @@ import lt.satsyuk.distributed.audit.query.api.BlockchainIntegrityException;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -38,13 +38,13 @@ import static org.mockito.Mockito.when;
  * codes for the various blockchain response/error scenarios.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @Testcontainers
 class IntegrityCheckIntegrationTest {
 
     /** Valid 64-char hex hash used across multiple test cases. */
     private static final String HASH_64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    @Autowired
-    JwtService jwtService;
+    private final JwtService jwtService;
 
     @SuppressWarnings("resource")
     @Container
@@ -71,13 +71,17 @@ class IntegrityCheckIntegrationTest {
     @MockitoBean
     AuditLedgerBlockchainClient blockchainClient;
 
-    @Autowired
-    DatabaseClient databaseClient;
+    private final DatabaseClient databaseClient;
 
     @LocalServerPort
     int port;
 
     WebTestClient webTestClient;
+
+    IntegrityCheckIntegrationTest(JwtService jwtService, DatabaseClient databaseClient) {
+        this.jwtService = jwtService;
+        this.databaseClient = databaseClient;
+    }
 
     @BeforeEach
     void setUp() {
