@@ -5,11 +5,11 @@ import lt.satsyuk.distributed.audit.command.service.InvalidCredentialsException;
 import lt.satsyuk.distributed.audit.contracts.auth.AuthTokenResponse;
 import lt.satsyuk.distributed.audit.contracts.auth.UserRole;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -22,11 +22,15 @@ import static org.mockito.Mockito.when;
 
 @WebFluxTest(controllers = AuthController.class)
 @Import(GlobalExceptionHandler.class)
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @WithMockUser
 class AuthControllerWebFluxTest {
 
-    @Autowired
-    private WebTestClient webTestClient;
+    private final WebTestClient webTestClient;
+
+    AuthControllerWebFluxTest(WebTestClient webTestClient) {
+        this.webTestClient = webTestClient;
+    }
 
     @MockitoBean
     private AuthenticationService authenticationService;

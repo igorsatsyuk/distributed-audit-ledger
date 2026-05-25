@@ -17,7 +17,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -27,6 +26,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.annotation.Import;
 
@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @CommandServiceIntegrationTest
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}"
 })
@@ -44,11 +45,14 @@ class UserLoginCommandServiceKafkaIntegrationTest {
 
     private static final String TOPIC = "user.login.events";
 
-    @Autowired
-    private UserLoginCommandService userLoginCommandService;
+    private final UserLoginCommandService userLoginCommandService;
+    private final org.springframework.kafka.test.EmbeddedKafkaBroker embeddedKafkaBroker;
 
-    @Autowired
-    private org.springframework.kafka.test.EmbeddedKafkaBroker embeddedKafkaBroker;
+    UserLoginCommandServiceKafkaIntegrationTest(UserLoginCommandService userLoginCommandService,
+                                                org.springframework.kafka.test.EmbeddedKafkaBroker embeddedKafkaBroker) {
+        this.userLoginCommandService = userLoginCommandService;
+        this.embeddedKafkaBroker = embeddedKafkaBroker;
+    }
 
     private Consumer<String, String> consumer;
 

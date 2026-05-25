@@ -26,13 +26,7 @@ public class ReconciliationQuartzJob extends QuartzJobBean {
     private ReconciliationProperties reconciliationProperties;
 
     public ReconciliationQuartzJob() {
-    }
-
-    @Autowired
-    public ReconciliationQuartzJob(ReconciliationReportService reconciliationReportService,
-                                   ReconciliationProperties reconciliationProperties) {
-        this.reconciliationReportService = reconciliationReportService;
-        this.reconciliationProperties = reconciliationProperties;
+        // Required for Quartz instantiation paths that construct the job reflectively.
     }
 
     @Autowired
