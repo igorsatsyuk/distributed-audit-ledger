@@ -1,47 +1,47 @@
 # Event Hash Canonical Migration
 
-Этот runbook нужен для окружений, где в `audit.events` уже есть исторические строки,
-созданные до перехода на canonical JSON-сериализацию.
+This runbook is intended for environments where `audit.events` already contains
+historical rows that were created before the switch to canonical JSON serialization.
 
-## Почему это важно
+## Why this matters
 
-`event_hash` вычисляется как `SHA-256(payload_json)`. При смене правил сериализации
-(порядок полей, формат `Instant`) один и тот же логический event может дать другой hash.
-Без миграции historical rows проверка `DB event_hash == on-chain hash` будет расходиться.
+`event_hash` is calculated as `SHA-256(payload_json)`. If the serialization rules
+(field order, `Instant` format) change, the same logical event may produce a different hash.
+Without this migration, the `DB event_hash == on-chain hash` check will fail for historical rows.
 
-## Кого это касается
+## Who this applies to
 
-- **Новые окружения без данных**: миграция не требуется.
-- **Окружения с существующими данными**: выполните шаги ниже до включения строгой сверки.
+- **New environments with no data**: no migration is required.
+- **Environments with existing data**: complete the steps below before turning on strict verification.
 
-## План миграции
+## Migration plan
 
-1. **Остановить writers** (`event-store-service`, `audit-writer-service`), чтобы заморозить записи.
-2. **Сделать backup** таблицы `audit.events`.
-3. **Пересчитать canonical hash** для каждой строки по фактическому `payload` и обновить `event_hash`.
-4. **Синхронизировать с blockchain (`AuditLedger`)**:
-   - для строк, которые еще не были заякорены on-chain, выполнить backfill через `appendAuditRecord(canonicalHash, timestamp, eventType, sourceAddress)`:
-     * `canonicalHash` — SHA-256 из пересчитанного payload, переданный как `bytes32` (`0x` + 64 hex chars, либо те же 32 raw bytes при вызове через Web3j);
-     * `timestamp` — Unix epoch seconds из `audit.events.created_at`;
-     * `eventType` — имя типа события (e.g., `USER_LOGGED_IN`) из `audit.events.event_type`;
-     * `sourceAddress` — адрес writer'а (owner контракта AuditLedger);
-   - для строк, уже заякоренных legacy hash, зафиксировать стратегию: либо отдельная историческая зона без строгого `DB == chain`, либо пересоздание окружения/ledger с canonical hash;
-   - убедиться, что для целевого набора данных нет "только DB" записей без on-chain отражения.
-5. **Проверить консистентность**:
-   - нет `NULL` в `event_hash`;
-   - hash в lowercase hex, длина 64;
-   - выборочно проверить несколько событий end-to-end (DB -> blockchain).
-6. **Запустить сервисы обратно** и включать строгую сверку только после успешной проверки.
+1. **Stop the writers** (`event-store-service`, `audit-writer-service`) to prevent new writes.
+2. **Back up** the `audit.events` table.
+3. **Recalculate the canonical hash** for each row based on the actual `payload` and update `event_hash`.
+4. **Synchronize with the blockchain (`AuditLedger`)**:
+   - for rows that have not yet been anchored on-chain, backfill them via `appendAuditRecord(canonicalHash, timestamp, eventType, sourceAddress)`:
+     * `canonicalHash` — the SHA-256 of the recalculated payload, passed as `bytes32` (`0x` + 64 hex chars, or the same 32 raw bytes when calling through Web3j);
+     * `timestamp` — Unix epoch seconds from `audit.events.created_at`;
+     * `eventType` — the event type name (e.g. `USER_LOGGED_IN`) from `audit.events.event_type`;
+     * `sourceAddress` — the writer address (the owner of the `AuditLedger` contract);
+   - for rows already anchored with a legacy hash, define the strategy up front: either keep a separate historical zone without strict `DB == chain`, or recreate the environment/ledger with canonical hashes;
+   - make sure there are no "DB-only" records for the target dataset without an on-chain counterpart.
+5. **Verify consistency**:
+   - no `NULL` values in `event_hash`;
+   - hashes are stored as lowercase hex and are 64 characters long;
+   - spot-check several events end-to-end (DB -> blockchain).
+6. **Restart the services** and enable strict verification only after all checks pass.
 
-## Минимальные SQL-проверки
+## Minimal SQL checks
 
 ```sql
--- 1) Пустые hash (должно быть 0)
+-- 1) Empty hashes (should be 0)
 SELECT count(*) AS null_hashes
 FROM audit.events
 WHERE event_hash IS NULL;
 
--- 2) Невалидный формат (должно быть 0)
+-- 2) Invalid format (should be 0)
 SELECT count(*) AS invalid_format
 FROM audit.events
 WHERE event_hash IS NULL
@@ -49,8 +49,8 @@ WHERE event_hash IS NULL
    OR event_hash !~ '^[0-9a-f]{64}$';
 ```
 
-## Примечание по backfill
+## Backfill note
 
-Backfill должен использовать тот же canonical mapper, что и сервисы (`CanonicalObjectMapperFactory`).
-Это гарантирует одинаковый digest в `event-store-service` и `audit-writer-service`.
+The backfill must use the same canonical mapper as the services (`CanonicalObjectMapperFactory`).
+This guarantees that `event-store-service` and `audit-writer-service` produce identical digests.
 
