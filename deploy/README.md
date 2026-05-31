@@ -92,6 +92,7 @@ The schema is applied automatically from `init-db.sql` on first start.
 entity "audit.events" as AUDIT_EVENTS {
   * id : BIGSERIAL
   --
+  event_id : VARCHAR(36) UNIQUE
   aggregate_id : VARCHAR(128)
   event_type : VARCHAR(128)
   user_id : VARCHAR(255)
