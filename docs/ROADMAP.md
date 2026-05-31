@@ -99,16 +99,29 @@ contract AuditLedger {
 Create a multi-module Maven project for the backend services.
 
 **Structure:**
-```
-backend/
-├── pom.xml (parent)
-├── common/
-│   ├── event-model/
-│   └── shared-contracts/
-├── command-service/
-├── event-store-service/
-├── audit-writer-service/
-└── query-service/
+```plantuml
+@startuml
+top to bottom direction
+
+folder "backend/" as Root
+file "pom.xml (parent)" as Pom
+folder "common/" as Common
+folder "event-model/" as EventModel
+folder "shared-contracts/" as SharedContracts
+folder "command-service/" as Command
+folder "event-store-service/" as EventStore
+folder "audit-writer-service/" as AuditWriter
+folder "query-service/" as Query
+
+Root --> Pom
+Root --> Common
+Common --> EventModel
+Common --> SharedContracts
+Root --> Command
+Root --> EventStore
+Root --> AuditWriter
+Root --> Query
+@enduml
 ```
 
 **Subtasks:**
@@ -584,25 +597,45 @@ Prepare a polished demo scenario for interviews.
 
 ## Dependency Graph
 
-```
-#1 (Setup)
-├─ #2 (Docker Compose) ──┬─ #3 (Smart Contract) ─┬─ #7 (Audit Writer)
-│                        │                        └─ #9 (Integrity Check)
-│                        │
-├─ #4 (Maven setup) ─────┬─ #5 (Command Service) ─ #6 (Event Store)
-│                        │                          ├─ #8 (Query Service)
-│                        │                          └─ #7 (Audit Writer)
-│                        │
-│                        └─ #6 (Event Store) ───────┬─ #8 (Query Service)
-│                                                     └─ #9 (Integrity Check)
-│
-├─ #8 (Query Service) ─── #10 (Frontend UI) ─ #11 (API Integration)
-│                                              ├─ #16 (Advanced Filtering)
-│                                              └─ #17 (Timeline)
-│
-├─ #12 (Documentation)
-│
-└─ #13 (CI/CD) ──────── #14-20 (Phase 2)
+```plantuml
+@startuml
+top to bottom direction
+
+rectangle "#1 Setup" as I1
+rectangle "#2 Docker Compose" as I2
+rectangle "#3 Smart Contract" as I3
+rectangle "#4 Maven setup" as I4
+rectangle "#5 Command Service" as I5
+rectangle "#6 Event Store" as I6
+rectangle "#7 Audit Writer" as I7
+rectangle "#8 Query Service" as I8
+rectangle "#9 Integrity Check" as I9
+rectangle "#10 Frontend UI" as I10
+rectangle "#11 API Integration" as I11
+rectangle "#12 Documentation" as I12
+rectangle "#13 CI/CD" as I13
+rectangle "#16 Advanced Filtering" as I16
+rectangle "#17 Timeline" as I17
+rectangle "#14-20 Phase 2" as I1420
+
+I1 --> I2
+I1 --> I4
+I1 --> I12
+I1 --> I13
+I2 --> I3
+I3 --> I7
+I3 --> I9
+I4 --> I5
+I5 --> I6
+I6 --> I8
+I6 --> I7
+I6 --> I9
+I8 --> I10
+I10 --> I11
+I11 --> I16
+I11 --> I17
+I13 --> I1420
+@enduml
 ```
 
 ---

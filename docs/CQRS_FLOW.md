@@ -4,37 +4,42 @@ This document describes the runtime sequence from command ingestion through even
 
 ## End-to-End Sequence Diagram
 
-```text
-Client
-  |
-  | 1) POST /commands/user/login
-  v
-command-service (8081)
-  |- validates UserLoginCommand
-  |- builds UserLoggedInEvent:
-  |    eventId, eventType, occurredAt, sourceService, userId, ipAddress, userAgent
-  |- publishes to Kafka topic user.login.events
-  `- returns HTTP 202 with CommandResponse
+```plantuml
+@startuml
+autonumber
+actor Client
+participant "command-service (8081)" as CMD
+participant "Kafka user.login.events" as K
+participant "event-store-service (8082)" as ES
+participant "audit-writer-service (8083)" as AW
+database "PostgreSQL audit.events" as DB
+participant "AuditLedger.sol (Ganache)" as BC
+participant "query-service (8084)" as Q
 
-Kafka topic: user.login.events
-  |- consumer group: event-store-consumer -> event-store-service (8082)
-  `- consumer group: audit-writer-consumer -> audit-writer-service (8083)
+Client -> CMD : POST /commands/user/login
+note over CMD
+Validate command\nBuild UserLoggedInEvent\nReturn HTTP 202 CommandResponse
+end note
+CMD -> K : Publish UserLoggedInEvent
 
-[event-store-service]
-  |- computes canonical SHA-256 hash
-  |- resolves aggregate_id (for login: user:<userId>)
-  |- persists into audit.events
-  `- listener calls persist(...).block() to keep offset handling aligned with DB result
+par event-store-consumer
+  K -> ES : Consume event
+  note over ES
+  Compute canonical SHA-256 hash\naggregate_id = user:<userId>
+  end note
+  ES -> DB : Insert payload + event_hash
+else audit-writer-consumer
+  K -> AW : Consume event
+  note over AW : Compute canonical SHA-256 hash
+  AW -> BC : appendAuditRecord(hash, timestamp, type, source)
+  note over AW : DefaultErrorHandler retry/backoff + conditional DLT
+end
 
-[audit-writer-service]
-  |- computes canonical SHA-256 hash
-  |- calls AuditLedger.appendAuditRecord(...)
-  `- failures handled by DefaultErrorHandler (retry/backoff + conditional DLT)
-
-query-service (8084)
-  |- GET /api/audit-logs
-  |- GET /api/audit-logs/{id}
-  `- GET /api/audit-logs/{id}/integrity-check
+Client -> Q : GET /api/audit-logs or /integrity-check
+Q -> DB : Read event + hash
+Q -> BC : Verify hash existence
+Q --> Client : Audit data + integrity status
+@enduml
 ```
 
 ## Step-by-Step Flow

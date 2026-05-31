@@ -19,37 +19,29 @@ A distributed, event‑sourced audit platform built on CQRS, Event Sourcing, Rea
 
 ## 🏛 High‑Level Architecture
 
-```mermaid
-graph LR
-    Client["🌐 Client (Angular UI)"]
-    
-    Client -->|"POST /commands/user/login"| CmdService["📤 Command Service (8081)"]
-    
-    CmdService -->|"Kafka: user.login.events"| Kafka["🔄 Kafka"]
-    
-    Kafka -->|Consumer: event-store-consumer| EventStore["📊 Event Store Service (8082)<br/>- Canonical hash<br/>- PostgreSQL audit.events<br/>- Flyway migrations"]
-    Kafka -->|Consumer: audit-writer-consumer| AuditWriter["⛓️ Audit Writer Service (8083)<br/>- Canonical hash<br/>- Web3j AuditLedger<br/>- DLT: user.login.events.dlt"]
-    
-    EventStore -->|Persisted events| Postgres["🐘 PostgreSQL<br/>audit.events"]
-    Blockchain["🔐 Smart Contract<br/>AuditLedger (Ganache)"]
-    AuditWriter -->|appendAuditRecord| Blockchain
-    
-    QueryService["📖 Query Service (8084)<br/>- GET /api/audit-logs<br/>- GET /api/audit-logs/{id}<br/>- GET /api/audit-logs/{id}/integrity-check"]
-    
-    AuditWriter -.->|"Read for integrity"| Blockchain
-    Postgres -->|Read Models| QueryService
-    Blockchain -->|Hash Verification| QueryService
-    
-    Client -->|"GET /api/audit-logs"| QueryService
-    
-    style Client fill:#e1f5ff
-    style CmdService fill:#fff3e0
-    style EventStore fill:#f3e5f5
-    style AuditWriter fill:#fce4ec
-    style QueryService fill:#e8f5e9
-    style Blockchain fill:#ffe0b2
-    style Postgres fill:#e3f2fd
-    style Kafka fill:#f0f4c3
+```plantuml
+@startuml
+left to right direction
+
+rectangle "Client" as Client
+rectangle "command-service\n8081" as CommandService
+queue "Kafka\ntopic user.login.events" as Kafka
+rectangle "event-store-service\n8082" as EventStore
+rectangle "audit-writer-service\n8083" as AuditWriter
+database "PostgreSQL\naudit.events" as Postgres
+rectangle "Ganache\nAuditLedger" as Blockchain
+rectangle "query-service\n8084" as QueryService
+
+Client --> CommandService : POST /commands/user/login
+CommandService --> Kafka : publish event
+Kafka --> EventStore : event-store-consumer
+Kafka --> AuditWriter : audit-writer-consumer
+EventStore --> Postgres : persist payload and event_hash
+AuditWriter --> Blockchain : appendAuditRecord
+Client --> QueryService : GET /api/audit-logs
+Postgres --> QueryService : read models
+Blockchain --> QueryService : integrity verification
+@enduml
 ```
 
 Full architecture details are available in [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) and [**docs/CQRS_FLOW.md**](docs/CQRS_FLOW.md).

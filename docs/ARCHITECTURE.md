@@ -4,46 +4,31 @@ This document describes the **Distributed Audit Ledger** system architecture usi
 
 ## System Overview Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Client Applications                             │
-│                     (Angular UI / REST API)                          │
-└──────────────┬──────────────────────────────────────────────┬────────┘
-               │                                              │
-         WRITE SIDE                                    READ SIDE
-               │                                              │
-      ┌────────▼────────┐                           ┌────────▼───────┐
-      │ command-service │                           │  query-service │
-      │    (PORT 8081)  │                           │   (PORT 8084)  │
-      │   WebFlux API   │                           │   WebFlux API  │
-      └────────┬────────┘                           │                │
-               │                                    │ ┌─────────────┐│
-               │    Kafka Message Flow              │ │  Read Views ││
-               │                                    │ │(PostgreSQL) ││
-               │    ┌──────────────────┐            │ └─────────────┘│
-               │    ▼                  ▼            │                │
-         ┌─────────────┐        ┌──────────────┐   │ /api/audit-logs│
-         │   Event     │        │   Audit      │   │ /api/audit-logs│
-         │   Store     │        │   Writer     │   │ /{id}/integrity-check│
-         │  Service    │        │  Service     │   └────────────────┘
-         │ (PORT 8082) │        │ (PORT 8083)  │
-         │ WebFlux +   │        │ Web3j Client │
-         │  R2DBC      │        │ + Ganache    │
-         └──────┬──────┘        └──────┬───────┘
-                │       user.login.events topic  │
-                │                      │
-                │ Persists            │ Anchors
-                │ Event Hash          │ Hash
-                │                      │
-         ┌──────▼──────────┐   ┌──────▼──────────┐
-         │  PostgreSQL     │   │ Ganache RPC     │
-         │  audit.events   │   │ AuditLedger.sol │
-         │  ├── id         │   │ (Blockchain)    │
-         │  ├── event_id   │   │                 │
-         │  ├── payload    │   │ ┌─────────────┐ │
-         │  ├── event_hash │   │ │Record Store │ │
-         │  └── created_at │   │ └─────────────┘ │
-         └─────────────────┘   └─────────────────┘
+```plantuml
+@startuml
+left to right direction
+
+rectangle "Client Applications" as Client
+rectangle "command-service\n8081" as CommandService
+queue "Kafka\ntopic user.login.events" as Kafka
+rectangle "event-store-service\n8082" as EventStore
+rectangle "audit-writer-service\n8083" as AuditWriter
+database "PostgreSQL\naudit.events" as Postgres
+rectangle "AuditLedger on Ganache" as Blockchain
+rectangle "query-service\n8084" as QueryService
+rectangle "GET audit logs\nand integrity-check" as ReadApi
+
+Client --> CommandService : POST /commands/user/login
+CommandService --> Kafka : publish event
+Kafka --> EventStore : event-store-consumer
+Kafka --> AuditWriter : audit-writer-consumer
+EventStore --> Postgres : persist canonical event_hash
+AuditWriter --> Blockchain : anchor hash
+Client --> QueryService : GET audit APIs
+Postgres --> QueryService : read models
+Blockchain --> QueryService : verify hash
+QueryService --> ReadApi
+@enduml
 ```
 
 ## Core Pattern
@@ -99,24 +84,25 @@ The platform implements a **CQRS + Event Sourcing** architecture with blockchain
 
 ### Event Topic
 
-```
-Topic: user.login.events
-├── Partition Key: event.eventId (stable partition mapping per event record)
-│   └─ Note: this does not provide per-user ordering across multiple events
-├── Schema: UserLoggedInEvent (shared from event-model)
-├── Consumers:
-│   ├── event-store-service (group: event-store-consumer)
-│   │   └─ Writes to audit.events with computed event_hash
-│   │
-│   └── audit-writer-service (group: audit-writer-consumer)
-│       ├─ Computes SHA-256 hash (using CanonicalObjectMapperFactory)
-│       ├─ Writes to blockchain via AuditLedger.appendAuditRecord()
-│       ├─ Retries via DefaultErrorHandler backoff
-│       └─ DLT only for recoverable/terminal failures
-└── DLT: user.login.events.dlt
-    - Not all failures go to DLT:
-      - BlockchainNotConfiguredException -> rethrown, offset remains uncommitted
-      - ReceiptTimeoutException -> rethrown, offset remains uncommitted
+```plantuml
+@startuml
+top to bottom direction
+
+queue "user.login.events" as Topic
+rectangle "event-store-service\nconsumer" as EventStoreConsumer
+rectangle "audit-writer-service\nconsumer" as AuditWriterConsumer
+database "PostgreSQL audit.events" as Db
+rectangle "AuditLedger" as Contract
+queue "user.login.events.dlt" as Dlt
+rectangle "Rethrow\n(offset uncommitted)" as Rethrow
+
+Topic --> EventStoreConsumer
+Topic --> AuditWriterConsumer
+EventStoreConsumer --> Db : write payload and event_hash
+AuditWriterConsumer --> Contract : appendAuditRecord
+AuditWriterConsumer --> Dlt : recoverable or terminal failures
+AuditWriterConsumer --> Rethrow : BlockchainNotConfiguredException\nor ReceiptTimeoutException
+@enduml
 ```
 
 ### Database Schema
@@ -194,18 +180,23 @@ function isHashExists(bytes32 _hash) public view returns (bool) {
 
 All backend services are **reactive-first** with Spring WebFlux + Project Reactor, with controlled blocking in Kafka listeners where offset semantics require completion guarantees:
 
-```
-Client Request
-    ▼
-WebFlux Controller (non-blocking)
-    ▼
-Service Layer (Mono<T> / Flux<T>)
-    ▼
-R2DBC Repository (async DB queries)
-    ▼
-Connection Pool (reactive driver)
-    ▼
-PostgreSQL
+```plantuml
+@startuml
+top to bottom direction
+
+rectangle "Client Request" as A
+rectangle "WebFlux Controller\nnon-blocking" as B
+rectangle "Service Layer\nMono/Flux" as C
+rectangle "R2DBC Repository\nasync queries" as D
+rectangle "Reactive Connection Pool" as E
+database "PostgreSQL" as F
+
+A --> B
+B --> C
+C --> D
+D --> E
+E --> F
+@enduml
 ```
 
 - **R2DBC** (Reactive Relational Database Connectivity) replaces JPA
@@ -235,4 +226,3 @@ PostgreSQL
 5. **Reactive Stack**: WebFlux + R2DBC minimize thread context switches and connection pool pressure
 6. **Canonical JSON**: Deterministic serialization (sorted fields) ensures DB and blockchain hashes match
 7. **Dead-Letter Topic**: DLT is used for recoverable/terminal errors; configuration/receipt-timeout failures are rethrown to keep source offsets uncommitted
-
