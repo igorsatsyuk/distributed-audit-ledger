@@ -131,29 +131,40 @@ Invoke-WebRequest http://localhost:8545 -Method Post -ContentType "application/j
 
 ## Project Structure
 
-```text
-backend/
-|- common/
-|  |- event-model/
-|  `- shared-contracts/
-|- command-service/
-|- event-store-service/
-|- audit-writer-service/
-`- query-service/
+```plantuml
+@startuml
+top to bottom direction
 
-blockchain/
-|- contracts/
-|- scripts/
-`- test/
+folder "distributed-audit-ledger/" as Repo {
+  folder "backend/" as Backend {
+    folder "common/" as Common {
+      folder "event-model/" as EventModel
+      folder "shared-contracts/" as SharedContracts
+    }
+    folder "command-service/" as Command
+    folder "event-store-service/" as EventStore
+    folder "audit-writer-service/" as AuditWriter
+    folder "query-service/" as Query
+  }
 
-deploy/
-|- docker-compose.yml
-`- init-db.sql
+  folder "blockchain/" as Blockchain {
+    folder "contracts/" as Contracts
+    folder "scripts/" as Scripts
+    folder "test/" as Tests
+  }
 
-docs/
-|- ARCHITECTURE.md
-|- CQRS_FLOW.md
-`- DEPLOYMENT.md
+  folder "deploy/" as Deploy {
+    file "docker-compose.yml" as Compose
+    file "init-db.sql" as InitDb
+  }
+
+  folder "docs/" as Docs {
+    file "ARCHITECTURE.md" as Arch
+    file "CQRS_FLOW.md" as Cqrs
+    file "DEPLOYMENT.md" as Deployment
+  }
+}
+@enduml
 ```
 
 ---
@@ -320,4 +331,3 @@ docker compose -f <repo-root>\deploy\docker-compose.yml logs ganache
 - [ ] Tests added or updated for behavior changes.
 - [ ] `mvn verify` (backend) and `npm test` (blockchain) pass locally.
 - [ ] Docs updated when architecture/workflow changed.
-

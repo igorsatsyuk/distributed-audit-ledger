@@ -80,28 +80,29 @@ The diagram below shows the **target integration flow** for upcoming backend iss
 (`#5` and beyond). In this PR (`#4`) only service skeletons and shared modules are
 bootstrapped.
 
-```
-Client
-  │
-  ▼  command API (planned)
-command-service (8081)
-  │  publishes UserLoggedInEvent
-  ▼
-Kafka topic: user.login.events
-  │                  │
-  ▼                  ▼
-event-store     audit-writer
-  -service        -service
-  (8082)          (8083)
-  │  persists       │  appendAuditRecord()
-  ▼  to Postgres    ▼
-audit.events     Ganache
-  │              blockchain
-  ▼
-query-service (8084)
-  │  query API (planned)
-  ▼
-Angular UI
+```plantuml
+@startuml
+top to bottom direction
+
+rectangle "Client / Angular UI" as Client
+rectangle "command-service (8081)" as Cmd
+queue "Kafka: user.login.events" as Kafka
+rectangle "event-store-service (8082)" as ES
+rectangle "audit-writer-service (8083)" as AW
+database "PostgreSQL audit.events" as DB
+rectangle "Ganache / AuditLedger.sol" as BC
+rectangle "query-service (8084)" as Q
+
+Client --> Cmd : command API
+Cmd --> Kafka : UserLoggedInEvent
+Kafka --> ES
+Kafka --> AW
+ES --> DB : persist
+AW --> BC : appendAuditRecord
+DB --> Q
+BC --> Q
+Q --> Client : query API
+@enduml
 ```
 
 ## Issue tracker

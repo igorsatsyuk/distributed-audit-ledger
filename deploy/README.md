@@ -87,15 +87,20 @@ curl -s -X POST http://localhost:8545 \
 
 The schema is applied automatically from `init-db.sql` on first start.
 
-```
-audit.events
-├── id           BIGSERIAL PK
-├── aggregate_id VARCHAR(128)
-├── event_type   VARCHAR(128)
-├── user_id      VARCHAR(255)
-├── payload      JSONB
-├── event_hash   VARCHAR(64)
-└── created_at   TIMESTAMP
+```plantuml
+@startuml
+entity "audit.events" as AUDIT_EVENTS {
+  * id : BIGSERIAL
+  --
+  event_id : VARCHAR(36) UNIQUE
+  aggregate_id : VARCHAR(128)
+  event_type : VARCHAR(128)
+  user_id : VARCHAR(255)
+  payload : JSONB
+  event_hash : VARCHAR(64)
+  created_at : TIMESTAMP
+}
+@enduml
 ```
 
 ## Environment Variables
