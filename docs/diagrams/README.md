@@ -12,7 +12,9 @@ pwsh docs/diagrams/generate_diagrams.ps1
 
 By default, the script looks for PlantUML at `tools/plantuml/plantuml.jar` relative to the repository root. Download `plantuml.jar` there, or pass a custom jar path with `-PlantUmlJar`.
 
-Fallback generation through PlantUML Server:
+Explicit public PlantUML Server generation:
+
+This mode sends the full `.puml` diagram source to the configured PlantUML server.
 
 ```pwsh
 pwsh docs/diagrams/generate_diagrams.ps1 -UseServer
