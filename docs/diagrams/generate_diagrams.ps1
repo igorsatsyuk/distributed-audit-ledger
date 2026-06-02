@@ -1,11 +1,17 @@
 param(
-    [string]$PlantUmlJar = ".\tools\plantuml\plantuml.jar",
+    [string]$PlantUmlJar,
     [string]$PlantUmlServer = "https://www.plantuml.com/plantuml",
     [switch]$UseServer
 )
 
 $ErrorActionPreference = "Stop"
 $DiagramDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = Resolve-Path (Join-Path $DiagramDir "..\..")
+
+if (-not $PlantUmlJar) {
+    $PlantUmlJar = Join-Path $RepoRoot "tools/plantuml/plantuml.jar"
+}
+
 $PumlFiles = Get-ChildItem -Path $DiagramDir -Filter "*.puml" | Sort-Object Name
 
 function Encode-PlantUmlText {

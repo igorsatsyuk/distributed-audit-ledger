@@ -7,13 +7,15 @@ This directory stores source PlantUML files and generated PNG images used by the
 Preferred local generation:
 
 ```pwsh
-.\docs\diagrams\generate_diagrams.ps1 -PlantUmlJar .\tools\plantuml\plantuml.jar
+pwsh docs/diagrams/generate_diagrams.ps1
 ```
+
+By default, the script looks for PlantUML at `tools/plantuml/plantuml.jar` relative to the repository root. Download `plantuml.jar` there, or pass a custom jar path with `-PlantUmlJar`.
 
 Fallback generation through PlantUML Server:
 
 ```pwsh
-.\docs\diagrams\generate_diagrams.ps1 -UseServer
+pwsh docs/diagrams/generate_diagrams.ps1 -UseServer
 ```
 
 Keep both the `.puml` source and the generated `.png` image in version control so GitHub renders the documentation without external services.
