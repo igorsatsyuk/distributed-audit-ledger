@@ -101,7 +101,7 @@ Create a multi-module Maven project for the backend services.
 **Structure:**
 ![Maven project structure](./diagrams/maven-project-structure.png)
 
-Source: `docs/diagrams/maven-project-structure.puml`
+Source: `diagrams/maven-project-structure.puml`
 
 **Subtasks:**
 - [x] #4.1 - Create the parent `pom.xml` with shared dependencies
@@ -578,7 +578,7 @@ Prepare a polished demo scenario for interviews.
 
 ![Roadmap dependency graph](./diagrams/roadmap-dependency-graph.png)
 
-Source: `docs/diagrams/roadmap-dependency-graph.puml`
+Source: `diagrams/roadmap-dependency-graph.puml`
 
 ---
 
