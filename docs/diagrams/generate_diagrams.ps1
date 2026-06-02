@@ -46,6 +46,10 @@ function Encode-PlantUmlText {
 }
 
 if (-not $UseServer -and (Test-Path $PlantUmlJar)) {
+    if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+        throw "Java is required for local PlantUML generation. Install Java and ensure 'java' is available on PATH, or explicitly use -UseServer."
+    }
+
     Write-Host "Generating diagrams with local PlantUML jar: $PlantUmlJar"
     & java -jar $PlantUmlJar -tpng $PumlFiles.FullName
     exit $LASTEXITCODE
