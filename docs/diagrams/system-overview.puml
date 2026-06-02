@@ -1,0 +1,24 @@
+@startuml
+left to right direction
+
+rectangle "Client Applications" as Client
+rectangle "command-service\n8081" as CommandService
+queue "Kafka\ntopic user.login.events" as Kafka
+rectangle "event-store-service\n8082" as EventStore
+rectangle "audit-writer-service\n8083" as AuditWriter
+database "PostgreSQL\naudit.events" as Postgres
+rectangle "AuditLedger on Ganache" as Blockchain
+rectangle "query-service\n8084" as QueryService
+rectangle "GET audit logs\nand integrity-check" as ReadApi
+
+Client --> CommandService : POST /commands/user/login
+CommandService --> Kafka : publish event
+Kafka --> EventStore : event-store-consumer
+Kafka --> AuditWriter : audit-writer-consumer
+EventStore --> Postgres : persist canonical event_hash
+AuditWriter --> Blockchain : anchor hash
+Client --> QueryService : GET audit APIs
+Postgres --> QueryService : read models
+Blockchain --> QueryService : verify hash
+QueryService --> ReadApi
+@enduml
