@@ -1,0 +1,18 @@
+@startuml
+top to bottom direction
+
+queue "user.login.events" as Topic
+rectangle "event-store-service\nconsumer" as EventStoreConsumer
+rectangle "audit-writer-service\nconsumer" as AuditWriterConsumer
+database "PostgreSQL audit.events" as Db
+rectangle "AuditLedger" as Contract
+queue "user.login.events.dlt" as Dlt
+rectangle "Rethrow\n(offset uncommitted)" as Rethrow
+
+Topic --> EventStoreConsumer
+Topic --> AuditWriterConsumer
+EventStoreConsumer --> Db : write payload and event_hash
+AuditWriterConsumer --> Contract : appendAuditRecord
+AuditWriterConsumer --> Dlt : recoverable or terminal failures
+AuditWriterConsumer --> Rethrow : BlockchainNotConfiguredException\nor ReceiptTimeoutException
+@enduml

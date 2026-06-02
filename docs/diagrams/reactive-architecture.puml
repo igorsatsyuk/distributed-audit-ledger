@@ -1,0 +1,16 @@
+@startuml
+top to bottom direction
+
+rectangle "Client Request" as A
+rectangle "WebFlux Controller\nnon-blocking" as B
+rectangle "Service Layer\nMono/Flux" as C
+rectangle "R2DBC Repository\nasync queries" as D
+rectangle "Reactive Connection Pool" as E
+database "PostgreSQL" as F
+
+A --> B
+B --> C
+C --> D
+D --> E
+E --> F
+@enduml

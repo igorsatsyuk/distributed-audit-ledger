@@ -4,43 +4,9 @@ This document describes the runtime sequence from command ingestion through even
 
 ## End-to-End Sequence Diagram
 
-```plantuml
-@startuml
-autonumber
-actor Client
-participant "command-service (8081)" as CMD
-participant "Kafka user.login.events" as K
-participant "event-store-service (8082)" as ES
-participant "audit-writer-service (8083)" as AW
-database "PostgreSQL audit.events" as DB
-participant "AuditLedger.sol (Ganache)" as BC
-participant "query-service (8084)" as Q
+![CQRS runtime sequence](./diagrams/cqrs-runtime-sequence.png)
 
-Client -> CMD : POST /commands/user/login
-note over CMD
-Validate command\nBuild UserLoggedInEvent\nReturn HTTP 202 CommandResponse
-end note
-CMD -> K : Publish UserLoggedInEvent
-
-par event-store-consumer
-  K -> ES : Consume event
-  note over ES
-  Compute canonical SHA-256 hash\naggregate_id = user:<userId>
-  end note
-  ES -> DB : Insert payload + event_hash
-else audit-writer-consumer
-  K -> AW : Consume event
-  note over AW : Compute canonical SHA-256 hash
-  AW -> BC : appendAuditRecord(hash, timestamp, type, source)
-  note over AW : DefaultErrorHandler retry/backoff + conditional DLT
-end
-
-Client -> Q : GET /api/audit-logs or /integrity-check
-Q -> DB : Read event + hash
-Q -> BC : Verify hash existence
-Q --> Client : Audit data + integrity status
-@enduml
-```
+Source: `diagrams/cqrs-runtime-sequence.puml`
 
 ## Step-by-Step Flow
 

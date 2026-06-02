@@ -131,41 +131,9 @@ Invoke-WebRequest http://localhost:8545 -Method Post -ContentType "application/j
 
 ## Project Structure
 
-```plantuml
-@startuml
-top to bottom direction
+![Project structure](docs/diagrams/project-structure.png)
 
-folder "distributed-audit-ledger/" as Repo {
-  folder "backend/" as Backend {
-    folder "common/" as Common {
-      folder "event-model/" as EventModel
-      folder "shared-contracts/" as SharedContracts
-    }
-    folder "command-service/" as Command
-    folder "event-store-service/" as EventStore
-    folder "audit-writer-service/" as AuditWriter
-    folder "query-service/" as Query
-  }
-
-  folder "blockchain/" as Blockchain {
-    folder "contracts/" as Contracts
-    folder "scripts/" as Scripts
-    folder "test/" as Tests
-  }
-
-  folder "deploy/" as Deploy {
-    file "docker-compose.yml" as Compose
-    file "init-db.sql" as InitDb
-  }
-
-  folder "docs/" as Docs {
-    file "ARCHITECTURE.md" as Arch
-    file "CQRS_FLOW.md" as Cqrs
-    file "DEPLOYMENT.md" as Deployment
-  }
-}
-@enduml
-```
+Source: `docs/diagrams/project-structure.puml`
 
 ---
 

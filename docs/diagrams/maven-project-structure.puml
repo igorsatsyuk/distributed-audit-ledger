@@ -1,0 +1,22 @@
+@startuml
+top to bottom direction
+
+folder "backend/" as Root
+file "pom.xml (parent)" as Pom
+folder "common/" as Common
+folder "event-model/" as EventModel
+folder "shared-contracts/" as SharedContracts
+folder "command-service/" as Command
+folder "event-store-service/" as EventStore
+folder "audit-writer-service/" as AuditWriter
+folder "query-service/" as Query
+
+Root --> Pom
+Root --> Common
+Common --> EventModel
+Common --> SharedContracts
+Root --> Command
+Root --> EventStore
+Root --> AuditWriter
+Root --> Query
+@enduml

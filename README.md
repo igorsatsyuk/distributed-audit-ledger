@@ -19,30 +19,9 @@ A distributed, event‑sourced audit platform built on CQRS, Event Sourcing, Rea
 
 ## 🏛 High‑Level Architecture
 
-```plantuml
-@startuml
-left to right direction
+![High-level architecture](docs/diagrams/high-level-architecture.png)
 
-rectangle "Client" as Client
-rectangle "command-service\n8081" as CommandService
-queue "Kafka\ntopic user.login.events" as Kafka
-rectangle "event-store-service\n8082" as EventStore
-rectangle "audit-writer-service\n8083" as AuditWriter
-database "PostgreSQL\naudit.events" as Postgres
-rectangle "Ganache\nAuditLedger" as Blockchain
-rectangle "query-service\n8084" as QueryService
-
-Client --> CommandService : POST /commands/user/login
-CommandService --> Kafka : publish event
-Kafka --> EventStore : event-store-consumer
-Kafka --> AuditWriter : audit-writer-consumer
-EventStore --> Postgres : persist payload and event_hash
-AuditWriter --> Blockchain : appendAuditRecord
-Client --> QueryService : GET /api/audit-logs
-Postgres --> QueryService : read models
-Blockchain --> QueryService : integrity verification
-@enduml
-```
+Source: `docs/diagrams/high-level-architecture.puml`
 
 Full architecture details are available in [**docs/ARCHITECTURE.md**](docs/ARCHITECTURE.md) and [**docs/CQRS_FLOW.md**](docs/CQRS_FLOW.md).
 
