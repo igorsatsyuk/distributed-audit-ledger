@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $DiagramDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot = Resolve-Path (Join-Path $DiagramDir "..\..")
+$RepoRoot = Resolve-Path (Join-Path (Join-Path $DiagramDir "..") "..")
 
 if (-not $PlantUmlJar) {
     $PlantUmlJar = Join-Path $RepoRoot "tools/plantuml/plantuml.jar"
