@@ -52,7 +52,7 @@ if (-not $UseServer -and (Test-Path $PlantUmlJar)) {
 }
 
 if (-not $UseServer) {
-    Write-Host "Local PlantUML jar not found at $PlantUmlJar; falling back to PlantUML Server."
+    throw "Local PlantUML jar not found at $PlantUmlJar. Download plantuml.jar there, pass -PlantUmlJar, or explicitly use -UseServer."
 }
 
 foreach ($file in $PumlFiles) {
