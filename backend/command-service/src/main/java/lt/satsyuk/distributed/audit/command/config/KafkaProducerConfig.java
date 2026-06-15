@@ -68,18 +68,13 @@ public class KafkaProducerConfig {
             if (propertyName.startsWith("spring.kafka.properties.")) {
                 String kafkaKey = propertyName.substring("spring.kafka.properties.".length());
                 putIfPresent(props, kafkaKey, environment.getProperty(propertyName));
-                continue;
+            } else if (propertyName.startsWith("spring.kafka.producer.")) {
+                String producerKey = propertyName.substring("spring.kafka.producer.".length());
+                String kafkaKey = producerKey.startsWith("properties.")
+                        ? producerKey.substring("properties.".length())
+                        : producerKey.replace('-', '.');
+                putIfPresent(props, kafkaKey, environment.getProperty(propertyName));
             }
-
-            if (!propertyName.startsWith("spring.kafka.producer.")) {
-                continue;
-            }
-
-            String producerKey = propertyName.substring("spring.kafka.producer.".length());
-            String kafkaKey = producerKey.startsWith("properties.")
-                    ? producerKey.substring("properties.".length())
-                    : producerKey.replace('-', '.');
-            putIfPresent(props, kafkaKey, environment.getProperty(propertyName));
         }
     }
 
