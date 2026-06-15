@@ -44,6 +44,7 @@ class IntegrityCheckIntegrationTest {
 
     /** Valid 64-char hex hash used across multiple test cases. */
     private static final String HASH_64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static final Instant FIXED_ISSUED_AT = Instant.parse("2099-05-15T10:15:30Z");
     private final JwtService jwtService;
 
     @SuppressWarnings("resource")
@@ -321,7 +322,7 @@ class IntegrityCheckIntegrationTest {
         return "Bearer " + jwtService.generateToken(
                 "integration-user",
                 Set.of(roles),
-                Instant.now()
+                FIXED_ISSUED_AT
         );
     }
 }

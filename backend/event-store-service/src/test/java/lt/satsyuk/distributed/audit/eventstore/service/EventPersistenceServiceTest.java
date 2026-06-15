@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,7 +73,7 @@ class EventPersistenceServiceTest {
         assertEquals(64, saved.getEventHash().length());
         assertEquals("661fa908d63fb896bf2f5b8aca9b0db207a73e99d04af2216005bdb98237607b", saved.getEventHash());
         assertNotNull(saved.getCreatedAt());
-        assertEquals(LocalDateTime.of(2026, 5, 15, 10, 15, 30), saved.getCreatedAt());
+        assertEquals(LocalDateTime.of(2026, Month.MAY, 15, 10, 15, 30), saved.getCreatedAt());
 
         ArgumentCaptor<StoredAuditEvent> captor = ArgumentCaptor.forClass(StoredAuditEvent.class);
         verify(repository).save(captor.capture());

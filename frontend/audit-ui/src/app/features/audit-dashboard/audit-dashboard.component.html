@@ -98,8 +98,10 @@
             <mat-label>Payload search</mat-label>
             <input
               matInput
+              id="audit-payload-search"
               [formControl]="searchControl"
               placeholder="Search event payload text"
+              aria-label="Payload search"
               (keyup.enter)="applyFilters()"
             />
             <mat-icon matSuffix aria-hidden="true">search</mat-icon>
@@ -107,19 +109,33 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Event type</mat-label>
-            <input matInput [formControl]="eventTypeControl" placeholder="USER_LOGGED_IN" (keyup.enter)="applyFilters()" />
+            <input
+              matInput
+              id="audit-event-type"
+              [formControl]="eventTypeControl"
+              placeholder="USER_LOGGED_IN"
+              aria-label="Event type"
+              (keyup.enter)="applyFilters()"
+            />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>User ID</mat-label>
-            <input matInput [formControl]="userIdControl" placeholder="user1" (keyup.enter)="applyFilters()" />
+            <input
+              matInput
+              id="audit-user-id"
+              [formControl]="userIdControl"
+              placeholder="user1"
+              aria-label="User ID"
+              (keyup.enter)="applyFilters()"
+            />
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="filter-field filter-field--wide">
             <mat-label>Date range</mat-label>
             <mat-date-range-input [formGroup]="dateRangeForm" [rangePicker]="rangePicker">
-              <input matStartDate formControlName="from" placeholder="From date" />
-              <input matEndDate formControlName="to" placeholder="To date" />
+              <input matStartDate id="audit-from-date" formControlName="from" placeholder="From date" aria-label="From date" />
+              <input matEndDate id="audit-to-date" formControlName="to" placeholder="To date" aria-label="To date" />
             </mat-date-range-input>
             <mat-datepicker-toggle matIconSuffix [for]="rangePicker"></mat-datepicker-toggle>
             <mat-date-range-picker #rangePicker></mat-date-range-picker>
