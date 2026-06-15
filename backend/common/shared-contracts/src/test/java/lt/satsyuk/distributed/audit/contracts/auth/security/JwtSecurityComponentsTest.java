@@ -18,6 +18,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class JwtSecurityComponentsTest {
+    private static final Instant FIXED_ISSUED_AT = Instant.parse("2099-05-15T10:15:30Z");
 
     @Test
     void bearerTokenConverterExtractsTokenFromAuthorizationHeader() {
@@ -52,7 +53,7 @@ class JwtSecurityComponentsTest {
     @Test
     void jwtAuthenticationManagerMapsRolesToGrantedAuthorities() {
         JwtService jwtService = new JwtService("shared-security-test-secret-123456", "dal-test", Duration.ofMinutes(30));
-        String token = jwtService.generateToken("auditor", Set.of(UserRole.AUDITOR, UserRole.ADMIN), Instant.now());
+        String token = jwtService.generateToken("auditor", Set.of(UserRole.AUDITOR, UserRole.ADMIN), FIXED_ISSUED_AT);
 
         JwtTokenReactiveAuthenticationManager authenticationManager =
                 new JwtTokenReactiveAuthenticationManager(jwtService);

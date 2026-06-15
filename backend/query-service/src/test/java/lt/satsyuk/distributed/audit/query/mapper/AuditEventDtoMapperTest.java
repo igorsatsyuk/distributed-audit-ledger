@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -23,7 +24,7 @@ class AuditEventDtoMapperTest {
         eventRecord.setUserId("user-15");
         eventRecord.setPayload("{\"userId\":\"user-15\"}");
         eventRecord.setEventHash("abc123xyz");
-        eventRecord.setCreatedAt(LocalDateTime.of(2026, 5, 15, 10, 30, 0));
+        eventRecord.setCreatedAt(LocalDateTime.of(2026, Month.MAY, 15, 10, 30, 0));
 
         AuditEventDto dto = mapper.toDto(eventRecord);
 

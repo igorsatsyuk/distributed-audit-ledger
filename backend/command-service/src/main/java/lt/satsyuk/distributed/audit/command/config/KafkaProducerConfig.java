@@ -1,10 +1,10 @@
 package lt.satsyuk.distributed.audit.command.config;
 
 import lt.satsyuk.distributed.audit.event.AuditEvent;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.EnumerablePropertySource;
+import org.springframework.core.env.PropertySource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,7 +13,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -39,7 +39,7 @@ public class KafkaProducerConfig {
         mergeKafkaOverrides(props, environment);
         props.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        props.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
         props.putIfAbsent(JSON_ADD_TYPE_HEADERS_CONFIG, false);
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -54,19 +54,39 @@ public class KafkaProducerConfig {
 
     private static void mergeKafkaOverrides(Map<String, Object> props,
                                             ConfigurableEnvironment environment) {
-        Binder binder = Binder.get(environment);
+        for (PropertySource<?> propertySource : environment.getPropertySources()) {
+            if (propertySource instanceof EnumerablePropertySource<?> enumerablePropertySource) {
+                mergeKafkaOverridesFromPropertySource(props, enumerablePropertySource, environment);
+            }
+        }
+    }
 
-        binder.bind("spring.kafka.properties", Bindable.mapOf(String.class, String.class))
-                .ifBound(props::putAll);
+    private static void mergeKafkaOverridesFromPropertySource(Map<String, Object> props,
+                                                              EnumerablePropertySource<?> propertySource,
+                                                              ConfigurableEnvironment environment) {
+        for (String propertyName : propertySource.getPropertyNames()) {
+            if (propertyName.startsWith("spring.kafka.properties.")) {
+                String kafkaKey = propertyName.substring("spring.kafka.properties.".length());
+                putIfPresent(props, kafkaKey, environment.getProperty(propertyName));
+                continue;
+            }
 
-        binder.bind("spring.kafka.producer", Bindable.mapOf(String.class, String.class))
-                .ifBound(m -> m.forEach((key, value) -> {
-                    if (key.startsWith("properties.")) {
-                        props.put(key.substring("properties.".length()), value);
-                    } else {
-                        props.put(key.replace('-', '.'), value);
-                    }
-                }));
+            if (!propertyName.startsWith("spring.kafka.producer.")) {
+                continue;
+            }
+
+            String producerKey = propertyName.substring("spring.kafka.producer.".length());
+            String kafkaKey = producerKey.startsWith("properties.")
+                    ? producerKey.substring("properties.".length())
+                    : producerKey.replace('-', '.');
+            putIfPresent(props, kafkaKey, environment.getProperty(propertyName));
+        }
+    }
+
+    private static void putIfPresent(Map<String, Object> props, String key, String value) {
+        if (value != null) {
+            props.put(key, value);
+        }
     }
 }
 

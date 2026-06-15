@@ -45,6 +45,7 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 class BlockchainWriterServiceTest {
+    private static final Instant FIXED_NOW = Instant.parse("2026-05-15T10:15:30Z");
 
     @Mock private Web3j web3j;
     @Mock private Credentials credentials;
@@ -300,7 +301,7 @@ class BlockchainWriterServiceTest {
         // eventId is null; occurredAt and eventType are valid → should fail on eventId check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
         event.setEventType(EventType.USER_LOGGED_IN);
-        event.setOccurredAt(Instant.now());
+        event.setOccurredAt(FIXED_NOW);
 
         assertThatThrownBy(() -> service.anchorEvent(event))
                 .isInstanceOf(BlockchainWriterService.NonRecoverableEventException.class)
@@ -312,7 +313,7 @@ class BlockchainWriterServiceTest {
         // eventId and occurredAt are valid; eventType is null → should fail on eventType check
         UserLoggedInEvent event = UserLoggedInEvent.builder().build();
         event.setEventId("00000000-0000-0000-0000-000000000001");
-        event.setOccurredAt(Instant.now());
+        event.setOccurredAt(FIXED_NOW);
         // eventType intentionally left null
 
         assertThatThrownBy(() -> service.anchorEvent(event))
@@ -370,7 +371,7 @@ class BlockchainWriterServiceTest {
     void anchorEvent_allowsFutureTimestampBeyondDefaultToleranceToStayAlignedWithEventStore() {
         // Even when beyond tolerance, audit-writer should not DLT the record only due to clock skew.
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setOccurredAt(Instant.now().plusSeconds(360));
+        event.setOccurredAt(FIXED_NOW.plusSeconds(360));
 
         TransactionReceipt receipt = new TransactionReceipt();
         receipt.setStatus("0x1");
@@ -425,7 +426,7 @@ class BlockchainWriterServiceTest {
     void anchorEvent_acceptsFutureTimestampWithinDefaultTolerance() {
         // Default tolerance is 300 seconds; use 299 seconds in future
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setOccurredAt(Instant.now().plusSeconds(299));
+        event.setOccurredAt(FIXED_NOW.plusSeconds(299));
 
         TransactionReceipt receipt = new TransactionReceipt();
         receipt.setStatus("0x1");
@@ -448,7 +449,7 @@ class BlockchainWriterServiceTest {
     void anchorEvent_allowsFutureTimestampBeyondCustomToleranceToStayAlignedWithEventStore() {
         props.setFutureTimestampToleranceSeconds(60);
         UserLoggedInEvent event = UserLoggedInEvent.of("u1", null, null);
-        event.setOccurredAt(Instant.now().plusSeconds(120));
+        event.setOccurredAt(FIXED_NOW.plusSeconds(120));
 
         TransactionReceipt receipt = new TransactionReceipt();
         receipt.setStatus("0x1");

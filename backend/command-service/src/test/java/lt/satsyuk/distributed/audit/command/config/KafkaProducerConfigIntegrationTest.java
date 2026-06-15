@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class KafkaProducerConfigIntegrationTest {
 
     private static final String JSON_SERIALIZER_FQCN =
-            "org.springframework.kafka.support.serializer.JsonSerializer";
+            "org.springframework.kafka.support.serializer.JacksonJsonSerializer";
 
     private final KafkaTemplate<String, AuditEvent> auditEventKafkaTemplate;
     private final ProducerFactory<String, AuditEvent> auditEventProducerFactory;

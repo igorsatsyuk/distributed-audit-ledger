@@ -16,6 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -126,7 +127,7 @@ class AuditLogQueryServiceTest {
         eventRecord.setEventId("event-101");
         eventRecord.setEventType("USER_LOGGED_IN");
         eventRecord.setUserId("user-1");
-        eventRecord.setCreatedAt(LocalDateTime.of(2026, 5, 16, 10, 0));
+        eventRecord.setCreatedAt(LocalDateTime.of(2026, Month.MAY, 16, 10, 0));
         eventRecord.setPayload("{\"userId\":\"user-1\"}");
         return eventRecord;
     }

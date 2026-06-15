@@ -56,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Testcontainers(disabledWithoutDocker = true)
 class AuditLedgerContractGanacheTest {
+    private static final Instant FIXED_EVENT_TIME = Instant.parse("2026-05-15T10:15:30Z");
 
     /**
      * Deterministic account 0 private key for Ganache mnemonic
@@ -111,7 +112,7 @@ class AuditLedgerContractGanacheTest {
     @Test
     void appendAuditRecord_anchorsHashAndIsHashExistsConfirmsIt() {
         byte[] hash          = randomHash();
-        BigInteger timestamp = BigInteger.valueOf(Instant.now().getEpochSecond());
+        BigInteger timestamp = BigInteger.valueOf(FIXED_EVENT_TIME.getEpochSecond());
 
         assertThat(contract.isHashExists(hash))
                 .as("hash must not exist before anchoring")
