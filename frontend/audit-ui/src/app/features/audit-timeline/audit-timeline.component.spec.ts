@@ -65,8 +65,15 @@ describe('AuditTimelineComponent', () => {
     createComponent();
 
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('[data-testid^="timeline-day-"]').length).toBe(2);
-    expect(el.querySelectorAll('[data-testid^="timeline-hour-"]').length).toBe(2);
+    const dayIds = Array.from(el.querySelectorAll('[data-testid^="timeline-day-"]')).map(node =>
+      node.getAttribute('data-testid')
+    );
+    const hourIds = Array.from(el.querySelectorAll('[data-testid^="timeline-hour-"]')).map(node =>
+      node.getAttribute('data-testid')
+    );
+
+    expect(dayIds).toEqual(['timeline-day-2026-05-24', 'timeline-day-2026-05-23']);
+    expect(hourIds).toEqual(['timeline-hour-2026-05-24 10:00', 'timeline-hour-2026-05-23 08:00']);
     expect(el.querySelector('[data-testid="timeline-event-2"]')).toBeTruthy();
     expect(el.textContent).toContain('2026-05-24');
     expect(el.textContent).toContain('10:00');
