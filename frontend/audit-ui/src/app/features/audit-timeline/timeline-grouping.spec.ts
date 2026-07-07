@@ -24,10 +24,10 @@ describe('groupAuditLogsByTimeline', () => {
       buildLog({ id: 3, eventId: 'event-3', occurredAt: '2026-05-23T08:00:00Z' }),
     ]);
 
-    expect(groups.length).toBe(2);
+    expect(groups.map(group => group.key)).toEqual(['2026-05-24', '2026-05-23']);
     expect(groups[0].key).toBe('2026-05-24');
     expect(groups[0].total).toBe(2);
-    expect(groups[0].hours.length).toBe(1);
+    expect(groups[0].hours.map(hour => hour.key)).toEqual(['2026-05-24 10:00']);
     expect(groups[0].hours[0].key).toBe('2026-05-24 10:00');
     expect(groups[0].hours[0].total).toBe(2);
     expect(groups[0].hours[0].events.map(event => event.id)).toEqual([2, 1]);
@@ -41,7 +41,7 @@ describe('groupAuditLogsByTimeline', () => {
       buildLog({ id: 2, eventId: 'event-2', occurredAt: '2026-05-24T10:15:00Z' }),
     ]);
 
-    expect(groups.length).toBe(1);
+    expect(groups.map(group => group.key)).toEqual(['2026-05-24']);
     expect(groups[0].total).toBe(1);
     expect(groups[0].hours[0].events[0].id).toBe(2);
   });

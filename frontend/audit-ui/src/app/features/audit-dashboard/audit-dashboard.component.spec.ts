@@ -422,7 +422,7 @@ describe('AuditDashboardComponent', () => {
     await init(fullSpy);
     expect(component.estimatedTotal()).toBe(21);
     const displayed = component.logs$.value;
-    expect(displayed.length).toBe(20);
+    expect(displayed.map(log => log.id)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
   });
 
   it('effectiveIntegrityStatus keeps list status until the drawer updates the row', async () => {
