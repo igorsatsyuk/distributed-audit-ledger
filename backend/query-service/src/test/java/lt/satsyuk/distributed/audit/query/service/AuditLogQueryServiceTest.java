@@ -5,10 +5,10 @@ import lt.satsyuk.distributed.audit.event.EventType;
 import lt.satsyuk.distributed.audit.query.mapper.AuditEventDtoMapper;
 import lt.satsyuk.distributed.audit.query.model.AuditEventRecord;
 import lt.satsyuk.distributed.audit.query.repository.AuditLogQueryRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
@@ -36,12 +36,8 @@ class AuditLogQueryServiceTest {
     @Mock
     private AuditEventDtoMapper mapper;
 
+    @InjectMocks
     private AuditLogQueryService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new AuditLogQueryService(auditLogQueryRepository, mapper);
-    }
 
     @Test
     void findAuditLogsAppliesFilterAndMapsRecords() {
