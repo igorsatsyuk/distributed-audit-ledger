@@ -4,9 +4,9 @@ import lt.satsyuk.distributed.audit.query.api.AuditIntegrityCheckResponse;
 import lt.satsyuk.distributed.audit.query.blockchain.AuditLedgerBlockchainClient;
 import lt.satsyuk.distributed.audit.query.model.AuditEventRecord;
 import lt.satsyuk.distributed.audit.query.repository.AuditLogQueryRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
@@ -30,12 +30,8 @@ class AuditIntegrityCheckServiceTest {
     @Mock
     private AuditLedgerBlockchainClient blockchainClient;
 
+    @InjectMocks
     private AuditIntegrityCheckService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new AuditIntegrityCheckService(auditLogQueryRepository, blockchainClient);
-    }
 
     @Test
     void checkIntegrityReturnsOnChainWhenHashIsAnchored() {

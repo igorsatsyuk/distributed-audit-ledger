@@ -1,9 +1,9 @@
 package lt.satsyuk.distributed.audit.query.repository;
 
 import lt.satsyuk.distributed.audit.query.service.AuditLogFilter;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -27,12 +27,8 @@ class AuditLogQueryRepositoryImplTest {
     @Mock
     private DatabaseClient databaseClient;
 
+    @InjectMocks
     private AuditLogQueryRepositoryImpl repository;
-
-    @BeforeEach
-    void setUp() {
-        repository = new AuditLogQueryRepositoryImpl(databaseClient);
-    }
 
     // ---- escapeLikePattern ------------------------------------------------
 

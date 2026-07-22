@@ -1,12 +1,12 @@
 package lt.satsyuk.distributed.audit.eventstore.service;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-@Component
+@Service
 public class EventHashService {
 
     private static final String SHA_256 = "SHA-256";
