@@ -341,12 +341,7 @@ class AuditLedgerBlockchainClientTest {
         Request<?, EthLog> logsRequest = mockRequest();
         doReturn(logsRequest).when(web3j).ethGetLogs(any());
 
-        EthLog.LogResult<Object> nonLogResult = new EthLog.LogResult<>() {
-            @Override
-            public Object get() {
-                return "unexpected";
-            }
-        };
+        EthLog.LogResult<Object> nonLogResult = () -> "unexpected";
 
         EthLog ethLog = new EthLog();
         ethLog.setResult(Collections.singletonList(nonLogResult));
